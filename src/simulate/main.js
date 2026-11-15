@@ -10,6 +10,7 @@ import {
   FLIGHT,
   LANDED,
 } from "./camera-director";
+import { createGolfer, CONTACT_TIME, SWING_DURATION } from "./golfer";
 import { Shot } from "./shot";
 import { analyzeShot } from "./shot-analysis";
 import { toYards } from "./conversions-lib";
@@ -138,6 +139,10 @@ export function createSimulator(container, callbacks = {}) {
 
   // --- shot state ---
   let side = callbacks.side || "Right";
+  const golfer = createGolfer();
+  golfer.setSide(side);
+  scene.add(golfer.group);
+  let swingSeconds = 0;
   let state = ADDRESS;
   let shot = null;
   let analysis = null;
@@ -162,6 +167,8 @@ export function createSimulator(container, callbacks = {}) {
 
   function toAddress() {
     ballToRest();
+    swingSeconds = 0;
+    golfer.setTime(0);
     setState(ADDRESS);
   }
 
@@ -169,6 +176,8 @@ export function createSimulator(container, callbacks = {}) {
     side = hitSide;
     // A new shot always starts from the address view, even mid-flight.
     director.reset(side);
+    golfer.setSide(side);
+    swingSeconds = 0;
     ballToRest();
     landingMarker.visible = false;
 
@@ -203,7 +212,10 @@ export function createSimulator(container, callbacks = {}) {
 
   function setSide(nextSide) {
     side = nextSide;
-    if (state === ADDRESS) director.reset(side);
+    if (state === ADDRESS) {
+      director.reset(side);
+      golfer.setSide(side);
+    }
   }
 
   function updateFlight(dt) {
@@ -248,9 +260,18 @@ export function createSimulator(container, callbacks = {}) {
   }
 
   function update(dt) {
+    if (state !== ADDRESS) {
+      // The swing keeps running into its follow-through after the ball has gone.
+      swingSeconds = Math.min(swingSeconds + dt, SWING_DURATION);
+      golfer.setTime(swingSeconds);
+    }
+
     if (state === SWING) {
-      // Phase 2 puts the golfer's swing here; until then the ball leaves at once.
-      setState(FLIGHT);
+      // The ball leaves the moment the clubhead gets back to it.
+      if (swingSeconds >= CONTACT_TIME) {
+        setState(FLIGHT);
+        updateFlight(swingSeconds - CONTACT_TIME);
+      }
     } else if (state === FLIGHT) {
       updateFlight(dt);
     } else if (state === LANDED) {
@@ -344,6 +365,11 @@ export function createSimulator(container, callbacks = {}) {
         camera: camera.position.toArray(),
         cameraTarget: director.target.toArray(),
         flightSeconds,
+        swingSeconds,
+        clubhead: golfer.group
+          .getObjectByName("clubhead")
+          .getWorldPosition(new THREE.Vector3())
+          .toArray(),
         analysis,
       };
     },
