@@ -1,19 +1,20 @@
 # Roadmap
 
-No groomed backlog yet — this project was dormant since 2024-04 before being
-migrated onto the standard repo scaffold. Items below are gaps noticed during
-migration, not a prioritized product plan; revisit with Sachal.
-
 ## Must Have
 
-(none yet)
+- **Driving range simulator redesign** (2026-11-15) — drastic redesign of the
+  shot-shape visualizer into a 3D driving range experience: third-person golfer,
+  dynamic ball-follow camera, PGA Tour PS5-level visual bar, built in phases
+  starting with a migration off the vendored-global Three.js setup. See
+  [product-specs/driving-range-game.md](product-specs/driving-range-game.md) and
+  [eng-plans/driving-range-game.md](eng-plans/driving-range-game.md).
 
 ## Should Have
 
 - Regression tests for `src/simulate/shot.js` (the actual physics/trajectory
-  derivation — currently untested). Blocked on getting a `THREE.Vector3`-compatible
-  object into Jest/jsdom, since Three.js is a vendored global script here, not an
-  npm import — see README's Architecture section.
+  derivation — currently untested). Resolved as part of Phase 0 of the driving
+  range redesign above (migrating to npm `three` makes `THREE.Vector3` importable
+  in Jest).
 
 ## Nice to Have
 

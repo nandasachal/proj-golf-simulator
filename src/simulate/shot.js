@@ -1,10 +1,11 @@
+import { Vector3 } from "three";
 import { toMPS } from "./conversions-lib";
 
-export const Shot = function (options, THREE) {
+export const Shot = function (options) {
   this.points = [];
-  var initPoint = new ShotPoint(THREE);
+  var initPoint = new ShotPoint();
 
-  initPoint.position = new THREE.Vector3(0, 0, 0);
+  initPoint.position = new Vector3(0, 0, 0);
 
   options = options || {};
 
@@ -39,22 +40,18 @@ export const Shot = function (options, THREE) {
     this.initSpeedMPH,
     this.smashFactor,
     this.initVerticalAngleDegrees,
-    this.initHorizontalAngleDegrees,
-    THREE
-  );
+    this.initHorizontalAngleDegrees);
 
   // initial angular velocity (spin rate)
   initPoint.angularVelocity = this.getInitialSpin(
     this.initBackspinRPM,
-    this.initSpinAngle,
-    THREE
-  );
+    this.initSpinAngle);
 
-  this.projectShot(initPoint, THREE);
+  this.projectShot(initPoint);
 };
 
-Shot.prototype.getInitialSpin = function (spinRPM, spinAngle, THREE) {
-  var spin = new THREE.Vector3(0, 0, 0);
+Shot.prototype.getInitialSpin = function (spinRPM, spinAngle) {
+  var spin = new Vector3(0, 0, 0);
   spin.x = -1; // full backspin
   spin.y = Math.sin((spinAngle * Math.PI) / 180);
 
@@ -67,10 +64,8 @@ Shot.prototype.getInitialVelocity = function (
   speedMPH,
   smashFactor,
   verticalDegrees,
-  horizontalDegrees,
-  THREE
-) {
-  var velocity = new THREE.Vector3(0, 0, 0);
+  horizontalDegrees) {
+  var velocity = new Vector3(0, 0, 0);
   velocity.x = Math.sin((-1 * horizontalDegrees * Math.PI) / 180);
   velocity.y = Math.sin((verticalDegrees * Math.PI) / 180);
   velocity.z = Math.cos((verticalDegrees * Math.PI) / 180);
@@ -80,16 +75,16 @@ Shot.prototype.getInitialVelocity = function (
   return velocity.normalize().multiplyScalar(ballSpeed);
 };
 
-Shot.prototype.projectShot = function (initPoint, THREE) {
+Shot.prototype.projectShot = function (initPoint) {
   // initial point
-  var lastPoint = initPoint.clone(THREE);
+  var lastPoint = initPoint.clone();
   this.points.push(lastPoint);
 
   while (true) {
-    var newPoint = lastPoint.clone(THREE);
+    var newPoint = lastPoint.clone();
 
     // calculate velcoity change
-    var accel = this.getAcceleration(lastPoint, THREE);
+    var accel = this.getAcceleration(lastPoint);
     newPoint.velocity.add(accel.clone().multiplyScalar(this.dt));
     newPoint.position.add(newPoint.velocity.clone().multiplyScalar(this.dt));
 
@@ -107,9 +102,9 @@ Shot.prototype.projectShot = function (initPoint, THREE) {
   }
 };
 
-Shot.prototype.getAcceleration = function (currentPoint, THREE) {
+Shot.prototype.getAcceleration = function (currentPoint) {
   // gravity: -9.8 m/s^2
-  var gravityAcceleration = new THREE.Vector3(0, this.gravityMagnitude, 0);
+  var gravityAcceleration = new Vector3(0, this.gravityMagnitude, 0);
 
   // drag acceleration = drag force / mass
   var adjustedDragCoefficient =
@@ -131,7 +126,7 @@ Shot.prototype.getAcceleration = function (currentPoint, THREE) {
     .multiplyScalar(this.liftCoefficient / this.mass);
 
   // combined acceleration = gravity + drag + magnus
-  var totalAccel = new THREE.Vector3(0, 0, 0)
+  var totalAccel = new Vector3(0, 0, 0)
     .add(gravityAcceleration)
     .add(dragForceAcceleration)
     .add(magnusForceAcceleration);
@@ -148,15 +143,15 @@ Shot.prototype.angularDecayVector = function (currentPoint) {
   return decay;
 };
 
-export const ShotPoint = function (THREE) {
-  this.position = new THREE.Vector3(0, 0, 0);
-  this.velocity = new THREE.Vector3(0, 0, 0);
-  this.angularVelocity = new THREE.Vector3(0, 0, 0);
-  this.acceleration = new THREE.Vector3(0, 0, 0);
+export const ShotPoint = function () {
+  this.position = new Vector3(0, 0, 0);
+  this.velocity = new Vector3(0, 0, 0);
+  this.angularVelocity = new Vector3(0, 0, 0);
+  this.acceleration = new Vector3(0, 0, 0);
 };
 
-ShotPoint.prototype.clone = function (THREE) {
-  var point = new ShotPoint(THREE);
+ShotPoint.prototype.clone = function () {
+  var point = new ShotPoint();
   point.position = this.position.clone();
   point.velocity = this.velocity.clone();
   point.acceleration = this.acceleration.clone();

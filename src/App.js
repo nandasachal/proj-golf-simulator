@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import "./App.scss";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -17,8 +17,8 @@ import {
   SWING_SPEED_VALUES,
 } from "./utils/constant";
 
-let shot = null;
 function App() {
+  const shotRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -66,37 +66,27 @@ function App() {
     navigate(`${location.pathname?.split("?")[0]}`);
   };
 
+  const sign = side === "Left" ? -1 : 1;
+
   useEffect(() => {
-    if (window.THREE) {
-      shot = StartBall(window.THREE, {
-        initSpeedMPH: swingSpeedSliderValue,
-        initSpinAngle: clubFaceAngleSliderValue * (side === "Left" ? -1 : 1),
-        initHorizontalAngleDegrees:
-          clubPathAngleSliderValue * (side === "Left" ? -1 : 1),
-      });
-    }
-    toggleZoom();
-    window.addEventListener("resize", toggleZoom);
+    const sim = StartBall({
+      initSpeedMPH: swingSpeedSliderValue,
+      initSpinAngle: clubFaceAngleSliderValue * sign,
+      initHorizontalAngleDegrees: clubPathAngleSliderValue * sign,
+    });
+    shotRef.current = sim;
+    return () => sim.dispose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleClick = () => {
-    if (shot) {
-      shot.shotControl.initSpeedMPH = swingSpeedSliderValue;
-      shot.shotControl.initSpinAngle =
-        clubFaceAngleSliderValue * (side === "Left" ? -1 : 1);
-      shot.shotControl.initHorizontalAngleDegrees =
-        clubPathAngleSliderValue * (side === "Left" ? -1 : 1);
-      shot.beginShot();
-    }
-  };
-
-  const toggleZoom = () => {
-    if (window.THREE && window.THREE.OrbitControls) {
-      if (window.innerWidth <= 768) {
-        window.gsZoomFeature = false;
-      } else {
-        window.gsZoomFeature = true;
-      }
+    const sim = shotRef.current;
+    if (sim) {
+      sim.shotControl.initSpeedMPH = swingSpeedSliderValue;
+      sim.shotControl.initSpinAngle = clubFaceAngleSliderValue * sign;
+      sim.shotControl.initHorizontalAngleDegrees =
+        clubPathAngleSliderValue * sign;
+      sim.beginShot();
     }
   };
 
@@ -157,19 +147,6 @@ function App() {
                   <p className="text-sm font-normal">Yards</p>
                 </div>
 
-                <div id="status-display">
-                  <canvas
-                    id="golf-course"
-                    className=" bg-white shadow-lg rounded-lg min-h-[300px]"
-                  ></canvas>
-                  <ul className="hidden">
-                    <li id="status-time"></li>
-                    <li id="status-distance"></li>
-                    <li id="status-speed"></li>
-                    <li id="status-height"></li>
-                    <li id="status-spin"></li>
-                  </ul>
-                </div>
               </div>
             </div>
           </div>

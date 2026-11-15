@@ -1,9 +1,13 @@
-import * as dat from "dat.gui";
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
+import { FontLoader } from "three/addons/loaders/FontLoader.js";
+import helvetiker from "three/examples/fonts/helvetiker_regular.typeface.json";
 import DrawLib from "./draw-lib";
 import { Shot } from "./shot";
-import { toMPH, toRPM, toYards } from "./conversions-lib";
+import { toYards } from "./conversions-lib";
 
-export const StartBall = (THREE, options) => {
+export const StartBall = (options) => {
   // Note: coordinate unit of 1 = 1 meter
 
   // three framework components
@@ -11,8 +15,6 @@ export const StartBall = (THREE, options) => {
   var scene;
   var camera;
   var controls;
-  var stats;
-  var gui;
   var container;
   var containerWidth;
   var containerHeight;
@@ -21,7 +23,6 @@ export const StartBall = (THREE, options) => {
   var points;
   var shot;
   var line;
-  var particles;
   var shotControl = {
     dt: 0.001, //seconds
     displaySpeed: 2.0, // display time multiplier
@@ -77,7 +78,7 @@ export const StartBall = (THREE, options) => {
     camera.lookAt(scene.position);
 
     // Add OrbitControls so that we can pan around with the mouse.
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls = new OrbitControls(camera, renderer.domElement);
 
     // add dat.gui
     // gui = new dat.GUI({ autoPlace: false });
@@ -99,8 +100,9 @@ export const StartBall = (THREE, options) => {
     beginShot();
   }
 
+  var frameId;
   function animate() {
-    requestAnimationFrame(animate);
+    frameId = requestAnimationFrame(animate);
 
     controls.update();
     // stats.update();
@@ -131,13 +133,12 @@ export const StartBall = (THREE, options) => {
     sceneZOffset = -gridHeight / 2.0;
 
     // adjust camera position
-    camera.position.x = 0;
-    camera.position.y = 70;
-    camera.position.z = (-gridHeight / 2.0) * 1.6;
+    camera.position.set(0, 24.4, -254.3);
+    controls.update();
 
     // add ground grid
     var gridColor = new THREE.Color(0x00bbbb);
-    var grid = DrawLib.getGrid(THREE, gridWidth, gridHeight, 10, gridColor);
+    var grid = DrawLib.getGrid(gridWidth, gridHeight, 10, gridColor);
     grid.position.z = sceneZOffset + gridHeight / 2.0;
 
     var gridGeometry = new THREE.PlaneGeometry(
@@ -159,16 +160,17 @@ export const StartBall = (THREE, options) => {
 
     // add marker indicators
     var markerColor = 0x00ffff;
-    var textMesh = new THREE.MeshNormalMaterial({ color: markerColor });
+    var textMesh = new THREE.MeshNormalMaterial();
+    var font = new FontLoader().parse(helvetiker);
     var markerYardage = 0;
     while (markerYardage < gridHeight) {
       // text
       markerYardage += 50;
-      var textGeometry = new THREE.TextGeometry(markerYardage + "yd", {
+      var textGeometry = new TextGeometry(markerYardage + "yd", {
         size: 4,
-        height: 0.1,
+        depth: 0.1,
         curveSegments: 1,
-        font: "helvetiker",
+        font: font,
       });
       textGeometry.computeBoundingBox();
       textGeometry.computeVertexNormals();
@@ -192,8 +194,10 @@ export const StartBall = (THREE, options) => {
         0,
         markerYardage + sceneZOffset
       );
-      var lineGeometry = new THREE.Geometry();
-      lineGeometry.vertices = [pointA, pointB];
+      var lineGeometry = new THREE.BufferGeometry().setFromPoints([
+        pointA,
+        pointB,
+      ]);
       var lineMaterial = new THREE.LineBasicMaterial({
         color: markerColor,
         linewidth: 2,
@@ -205,13 +209,12 @@ export const StartBall = (THREE, options) => {
 
   function beginShot() {
     points = [];
-    shot = new Shot(shotControl, THREE);
-    points.push(shot.points[0]);
+    shot = new Shot(shotControl);
+    points.push(shot.points[0].position.clone());
     displaySpeed = shotControl.displaySpeed;
     displayStartTime = Date.now();
   }
 
-  var particlePoints = [];
 
   function updateShot() {
     var now = Date.now();
@@ -230,15 +233,18 @@ export const StartBall = (THREE, options) => {
       points.push(convertedPosition);
 
       // draw interpolated line
+      if (points.length < 2) return;
       var newline = DrawLib.getSplinedLine(
-        THREE,
         points,
         splineInterpolationNum,
         lineColor
       );
-      scene.remove(line);
+      if (line) {
+        scene.remove(line);
+        line.geometry.dispose();
+      }
       line = newline;
-      line.position = initPoint;
+      line.position.copy(initPoint);
       scene.add(line);
 
       // statusElementTime.innerHTML =
@@ -268,8 +274,17 @@ export const StartBall = (THREE, options) => {
   init();
   animate();
 
+  function dispose() {
+    cancelAnimationFrame(frameId);
+    window.removeEventListener("resize", onWindowResize, false);
+    controls.dispose();
+    renderer.dispose();
+    container.removeChild(renderer.domElement);
+  }
+
   return {
     beginShot,
     shotControl,
+    dispose,
   };
 };
