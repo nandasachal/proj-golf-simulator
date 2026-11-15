@@ -90,3 +90,11 @@ the default (`?mode=practice` opts out). check: green (158 tests + strict build)
 decisions: strike rates are estimates chosen for the known pattern, flagged in
 README · next: high/low strike or wind per roadmap; the left column is ~795 px
 tall now and scrolls on shorter windows.
+
+2026-11-15 — strike location + game default — done: heel/toe strike control (±1 in,
+B/N keys, URL `strike`): a toe strike starts the ball on the open side and gear
+effect draws it back, a heel strike is the mirror, and off-centre contact costs
+ball speed. Game mode is now the default; `mode=practice` in the URL selects
+practice. check: green (158 tests + strict build) · next: realistic 3D club view
+replacing the three flat diagrams (one large view, angle buttons, ground ribbons,
+driver sculpted in code — options confirmed by Sachal).
