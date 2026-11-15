@@ -67,9 +67,9 @@ React UI (App.js, components/)          src/simulate/ (no React)
 
 ### Hosting
 
-Static React app (Create React App) on Render: static site `RENDER_SERVICE`,
+Static React app (Create React App) on Render: static site `golf-swing-simulator`,
 auto-deploying from `main`, build `npm ci && npm run build`, publish `build/`.
-Live at RENDER_URL.
+Live at https://golf-swing-simulator.onrender.com (`NODE_VERSION` is pinned to 20.9.0 there).
 
 `scripts/check.sh` (tests + a `CI=true` build) is the local gate and uses the same
 strict build Render does, so a lint warning fails locally before it fails a deploy.
