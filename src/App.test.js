@@ -82,6 +82,20 @@ test("shot setup is read from the URL", () => {
   );
 });
 
+test("out-of-range or junk URL values fall back onto the sliders", () => {
+  renderApp("/?face=abc&path=40&speed=500&side=Banana");
+  expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
+  expect(screen.getByLabelText(/club path/i)).toHaveValue("6");
+  expect(screen.getByLabelText(/swing speed/i)).toHaveValue("140");
+  expect(screen.getByRole("button", { name: /right-handed/i })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: /hit/i }));
+  expect(lastLaunch().initSpeedMPH).toBe(140);
+});
+
 test("switching dominant side tells the scene and mirrors the next launch", () => {
   renderApp("/?face=4");
   fireEvent.click(screen.getByRole("button", { name: /left-handed/i }));

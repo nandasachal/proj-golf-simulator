@@ -1,65 +1,85 @@
 # Golf Swing Simulator
 
-A browser-based 3D golf ball flight visualizer. You set club face angle, club path
-angle, and swing speed; it simulates the resulting ball flight (draw/fade/hook/slice,
-carry distance, apex) and renders the trajectory in 3D. Built to make the
-face-angle/path-angle relationship that produces shot shape intuitive, rather than
-abstract.
+A browser-based 3D driving range. You set club face angle, club path angle, and
+swing speed; a golfer hits the shot, the camera follows the ball down the range,
+and a readout tells you the shape (draw, fade, hook, slice, push, pull), carry,
+how far offline it finished, apex, and hang time. Built to make the
+face-angle/path-angle relationship that produces shot shape intuitive, rather
+than abstract.
 
 ### Domain context
 
 - **Club face angle** — direction the clubface points at impact relative to the
-  target line. Sets the initial launch direction.
+  target line. The ball starts mostly where the face points (about 85% face, 15%
+  path).
 - **Club path angle** — direction the clubhead is moving at impact relative to the
-  target line. Combined with face angle, the difference between the two determines
-  curve: face-to-path produces draw/fade (hook/slice at the extremes).
-- **Backspin** — modeled as a fixed initial rate; lift (Magnus force) from backspin is
-  what keeps the ball in the air longer than pure projectile motion would.
-- Units: internal physics runs in meters/seconds (`src/simulate/conversions-lib.js`
-  converts to/from the MPH/yards/RPM shown in the UI).
+  target line. The ball curves away from the path toward the face: the
+  face-to-path difference tilts the spin axis, which is what produces draw/fade
+  (hook/slice at the extremes). Face and path equal means a straight push or pull.
+- **Sign convention** — for a right-hander, positive is right of target (open face,
+  in-to-out path). A left-hander is the mirror image, so "open" and "in-to-out"
+  mean the same thing to both. `src/simulate/launch-conditions.js` owns this.
+- **Club** — every shot is a driver: 1.48 smash factor, 12° launch, 2700 rpm
+  backspin. Only swing speed, face, and path vary.
+- **Aerodynamics** — quadratic drag plus Magnus lift, with both coefficients a
+  function of spin ratio. The constants in `src/simulate/shot.js` are fitted to
+  published TrackMan tour averages (driver, 7 iron, wedge), which are regression
+  tests in `shot.test.js`. Distance is carry only; there is no bounce or roll.
+- Units: physics runs in meters/seconds (`src/simulate/conversions-lib.js` converts
+  to/from the MPH/yards/RPM shown in the UI). The 3D scene is in yards, tee at the
+  origin, target down +z, and -x is the right-hand side looking downrange.
 
 ### Architecture
 
-- **UI** (`src/App.js`, `src/components/`) — React shell: parameter sliders
-  (`components/simulator/`), navbar, and query-string state sync (`hooks/use-query.js`)
-  so a shot setup is shareable via URL.
-- **Physics** (`src/simulate/`) — pure, framework-agnostic ball-flight simulation.
-  `shot.js` steps the trajectory via Euler integration (gravity + drag + Magnus lift);
-  `conversions-lib.js` handles unit conversion; `draw-lib.js` and `main.js` wire the
-  computed trajectory into a Three.js scene.
-- **Three.js** is vendored as a global script (`public/lib/three.js`, old version) and
-  attached to `window.THREE`, not an npm package — see `src/App.js`'s `window.THREE`
-  check. This is why `src/simulate/shot.js` can't easily be unit-tested yet (no
-  importable `THREE.Vector3` in a Jest/jsdom environment); see `planning/roadmap.md`.
-- **Hosting** — static React app (Create React App), deployed to GitHub Pages from
-  the `gh-pages` branch root, served at the custom domain in `CNAME`
-  (golfswingsimulator.com). See the deploy steps below. `scripts/check.sh` is the
-  local test+build gate for `main`.
-
-### Deployment
-
-After you have all the changes done and pushed to main branch, you can deploy the app to github pages by running the following commands:
-
 ```
-  git checkout -b gh-pages
-  git pull origin main
-  yarn build
-  cp -r build/* .
-
-  git add .
-  git commit -m "deploy"
-  git push origin gh-pages
+React UI (App.js, components/)          src/simulate/ (no React)
+  sliders + side toggle  ──────────►  launch-conditions.js   face/path/speed → launch
+  Hit button                          shot.js                launch → trajectory points
+  shot readout  ◄── callbacks ──────  shot-analysis.js       trajectory → carry, shape…
+  URL query state (hooks/use-query)   main.js                scene, render loop, shot states
+                                        ├─ range.js          turf, markers, trees, sky, lights
+                                        ├─ golfer.js         procedural figure + swing keyframes
+                                        └─ camera-director.js address → swing → flight → landed
 ```
 
-PS. The `cp -r build/* .` is extremely important for the changes to appear in the build, since the deployed github page considers the entire project to be the source directory.
+- **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
+  viewport and the controls float over it as a HUD panel (stacked under the scene
+  on phones). Shot setup lives in the query string (`hooks/use-query.js`), so a
+  setup is shareable via URL. The UI talks to the scene only through
+  `createSimulator(container, callbacks)` in `main.js`.
+- **Simulation** (`src/simulate/`) — framework-agnostic. `launch-conditions.js`,
+  `shot.js`, `shot-analysis.js`, `camera-director.js`, and the pose math in
+  `golfer.js` are pure and unit-tested; `main.js` and `range.js` need WebGL and are
+  verified in the browser.
+- **A shot** moves through four states owned by `main.js`: `address` → `swing`
+  (the golfer's swing plays; the ball launches on the frame the clubhead returns
+  to it, 1.15 s in) → `flight` (ball follows the precomputed trajectory in real
+  time, tracer draws behind it) → `landed` (camera settles on the ball for 4.5 s)
+  → back to `address`.
+- **Golfer** is built from primitives and animated by hand-written keyframes
+  rather than an imported rigged model: nothing to license or download, and the
+  contact frame is exact by construction.
+- **Three.js** is the npm `three` package, imported as ES modules.
+- **Verifying the scene** — in development `main.js` exposes `window.__golfSim`
+  with `advance(seconds)` (step the simulation without waiting on real time) and
+  `inspect()` (current state, ball, camera, clubhead). Use it when a background
+  tab is throttling animation frames.
 
-### Notes:
+### Hosting
 
-#### 1. To chage the range values:
+Static React app (Create React App) on Render: static site `RENDER_SERVICE`,
+auto-deploying from `main`, build `npm ci && npm run build`, publish `build/`.
+Live at RENDER_URL.
 
-Check the file `src/utils/constant.js` file and edit the values from there for min, max, default and step for the slider
+`scripts/check.sh` (tests + a `CI=true` build) is the local gate and uses the same
+strict build Render does, so a lint warning fails locally before it fails a deploy.
 
-#### 2. To change the camera settings:
+The custom domain in `CNAME` (golfswingsimulator.com) still points at the old
+GitHub Pages deploy on the `gh-pages` branch, which serves the pre-redesign
+build. Moving the domain to Render is a DNS change that has not been made.
 
-You will need to go the file `public/lib/OrbitControls.js` and edit the values `phiDelta`, `thetaDelta`, `scale` to change the orientation of the camera.
-While following the build steps, this file will be copied/compiled for the final build to reflect the changes.
+### Notes
+
+To change slider ranges, edit min, max, default and step in
+`src/utils/constant.js`. Camera framing for each shot state is in
+`src/simulate/camera-director.js`.

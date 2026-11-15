@@ -169,6 +169,8 @@ export function createSimulator(container, callbacks = {}) {
     ballToRest();
     swingSeconds = 0;
     golfer.setTime(0);
+    // Picks up a handedness change made while the last shot was in the air.
+    golfer.setSide(side);
     setState(ADDRESS);
   }
 

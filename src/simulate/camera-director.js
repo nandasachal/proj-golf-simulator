@@ -10,6 +10,8 @@ export const FLIGHT = "flight";
 export const LANDED = "landed";
 
 const MIN_HEIGHT = 1.2;
+// The treeline starts just outside this; keep the camera on the range side of it.
+export const MAX_OFFLINE = 84;
 const DOWNRANGE = new Vector3(0, 0, 1);
 
 // How quickly the camera closes on its desired spot, per second.
@@ -120,6 +122,10 @@ export class CameraDirector {
     this.position.lerp(view.position, damp(ease.position * ramp, dt));
     this.target.lerp(view.target, damp(ease.target, dt));
     this.position.y = Math.max(MIN_HEIGHT, this.position.y);
+    this.position.x = Math.min(
+      MAX_OFFLINE,
+      Math.max(-MAX_OFFLINE, this.position.x),
+    );
     return this;
   }
 }

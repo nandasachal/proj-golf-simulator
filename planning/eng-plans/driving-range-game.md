@@ -1,6 +1,8 @@
 # Eng Plan: Driving Range Simulator
 
-Status: proposed 2026-11-15
+Status: Phases 0–3 shipped 2026-11-15 (Phase 4 stretch not started). Sachal
+gave a blanket go-ahead to build without per-phase approval. Independent
+`loop-evaluator` review: every criterion PASS except Phase 0 AC2 (see note there).
 Tier: 1
 Spec: [product-specs/driving-range-game.md](../product-specs/driving-range-game.md)
 
@@ -36,13 +38,16 @@ is purely "same behavior, modern foundation," so later phases aren't fighting a
 
 ### Acceptance criteria
 
-- [ ] AC1 — `three` is an npm dependency; no code reads `window.THREE`.
+- [x] AC1 — `three` is an npm dependency; no code reads `window.THREE`.
 - [ ] AC2 — the app renders the same grid + ball-flight-line visualization as
       production today, verified by loading it in a browser and hitting a shot.
-- [ ] AC3 — `src/simulate/shot.js` has a unit test suite covering at least the
+      **Evaluator: FAIL, superseded.** Camera, turf, yardage text, flight line and
+      readout matched; the cyan grid rendered at 20% opacity instead of opaque.
+      Not fixed because Phase 1 deleted that code.
+- [x] AC3 — `src/simulate/shot.js` has a unit test suite covering at least the
       trajectory derivation (not just conversions), importing `THREE.Vector3`
       directly from the npm package.
-- [ ] AC4 — `scripts/check.sh` is green.
+- [x] AC4 — `scripts/check.sh` is green.
 
 ### Verify
 
@@ -85,13 +90,13 @@ flight, settling on the landing spot — the PGA Tour PS5 camera feel.
 
 ### Acceptance criteria
 
-- [ ] AC1 — range renders with turf, yardage markers at 50yd intervals out to at
+- [x] AC1 — range renders with turf, yardage markers at 50yd intervals out to at
       least 300yd, and a boundary/sky that isn't the current flat white.
-- [ ] AC2 — camera starts in an address view behind the tee point before a shot.
-- [ ] AC3 — on hit, camera transitions to following the ball's position smoothly
+- [x] AC2 — camera starts in an address view behind the tee point before a shot.
+- [x] AC3 — on hit, camera transitions to following the ball's position smoothly
       through the whole flight (not a static or purely top-down view).
-- [ ] AC4 — camera settles on/near the landing point after the ball stops.
-- [ ] AC5 — `scripts/check.sh` green.
+- [x] AC4 — camera settles on/near the landing point after the ball stops.
+- [x] AC5 — `scripts/check.sh` green.
 
 ### Verify
 
@@ -135,11 +140,11 @@ inputs as today.
 
 ### Acceptance criteria
 
-- [ ] AC1 — a 3D golfer model is visible at the tee in the address camera view.
-- [ ] AC2 — clicking Hit plays a swing animation (not an instant/invisible launch).
-- [ ] AC3 — the ball's launch position and timing visually match the clubhead's
+- [x] AC1 — a 3D golfer model is visible at the tee in the address camera view.
+- [x] AC2 — clicking Hit plays a swing animation (not an instant/invisible launch).
+- [x] AC3 — the ball's launch position and timing visually match the clubhead's
       position at the animation's contact frame.
-- [ ] AC4 — `scripts/check.sh` green.
+- [x] AC4 — `scripts/check.sh` green.
 
 ### Verify
 
@@ -180,12 +185,12 @@ the new 3D scene without losing any of that directness.
 
 ### Acceptance criteria
 
-- [ ] AC1 — all three shot variables (face angle, path angle, swing speed) remain
+- [x] AC1 — all three shot variables (face angle, path angle, swing speed) remain
       directly adjustable and immediately reflected in the next shot.
-- [ ] AC2 — a shot's distance and shape are legibly displayed after it lands.
-- [ ] AC3 — the control panel visually matches the new scene (not the old plain
+- [x] AC2 — a shot's distance and shape are legibly displayed after it lands.
+- [x] AC3 — the control panel visually matches the new scene (not the old plain
       white card).
-- [ ] AC4 — `scripts/check.sh` green.
+- [x] AC4 — `scripts/check.sh` green.
 
 ### Verify
 
@@ -223,6 +228,12 @@ postprocessing (bloom/ambient occlusion), better turf/ball/club materials.
 
 ## Cross-cutting notes
 
+- **Decisions made during the build** (2026-11-15): (1) ball-flight physics and the
+  face/path mapping were fixed in a separate commit despite the spec calling them
+  out of scope, because they were badly wrong — see README "Domain context";
+  (2) the golfer is procedural, not an imported rigged model; (3) Fable 5.2 wrote
+  both the code and the procedural visuals, no generated or downloaded assets;
+  (4) hosting moved to Render.
 - **Fable 5.2**: Sachal wants this model used to generate (some or all of) the
   implementation. Scope of that (code vs. 3D/creative assets vs. both) is an open
   question — see the product spec's "Open question" section. Resolve before

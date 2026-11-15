@@ -8,6 +8,7 @@ import {
   SWING,
   FLIGHT,
   LANDED,
+  MAX_OFFLINE,
 } from "./camera-director";
 
 const DT = 1 / 60;
@@ -134,6 +135,21 @@ describe("CameraDirector through a whole shot", () => {
       });
     }
     expect(director.position.distanceTo(start)).toBeLessThan(1);
+  });
+
+  test("stays out of the treeline when a wild shot lands in it", () => {
+    const director = new CameraDirector("Right");
+    const landing = new Vector3(110, 0, 300);
+    for (let i = 0; i < 600; i++) {
+      director.update(DT, {
+        state: LANDED,
+        side: "Right",
+        landing,
+        velocity: new Vector3(20, -20, 30),
+      });
+    }
+    expect(Math.abs(director.position.x)).toBeLessThanOrEqual(MAX_OFFLINE);
+    expect(director.target.distanceTo(landing)).toBeLessThan(1.5);
   });
 
   test("reset cuts back to the address view for the given side", () => {

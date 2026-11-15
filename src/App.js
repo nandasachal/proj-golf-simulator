@@ -20,26 +20,37 @@ import {
 
 const DESKTOP_QUERY = "(min-width: 768px)";
 
+// The query string is user-editable, so keep whatever it says on the sliders.
+const clamp = (value, range) =>
+  Number.isFinite(value)
+    ? Math.min(range.MAX, Math.max(range.MIN, value))
+    : range.DEFAULT;
+
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [side, setSide] = useQueryState("side", "Right", false);
-  const [faceAngle, setFaceAngle] = useQueryState(
+  const [rawSide, setSide] = useQueryState("side", "Right", false);
+  const [rawFace, setFaceAngle] = useQueryState(
     "face",
     CLUB_FACE_ANGLE_VALUES.DEFAULT,
     true,
   );
-  const [pathAngle, setPathAngle] = useQueryState(
+  const [rawPath, setPathAngle] = useQueryState(
     "path",
     CLUB_PATH_ANGLE_VALUES.DEFAULT,
     true,
   );
-  const [swingSpeed, setSwingSpeed] = useQueryState(
+  const [rawSpeed, setSwingSpeed] = useQueryState(
     "speed",
     SWING_SPEED_VALUES.DEFAULT,
     true,
   );
+
+  const side = rawSide === "Left" ? "Left" : "Right";
+  const faceAngle = clamp(rawFace, CLUB_FACE_ANGLE_VALUES);
+  const pathAngle = clamp(rawPath, CLUB_PATH_ANGLE_VALUES);
+  const swingSpeed = clamp(rawSpeed, SWING_SPEED_VALUES);
 
   const simulator = useRef(null);
   const stage = useRef(null);
