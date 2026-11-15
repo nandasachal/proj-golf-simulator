@@ -2,6 +2,7 @@ import React from "react";
 import {
   driverLaunch,
   FACE_START_WEIGHT,
+  STRIKE_START_DEGREES_PER_INCH,
 } from "../../simulate/launch-conditions";
 
 // Three small diagrams of the club at impact that redraw as the controls
@@ -61,7 +62,7 @@ const Card = ({ title, detail, label, children }) => (
 );
 
 // Looking straight down. The target is up the page.
-const TopView = ({ angles, golferSide, label, detail }) => (
+const TopView = ({ angles, golferSide, headShift, label, detail }) => (
   <Card title="From above" detail={detail} label={label}>
     {/* centre line of the range */}
     <line
@@ -107,24 +108,27 @@ const TopView = ({ angles, golferSide, label, detail }) => (
           strokeWidth="2"
           markerEnd="url(#arrow-face)"
         />
-        {/* club head behind the ball, hosel and shaft on the golfer's side */}
-        <rect
-          x="44"
-          y="77"
-          width="32"
-          height="10"
-          rx="4"
-          fill="#16181d"
-          stroke={FACE}
-        />
-        <line
-          x1={60 - golferSide * 16}
-          y1="82"
-          x2={60 - golferSide * 30}
-          y2="86"
-          stroke="#c9ced6"
-          strokeWidth="2"
-        />
+        {/* club head behind the ball, hosel and shaft on the golfer's side;
+            it slides along its length so the ball meets the toe or heel */}
+        <g data-strike transform={`translate(${headShift} 0)`}>
+          <rect
+            x="44"
+            y="77"
+            width="32"
+            height="10"
+            rx="4"
+            fill="#16181d"
+            stroke={FACE}
+          />
+          <line
+            x1={60 - golferSide * 16}
+            y1="82"
+            x2={60 - golferSide * 30}
+            y2="86"
+            stroke="#c9ced6"
+            strokeWidth="2"
+          />
+        </g>
       </g>
       <circle cx="60" cy="72" r="4" fill="#fff" />
     </g>
@@ -133,7 +137,7 @@ const TopView = ({ angles, golferSide, label, detail }) => (
 
 // Standing behind the ball looking at the target: arrows lie on the ground
 // and run away toward the horizon.
-const BehindView = ({ angles, golferSide, label, detail }) => {
+const BehindView = ({ angles, golferSide, headShift, label, detail }) => {
   const horizon = 34;
   const ball = { x: 60, y: 88 };
   // where a line leaving the ball at this angle meets the horizon
@@ -188,7 +192,8 @@ const BehindView = ({ angles, golferSide, label, detail }) => {
       />
       {/* back of the club head, turned with the face, shaft up to the hands */}
       <g
-        transform={`translate(60 99) skewX(${-(angles.aim + angles.face) * 0.8})`}
+        data-strike
+        transform={`translate(${60 + headShift} 99) skewX(${-(angles.aim + angles.face) * 0.8})`}
       >
         <rect
           x="-17"
@@ -201,9 +206,9 @@ const BehindView = ({ angles, golferSide, label, detail }) => {
         />
       </g>
       <line
-        x1={60 + golferSide * -14}
+        x1={60 + headShift + golferSide * -14}
         y1="96"
-        x2={60 + golferSide * -44}
+        x2={60 + headShift + golferSide * -44}
         y2="44"
         stroke="#c9ced6"
         strokeWidth="2"
@@ -329,13 +334,23 @@ const ClubViews = ({
   aim,
   attackAngle = 0,
   loftChange = 0,
+  strike = 0,
   side,
 }) => {
   // On the page right is positive. A left-hander's "open" and "in-to-out"
   // point left, and they stand on the other side of the ball.
   const mirror = side === "Left" ? -1 : 1;
   const start =
-    FACE_START_WEIGHT * faceAngle + (1 - FACE_START_WEIGHT) * pathAngle;
+    FACE_START_WEIGHT * faceAngle +
+    (1 - FACE_START_WEIGHT) * pathAngle +
+    STRIKE_START_DEGREES_PER_INCH * strike;
+  // The toe is the end away from the golfer, so a toe strike slides the
+  // head toward the golfer until the ball sits near that end.
+  const headShift = -mirror * strike * 11;
+  const strikeText =
+    strike === 0
+      ? "struck in the centre"
+      : `struck ${Math.abs(strike)} in toward the ${strike > 0 ? "toe" : "heel"}`;
   const angles = {
     face: mirror * faceAngle * EXAGGERATE,
     path: mirror * pathAngle * EXAGGERATE,
@@ -348,6 +363,7 @@ const ClubViews = ({
     `path ${direction(pathAngle, "in-to-out", "out-to-in", "square")}`,
     `ball starts ${direction(mirror * start + aim, "right", "left", "straight")}`,
     `aim ${direction(aim, "right", "left", "straight")}`,
+    strikeText,
   ].join(", ");
 
   return (
@@ -356,6 +372,7 @@ const ClubViews = ({
         <BehindView
           angles={angles}
           golferSide={mirror}
+          headShift={headShift}
           label={`From behind: ${summary}`}
           detail={`path ${direction(pathAngle, "in-out", "out-in", "square")}`}
         />
@@ -379,6 +396,7 @@ const ClubViews = ({
         <TopView
           angles={angles}
           golferSide={mirror}
+          headShift={headShift}
           label={`From above: ${summary}`}
           detail={`face ${direction(faceAngle, "open", "closed", "square")}`}
         />

@@ -183,6 +183,43 @@ describe("launchConditions", () => {
     );
   });
 
+  test("a toe strike starts toward the open side and spins back; a heel strike is the reverse", () => {
+    const centre = setup();
+    const toe = setup({ strikeInches: 0.5 });
+    const heel = setup({ strikeInches: -0.5 });
+
+    // right-hander: starts right (positive), draw spin (positive spin angle)
+    expect(toe.initHorizontalAngleDegrees).toBeGreaterThan(1);
+    expect(toe.initSpinAngle).toBeGreaterThan(5);
+    expect(heel.initHorizontalAngleDegrees).toBeCloseTo(
+      -toe.initHorizontalAngleDegrees,
+    );
+    expect(heel.initSpinAngle).toBeCloseTo(-toe.initSpinAngle);
+
+    // both lose ball speed, more the further from centre
+    expect(toe.smashFactor).toBeLessThan(centre.smashFactor);
+    expect(heel.smashFactor).toBeCloseTo(toe.smashFactor);
+    expect(setup({ strikeInches: 1 }).smashFactor).toBeLessThan(
+      toe.smashFactor - 0.03,
+    );
+    // launch angle and backspin are untouched
+    expect(toe.initVerticalAngleDegrees).toBeCloseTo(
+      centre.initVerticalAngleDegrees,
+    );
+    expect(toe.initBackspinRPM).toBeCloseTo(centre.initBackspinRPM);
+  });
+
+  test("strike adds to face and path, and mirrors for a left-hander", () => {
+    const both = setup({ faceAngle: 2, strikeInches: 0.5 });
+    expect(both.initHorizontalAngleDegrees).toBeCloseTo(
+      setup({ faceAngle: 2 }).initHorizontalAngleDegrees +
+        setup({ strikeInches: 0.5 }).initHorizontalAngleDegrees,
+    );
+    const left = setup({ strikeInches: 0.5, side: "Left" });
+    expect(left.initHorizontalAngleDegrees).toBeLessThan(-1);
+    expect(left.initSpinAngle).toBeLessThan(-5);
+  });
+
   test("a left-hander is the mirror image", () => {
     const right = setup({ faceAngle: 3, pathAngle: -2 });
     const left = setup({ faceAngle: 3, pathAngle: -2, side: "Left" });

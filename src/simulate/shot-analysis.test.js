@@ -164,6 +164,55 @@ describe("attack angle and loft change the flight", () => {
   });
 });
 
+describe("strike location changes the flight", () => {
+  const flight = (strikeInches, side = "Right") =>
+    analyzeShot(
+      new Shot(
+        launchConditions({
+          faceAngle: 0,
+          pathAngle: 0,
+          swingSpeedMPH: 105,
+          side,
+          strikeInches,
+        }),
+      ),
+      side,
+    );
+
+  test("a toe strike is a push draw that finishes near the target line", () => {
+    const toe = flight(0.5);
+    expect(toe.shape).toBe("Push Draw");
+    expect(toe.startDirectionDegrees).toBeGreaterThan(1);
+    expect(toe.curveYards).toBeLessThan(-5);
+    expect(Math.abs(toe.offlineYards)).toBeLessThan(10);
+  });
+
+  test("a heel strike is the mirror: a pull fade", () => {
+    const toe = flight(0.5);
+    const heel = flight(-0.5);
+    expect(heel.shape).toBe("Pull Fade");
+    expect(heel.offlineYards).toBeCloseTo(-toe.offlineYards);
+    expect(heel.carryYards).toBeCloseTo(toe.carryYards);
+  });
+
+  test("the further off-centre, the shorter the carry", () => {
+    const centre = flight(0).carryYards;
+    const half = flight(0.5).carryYards;
+    const full = flight(1).carryYards;
+    expect(half).toBeLessThan(centre);
+    expect(full).toBeLessThan(half);
+    // about 8% at a full inch
+    expect((centre - full) / centre).toBeGreaterThan(0.05);
+    expect((centre - full) / centre).toBeLessThan(0.12);
+  });
+
+  test("a left-hander's toe strike goes by the same name", () => {
+    const left = flight(0.5, "Left");
+    expect(left.shape).toBe("Push Draw");
+    expect(left.offlineYards).toBeCloseTo(-flight(0.5).offlineYards);
+  });
+});
+
 describe("shotShape", () => {
   test("zero carry does not divide by zero", () => {
     expect(

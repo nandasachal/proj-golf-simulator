@@ -37,8 +37,9 @@
 - [done] Settings modal, keyboard shortcuts, aim control and club-at-impact views
   (2026-11-15).
 - [done] Attack angle and loft-at-impact controls (2026-11-15).
-- **More shot controls**, in rough order of value: strike location on the face
-  (heel/toe gear effect); tee height; wind; ball position in the stance.
+- [done] Heel/toe strike location control (2026-11-15).
+- **More shot controls**, in rough order of value: high/low strike on the face
+  (changes launch and spin); wind; tee height; ball position in the stance.
   Altitude/temperature and slope are lower value.
 - Club selection (irons, wedges) — the physics already matches tour numbers for
   them; every shot is currently a driver.

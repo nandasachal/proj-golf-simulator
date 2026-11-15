@@ -4,6 +4,7 @@ import {
   AIM_VALUES,
   ATTACK_ANGLE_VALUES,
   LOFT_CHANGE_VALUES,
+  STRIKE_VALUES,
   CLUB_FACE_ANGLE_VALUES,
   CLUB_PATH_ANGLE_VALUES,
   SWING_SPEED_VALUES,
@@ -143,6 +144,26 @@ const ParameterSelection = ({ values, handleValueChange }) => {
         keys={SHORTCUTS.loftChange}
         keyHint={{ down: "less loft", up: "more loft" }}
         tooltip="The loft the face presents to the ball (dynamic loft). The standard amount depends on swing speed; add or take off up to 4°. More loft launches higher with more backspin and less ball speed, and curves less for the same face-to-path."
+      />
+
+      <Slider
+        id="strike"
+        name="Strike"
+        display={
+          values.strike === 0
+            ? "centre"
+            : `${Math.abs(values.strike)} in ${values.strike > 0 ? "toe" : "heel"}`
+        }
+        range={STRIKE_VALUES}
+        value={values.strike}
+        onChange={(value) => handleValueChange("strike", value)}
+        keys={SHORTCUTS.strike}
+        keyHint={{ down: "toward heel", up: "toward toe" }}
+        tooltip={`Where on the face the ball is struck. Off the toe the ball starts ${
+          rightHanded ? "right" : "left"
+        } and curves back ${
+          rightHanded ? "left" : "right"
+        } (a draw); off the heel it does the opposite (a fade). Either way it loses ball speed, more the further from centre.`}
       />
 
       <Slider

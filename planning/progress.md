@@ -81,3 +81,12 @@ backspin, smash factor and curve through spin loft; sliders, G/T and H/Y shortcu
 URL params `attack`/`loft`; the toe view now tilts the arriving-head arrow and the
 face line with them. Defaults reproduce the previous flight exactly. check: green
 (148 tests + strict build) · next: strike location on the face per roadmap.
+
+2026-11-15 — strike location + game default — done: Strike control (up to 1 in
+toward toe or heel, B/N keys, `strike` URL param): toe strikes start on the open
+side and draw back, heel strikes pull and fade, both lose ball speed; the plan
+views slide the club head so the ball sits toward the toe or heel. Game mode is now
+the default (`?mode=practice` opts out). check: green (158 tests + strict build) ·
+decisions: strike rates are estimates chosen for the known pattern, flagged in
+README · next: high/low strike or wind per roadmap; the left column is ~795 px
+tall now and scrolls on shorter windows.

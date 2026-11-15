@@ -7,6 +7,7 @@ export const SHORTCUTS = {
   aim: { down: "z", up: "c" },
   attackAngle: { down: "g", up: "t" },
   loftChange: { down: "h", up: "y" },
+  strike: { down: "b", up: "n" },
   hit: " ",
   reset: "r",
 };
@@ -18,6 +19,7 @@ export const ADJUSTABLE = [
   "aim",
   "attackAngle",
   "loftChange",
+  "strike",
 ];
 
 export const keyLabel = (key) => (key === " " ? "Space" : key.toUpperCase());

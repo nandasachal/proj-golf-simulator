@@ -21,6 +21,7 @@ import {
   AIM_VALUES,
   ATTACK_ANGLE_VALUES,
   LOFT_CHANGE_VALUES,
+  STRIKE_VALUES,
   CLUB_FACE_ANGLE_VALUES,
   CLUB_PATH_ANGLE_VALUES,
   SWING_SPEED_VALUES,
@@ -101,7 +102,12 @@ function App() {
   const [firm] = useQueryState("firm", null, false);
   const [wet] = useQueryState("wet", null, false);
   const [grass] = useQueryState("grass", null, false);
-  const [rawMode] = useQueryState("mode", "practice", false);
+  const [rawStrike, setStrike] = useQueryState(
+    "strike",
+    STRIKE_VALUES.DEFAULT,
+    false,
+  );
+  const [rawMode] = useQueryState("mode", "game", false);
   const setQueries = useSetQueries();
 
   const turf = turfConditions(TURF_PRESETS[rawTurf] ? rawTurf : "normal", {
@@ -111,7 +117,8 @@ function App() {
     grass,
   });
   const turfPreset = matchingPreset(turf);
-  const mode = rawMode === "game" ? "game" : "practice";
+  // Game mode unless the URL says practice.
+  const mode = rawMode === "practice" ? "practice" : "game";
   const side = rawSide === "Left" ? "Left" : "Right";
   const faceAngle = clamp(rawFace, CLUB_FACE_ANGLE_VALUES);
   const pathAngle = clamp(rawPath, CLUB_PATH_ANGLE_VALUES);
@@ -119,6 +126,7 @@ function App() {
   const aim = clamp(rawAim, AIM_VALUES);
   const attackAngle = clamp(rawAttack, ATTACK_ANGLE_VALUES);
   const loftChange = clamp(rawLoft, LOFT_CHANGE_VALUES);
+  const strike = clamp(Number.parseFloat(rawStrike), STRIKE_VALUES);
 
   const simulator = useRef(null);
   const stage = useRef(null);
@@ -225,9 +233,10 @@ function App() {
     else if (type === "aim") setAim(newValue);
     else if (type === "attackAngle") setAttackAngle(newValue);
     else if (type === "loftChange") setLoftChange(newValue);
+    else if (type === "strike") setStrike(newValue);
     else if (type === "turf") handleTurfPreset(newValue);
     else if (type === "mode")
-      setQueries({ mode: newValue === "game" ? "game" : null });
+      setQueries({ mode: newValue === "practice" ? "practice" : null });
   };
 
   // Back to the default shot. Settings (mode, side, turf) stay as they are.
@@ -239,6 +248,7 @@ function App() {
       aim: null,
       attack: null,
       loft: null,
+      strike: null,
     });
 
   const handleHit = () => {
@@ -253,6 +263,7 @@ function App() {
         side,
         attackAngle,
         loftChange,
+        strikeInches: strike,
       }),
       side,
       turf,
@@ -280,6 +291,7 @@ function App() {
         aim: [aim, AIM_VALUES],
         attackAngle: [attackAngle, ATTACK_ANGLE_VALUES],
         loftChange: [loftChange, LOFT_CHANGE_VALUES],
+        strike: [strike, STRIKE_VALUES],
       }[shortcut.control];
       const next = clamp(value + shortcut.direction * range.STEP, range);
       if (next !== value) handleValueChange(shortcut.control, next);
@@ -353,6 +365,7 @@ function App() {
               aim,
               attackAngle,
               loftChange,
+              strike,
               side,
             }}
             handleValueChange={handleValueChange}
@@ -366,6 +379,7 @@ function App() {
           aim={aim}
           attackAngle={attackAngle}
           loftChange={loftChange}
+          strike={strike}
           side={side}
         />
       </div>

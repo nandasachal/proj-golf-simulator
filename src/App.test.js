@@ -57,6 +57,7 @@ describe("shot controls", () => {
     expect(screen.getByLabelText(/^aim/i)).toHaveValue("0");
     expect(screen.getByLabelText(/attack angle/i)).toHaveValue("0");
     expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("0");
+    expect(screen.getByLabelText(/^strike/i)).toHaveValue("0");
 
     // session settings are behind the overflow menu, not on the panel
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -161,6 +162,38 @@ describe("shot controls", () => {
     expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("2");
   });
 
+  test("strike location is used by the next hit, shown in words, and read from the URL", () => {
+    renderApp("/?speed=105");
+    expect(screen.getByText("centre")).toBeInTheDocument();
+    hit();
+    const centre = lastLaunch();
+
+    fireEvent.change(screen.getByLabelText(/^strike/i), {
+      target: { value: "0.75" },
+    });
+    expect(screen.getByText("0.75 in toe")).toBeInTheDocument();
+    hit();
+    const toe = lastLaunch();
+    expect(toe.smashFactor).toBeLessThan(centre.smashFactor);
+    expect(toe.initHorizontalAngleDegrees).toBeGreaterThan(2);
+    expect(toe.initSpinAngle).toBeGreaterThan(8);
+
+    fireEvent.change(screen.getByLabelText(/^strike/i), {
+      target: { value: "-0.5" },
+    });
+    expect(screen.getByText("0.5 in heel")).toBeInTheDocument();
+  });
+
+  test("strike is read from the URL and clamped", () => {
+    renderApp("/?strike=0.75");
+    expect(screen.getByLabelText(/^strike/i)).toHaveValue("0.75");
+  });
+
+  test("a junk or out-of-range strike falls back onto the slider", () => {
+    renderApp("/?strike=9");
+    expect(screen.getByLabelText(/^strike/i)).toHaveValue("1");
+  });
+
   test("aiming shows the stance in the scene before the shot", () => {
     renderApp();
     fireEvent.change(screen.getByLabelText(/^aim/i), {
@@ -171,7 +204,7 @@ describe("shot controls", () => {
 
   test("Reset clears the shot but keeps the session settings", () => {
     renderApp(
-      "/?face=3&path=-2&speed=120&aim=5&attack=4&loft=-2&side=Left&turf=firm&mode=game",
+      "/?face=3&path=-2&speed=120&aim=5&attack=4&loft=-2&strike=0.5&side=Left&turf=firm&mode=game",
     );
     fireEvent.click(screen.getByRole("button", { name: /reset/i }));
     expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
@@ -180,6 +213,7 @@ describe("shot controls", () => {
     expect(screen.getByLabelText(/^aim/i)).toHaveValue("0");
     expect(screen.getByLabelText(/attack angle/i)).toHaveValue("0");
     expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("0");
+    expect(screen.getByLabelText(/^strike/i)).toHaveValue("0");
 
     hit();
     expect(lastHit()[1]).toBe("Left");
@@ -226,6 +260,14 @@ describe("keyboard shortcuts", () => {
     press("h");
     press("h");
     expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("-1");
+
+    press("n");
+    press("n");
+    expect(screen.getByLabelText(/^strike/i)).toHaveValue("0.5");
+    press("b");
+    press("b");
+    press("b");
+    expect(screen.getByLabelText(/^strike/i)).toHaveValue("-0.25");
   });
 
   test("a control stops at the end of its range", () => {
@@ -285,6 +327,10 @@ describe("keyboard shortcuts", () => {
     expect(screen.getByLabelText(/loft at impact/i)).toHaveAttribute(
       "data-tooltip-content",
       "Keys: H less loft · Y more loft",
+    );
+    expect(screen.getByLabelText(/^strike/i)).toHaveAttribute(
+      "data-tooltip-content",
+      "Keys: B toward heel · N toward toe",
     );
     expect(screen.getByRole("button", { name: /^hit$/i })).toHaveAttribute(
       "data-tooltip-content",
@@ -453,7 +499,7 @@ describe("club views", () => {
     expect(view("From behind")).toBeInTheDocument();
     expect(view("From the toe")).toBeInTheDocument();
     expect(view("From above")).toHaveAccessibleName(
-      "From above: face 2° open, path 1° out-to-in, ball starts 1.5° right, aim straight",
+      "From above: face 2° open, path 1° out-to-in, ball starts 1.5° right, aim straight, struck in the centre",
     );
     expect(view("From the toe")).toHaveAccessibleName(
       "From the toe: 100 mph, attack level, 14.5° of loft, launches at 12.4° with 2815 rpm of backspin",
@@ -479,7 +525,9 @@ describe("club views", () => {
     expect(view("From the toe")).toHaveAccessibleName(/^From the toe: 96 mph/);
 
     press("c");
-    expect(view("From behind")).toHaveAccessibleName(/aim 1° right$/);
+    expect(view("From behind")).toHaveAccessibleName(
+      /aim 1° right, struck in the centre$/,
+    );
 
     // the toe view shows the vertical controls
     const toeArrow = (arrow) =>
@@ -493,6 +541,20 @@ describe("club views", () => {
     expect(toeArrow("path")).not.toBe(levelAttack);
     expect(toeArrow("face")).not.toBe(standardLoft);
     expect(view("From the toe")).toHaveAccessibleName(/attack 1° up/);
+
+    // a toe strike slides the head toward the golfer in both plan views
+    const head = (name) =>
+      view(name).querySelector("[data-strike]").getAttribute("transform");
+    const centredAbove = head("From above");
+    const centredBehind = head("From behind");
+    press("n");
+    press("n");
+    expect(head("From above")).toBe("translate(-5.5 0)");
+    expect(head("From above")).not.toBe(centredAbove);
+    expect(head("From behind")).not.toBe(centredBehind);
+    expect(view("From above")).toHaveAccessibleName(
+      /struck 0.5 in toward the toe$/,
+    );
   });
 
   test("a left-hander's open face points the other way on the page", () => {
@@ -518,8 +580,19 @@ describe("game mode", () => {
       }),
     );
 
-  test("practice mode has no target", () => {
+  test("game mode is the default: a fresh visit has a target and a score", () => {
     renderApp();
+    expect(lastTarget().z).toBeGreaterThanOrEqual(140);
+    expect(game()).toHaveTextContent("0 of 0 hit · streak 0");
+    const dialog = openSettings();
+    expect(dialog.getByRole("button", { name: "Game mode" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  test("practice mode has no target", () => {
+    renderApp("/?mode=practice");
     expect(
       screen.queryByRole("status", { name: "Game" }),
     ).not.toBeInTheDocument();
@@ -527,7 +600,7 @@ describe("game mode", () => {
   });
 
   test("switching to game mode in Settings puts a target on the range and shows it", () => {
-    renderApp();
+    renderApp("/?mode=practice");
     const dialog = openSettings();
     fireEvent.click(dialog.getByRole("button", { name: "Game mode" }));
     fireEvent.click(dialog.getByRole("button", { name: "Close settings" }));

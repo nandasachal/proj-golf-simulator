@@ -43,3 +43,12 @@ export const LOFT_CHANGE_VALUES = {
   DEFAULT: 0,
   STEP: 1,
 };
+
+// Where on the face the ball is struck, in inches from the centre: toward the
+// toe (+) or the heel (-).
+export const STRIKE_VALUES = {
+  MAX: 1,
+  MIN: -1,
+  DEFAULT: 0,
+  STEP: 0.25,
+};

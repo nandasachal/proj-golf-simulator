@@ -19,6 +19,15 @@ const MAX_SMASH = 1.5;
 // anything (the ball would be struck almost dead flat).
 const MIN_SPIN_LOFT_DEGREES = 6;
 
+// Striking the ball off-centre, toward the toe (+) or heel (-), in inches.
+// A driver's face is curved (bulge), so a toe strike meets a face pointing
+// further open and the ball starts on that side; the head also twists, and
+// that "gear effect" spins the ball back the other way. Off-centre contact
+// costs ball speed, more the further out it is.
+export const STRIKE_START_DEGREES_PER_INCH = 3.5;
+export const STRIKE_TILT_DEGREES_PER_INCH = 14;
+export const STRIKE_SMASH_LOSS_PER_INCH_SQUARED = 0.07;
+
 const radians = (degrees) => (degrees * Math.PI) / 180;
 
 // A solidly struck driver delivered the standard way for this swing speed: a
@@ -92,24 +101,34 @@ export function launchConditions({
   side,
   attackAngle = 0,
   loftChange = 0,
+  strikeInches = 0,
 }) {
   const mirror = side === "Left" ? -1 : 1;
+  // The toe is on the far side of the ball from the golfer, which is the
+  // "open" side, so a toe strike starts the ball that way.
   const startDirection =
-    FACE_START_WEIGHT * faceAngle + (1 - FACE_START_WEIGHT) * pathAngle;
+    FACE_START_WEIGHT * faceAngle +
+    (1 - FACE_START_WEIGHT) * pathAngle +
+    STRIKE_START_DEGREES_PER_INCH * strikeInches;
   const driver = driverLaunch(swingSpeedMPH, { attackAngle, loftChange });
+  // Tilt toward the open side from face-to-path, less the gear effect, which
+  // on a toe strike curves the ball back the other way (a draw).
+  const axisTilt =
+    spinAxisTiltDegrees(faceAngle - pathAngle, driver.spinLoftRatio) -
+    STRIKE_TILT_DEGREES_PER_INCH * strikeInches;
 
   return {
     initSpeedMPH: swingSpeedMPH,
-    smashFactor: driver.smashFactor,
+    smashFactor:
+      driver.smashFactor -
+      STRIKE_SMASH_LOSS_PER_INCH_SQUARED * strikeInches * strikeInches,
     initVerticalAngleDegrees: driver.launchAngleDegrees,
     initBackspinRPM: driver.backspinRPM,
     // Shot launches toward -x for a positive horizontal angle, and -x is the
     // right-hand side when looking downrange (+z).
     initHorizontalAngleDegrees: mirror * startDirection,
-    // Shot curves toward +x (left) for a positive spin angle, so an open face
-    // (positive face-to-path) needs a negative one to curve right.
-    initSpinAngle:
-      -mirror *
-      spinAxisTiltDegrees(faceAngle - pathAngle, driver.spinLoftRatio),
+    // Shot curves toward +x (left) for a positive spin angle, so tilt toward
+    // the open side (right, for a right-hander) needs a negative one.
+    initSpinAngle: -mirror * axisTilt,
   };
 }

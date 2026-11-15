@@ -20,10 +20,18 @@ than abstract.
   loft: about 4.5° of axis tilt per degree, in line with TrackMan's published
   driver examples.
 - **Game mode** (`src/simulate/game.js`) — a random target ring appears 140–330 yd
-  out and up to 40 yd either side, bigger the farther it is (13–20 yd radius). A
-  shot scores if the ball touches the ground inside the ring at any point:
+  out and up to 40 yd either side, bigger the farther it is (13–20 yd radius). It is
+  the default mode (`?mode=practice` turns it off). A shot scores if the ball
+  touches the ground inside the ring at any point:
   landing, bouncing, rolling through or stopping. A hit brings a new target; a
   miss keeps it and reports how far short/long and left/right the ball finished.
+- **Strike location** — where on the face the ball is hit, up to 1 in toward the
+  toe or heel. A toe strike starts the ball on the open side (3.5° per inch, from
+  the face's bulge and the head twisting) and gear effect tilts the spin axis
+  back the other way (14° per inch), so it is a push draw that finishes near the
+  line; a heel strike is the mirror, a pull fade. Smash factor drops by 0.07 per
+  inch squared (about 8% of carry at a full inch). These three rates are
+  estimates chosen to give the well-known pattern, not fitted to measurements.
 - **Aim** — where the golfer is set up, up to 10° right or left of the range's
   centre line. Face and path are measured from the aim line, so aiming turns the
   whole shot (`Shot.aim`) and the golfer's stance; shot shape is named relative to
@@ -90,9 +98,9 @@ React UI (App.js, components/)          src/simulate/ (no React)
 - **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
   viewport with a HUD over it (stacked under the scene on phones). The left panel
   holds only what shapes a shot: face, path, swing speed, attack angle, loft,
-  aim, Hit. Each has
+  strike location, aim, Hit. Each has
   keyboard shortcuts (`src/utils/shortcuts.js`: Q/E face, A/D path, S/W speed, G/T
-  attack, H/Y loft, Z/C aim, Space hit, R reset), shown on hover. Under the panel, three diagrams of the
+  attack, H/Y loft, B/N strike, Z/C aim, Space hit, R reset), shown on hover. Under the panel, three diagrams of the
   club at impact (from behind, from the toe, from above) redraw as the controls
   move, with angles drawn at three times their size. Session settings (game mode,
   dominant side, turf) are in a modal behind the ⋯ button. Shot setup, turf (`turf` preset plus `cut`/`firm`/`wet`/`grass`

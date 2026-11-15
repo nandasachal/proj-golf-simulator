@@ -46,6 +46,11 @@ describe("shortcutFor", () => {
       control: "loftChange",
       direction: 1,
     });
+    expect(shortcutFor("b")).toMatchObject({
+      control: "strike",
+      direction: -1,
+    });
+    expect(shortcutFor("n")).toMatchObject({ control: "strike", direction: 1 });
   });
 
   test("space hits and R resets; other keys do nothing", () => {
