@@ -1,6 +1,10 @@
 import { Vector3 } from "three";
 import { toMPS } from "./conversions-lib";
 
+const DRAG = 0.21;
+const SPIN_DRAG = 0.3;
+const LIFT = 0.43;
+
 export const Shot = function (options) {
   this.points = [];
   var initPoint = new ShotPoint();
@@ -11,19 +15,28 @@ export const Shot = function (options) {
 
   // golf ball properties
   this.mass = 0.0459; // kg; from 1.62 ounces
-  this.crossSectionalArea = (0.04267 * Math.PI) / 4; //m^2
+  this.radius = 0.021335; // m; from 1.68 inch diameter
+  this.crossSectionalArea = Math.PI * this.radius * this.radius; // m^2
   this.smashFactor = options.smashFactor == null ? 1.49 : options.smashFactor; // clubhead-to-ball-initial speed ratio
 
   // nature
   this.gravityMagnitude = -9.8; // 9.8 m/s^2
   this.airDensity = 1.2041; // kg/m^3
 
-  // golf ball aerodynamics properties
+  // golf ball aerodynamics properties. Both coefficients depend on the spin
+  // ratio S = (radius * spin rate) / speed: Cd = dragCoefficient +
+  // spinDragCoefficient * S, Cl = liftCoefficient * S^0.4. Values are fitted to
+  // published launch-monitor tour averages (see shot.test.js).
   this.dragCoefficient =
-    options.dragCoefficient == null ? 0.4 : options.dragCoefficient;
+    options.dragCoefficient == null ? DRAG : options.dragCoefficient;
+  this.spinDragCoefficient =
+    options.spinDragCoefficient == null
+      ? SPIN_DRAG
+      : options.spinDragCoefficient;
   this.liftCoefficient =
-    options.liftCoefficient == null ? 0.00001 : options.liftCoefficient; // made this up?
-  this.spinDecayRateConstant = 23; // made this up?
+    options.liftCoefficient == null ? LIFT : options.liftCoefficient;
+  this.spinDecayRate =
+    options.spinDecayRate == null ? 0.04 : options.spinDecayRate; // fraction of spin lost per second
 
   // initial shot attributes
   this.initSpeedMPH = options.initSpeedMPH || 0.0;
@@ -40,12 +53,14 @@ export const Shot = function (options) {
     this.initSpeedMPH,
     this.smashFactor,
     this.initVerticalAngleDegrees,
-    this.initHorizontalAngleDegrees);
+    this.initHorizontalAngleDegrees,
+  );
 
   // initial angular velocity (spin rate)
   initPoint.angularVelocity = this.getInitialSpin(
     this.initBackspinRPM,
-    this.initSpinAngle);
+    this.initSpinAngle,
+  );
 
   this.projectShot(initPoint);
 };
@@ -64,7 +79,8 @@ Shot.prototype.getInitialVelocity = function (
   speedMPH,
   smashFactor,
   verticalDegrees,
-  horizontalDegrees) {
+  horizontalDegrees,
+) {
   var velocity = new Vector3(0, 0, 0);
   velocity.x = Math.sin((-1 * horizontalDegrees * Math.PI) / 180);
   velocity.y = Math.sin((verticalDegrees * Math.PI) / 180);
@@ -103,44 +119,41 @@ Shot.prototype.projectShot = function (initPoint) {
 };
 
 Shot.prototype.getAcceleration = function (currentPoint) {
-  // gravity: -9.8 m/s^2
   var gravityAcceleration = new Vector3(0, this.gravityMagnitude, 0);
 
-  // drag acceleration = drag force / mass
-  var adjustedDragCoefficient =
-    this.dragCoefficient * Math.min(1.0, 14 / currentPoint.velocity.length());
-  var dragForceAcceleration = currentPoint.velocity
-    .clone()
-    .multiplyScalar(
-      (-1 *
-        adjustedDragCoefficient *
-        this.airDensity *
-        this.crossSectionalArea) /
-        this.mass
-    );
+  var velocity = currentPoint.velocity;
+  var speed = velocity.length();
+  var spin = currentPoint.angularVelocity;
+  var spinRatio = (this.radius * spin.length()) / speed;
+  // 0.5 * rho * A / m: turns a coefficient times speed^2 into an acceleration
+  var k = (0.5 * this.airDensity * this.crossSectionalArea) / this.mass;
 
-  // magnus acceleration (from ball spin) = magnus force / mass
-  var magnusForceAcceleration = currentPoint.angularVelocity
+  // drag opposes velocity, magnitude k * Cd * speed^2
+  var dragCoefficient =
+    this.dragCoefficient + this.spinDragCoefficient * spinRatio;
+  var dragForceAcceleration = velocity
     .clone()
-    .cross(currentPoint.velocity)
-    .multiplyScalar(this.liftCoefficient / this.mass);
+    .multiplyScalar(-k * dragCoefficient * speed);
 
-  // combined acceleration = gravity + drag + magnus
-  var totalAccel = new Vector3(0, 0, 0)
+  // magnus lift is perpendicular to spin axis and velocity, magnitude
+  // k * Cl * speed^2
+  var liftCoefficient = this.liftCoefficient * Math.pow(spinRatio, 0.4);
+  var magnusForceAcceleration = spin
+    .clone()
+    .normalize()
+    .cross(velocity)
+    .multiplyScalar(k * liftCoefficient * speed);
+
+  return new Vector3(0, 0, 0)
     .add(gravityAcceleration)
     .add(dragForceAcceleration)
     .add(magnusForceAcceleration);
-
-  return totalAccel;
 };
 
 Shot.prototype.angularDecayVector = function (currentPoint) {
-  var decay = currentPoint.angularVelocity.clone();
-  decay
-    .normalize()
-    .negate()
-    .multiplyScalar(this.spinDecayRateConstant * this.dt);
-  return decay;
+  return currentPoint.angularVelocity
+    .clone()
+    .multiplyScalar(-this.spinDecayRate * this.dt);
 };
 
 export const ShotPoint = function () {

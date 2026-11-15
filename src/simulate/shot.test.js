@@ -98,3 +98,28 @@ describe("Shot trajectory", () => {
     expect(last).toBeGreaterThan(0);
   });
 });
+
+// Published launch-monitor tour averages (TrackMan): club speed, smash factor,
+// launch angle and spin in; carry and apex out. The aerodynamic coefficients in
+// shot.js are fitted to these, so a drift here means the ball flight changed.
+describe("Shot matches real-world ball flight", () => {
+  const toYards = (m) => m * 1.09361;
+  test.each([
+    ["PGA Tour driver", 113, 1.48, 10.9, 2686, 275, 32],
+    ["LPGA Tour driver", 94, 1.48, 13.2, 2611, 218, 25],
+    ["PGA Tour 7 iron", 90, 1.33, 16.3, 7097, 172, 32],
+    ["LPGA Tour 7 iron", 76, 1.37, 19.0, 6699, 141, 26],
+    ["PGA Tour pitching wedge", 83, 1.23, 24.2, 9304, 136, 30],
+  ])("%s", (_name, speed, smash, launch, rpm, carryYards, apexYards) => {
+    const shot = shoot({
+      initSpeedMPH: speed,
+      smashFactor: smash,
+      initVerticalAngleDegrees: launch,
+      initBackspinRPM: rpm,
+    });
+    const carry = toYards(landing(shot).z);
+    const height = toYards(apex(shot));
+    expect(Math.abs(carry - carryYards) / carryYards).toBeLessThan(0.07);
+    expect(Math.abs(height - apexYards) / apexYards).toBeLessThan(0.2);
+  });
+});

@@ -26,11 +26,7 @@ export const StartBall = (options) => {
   var shotControl = {
     dt: 0.001, //seconds
     displaySpeed: 2.0, // display time multiplier
-    initSpeedMPH: options?.initSpeedMPH ?? 100,
-    initVerticalAngleDegrees: 20,
-    initHorizontalAngleDegrees: options?.initHorizontalAngleDegrees ?? 9,
-    initBackspinRPM: 6000,
-    initSpinAngle: options?.initSpinAngle ?? 45,
+    ...options,
     shoot: beginShot,
   };
   var sceneZOffset;

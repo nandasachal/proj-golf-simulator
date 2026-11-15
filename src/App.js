@@ -11,6 +11,7 @@ import ButtonRow from "./components/simulator/button-row";
 import { Toaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
 import { StartBall } from "./simulate/main";
+import { launchConditions } from "./simulate/launch-conditions";
 import {
   CLUB_FACE_ANGLE_VALUES,
   CLUB_PATH_ANGLE_VALUES,
@@ -66,14 +67,15 @@ function App() {
     navigate(`${location.pathname?.split("?")[0]}`);
   };
 
-  const sign = side === "Left" ? -1 : 1;
+  const launch = launchConditions({
+    faceAngle: clubFaceAngleSliderValue,
+    pathAngle: clubPathAngleSliderValue,
+    swingSpeedMPH: swingSpeedSliderValue,
+    side,
+  });
 
   useEffect(() => {
-    const sim = StartBall({
-      initSpeedMPH: swingSpeedSliderValue,
-      initSpinAngle: clubFaceAngleSliderValue * sign,
-      initHorizontalAngleDegrees: clubPathAngleSliderValue * sign,
-    });
+    const sim = StartBall(launch);
     shotRef.current = sim;
     return () => sim.dispose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,10 +84,7 @@ function App() {
   const handleClick = () => {
     const sim = shotRef.current;
     if (sim) {
-      sim.shotControl.initSpeedMPH = swingSpeedSliderValue;
-      sim.shotControl.initSpinAngle = clubFaceAngleSliderValue * sign;
-      sim.shotControl.initHorizontalAngleDegrees =
-        clubPathAngleSliderValue * sign;
+      Object.assign(sim.shotControl, launch);
       sim.beginShot();
     }
   };
