@@ -1,286 +1,355 @@
 import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
-import { FontLoader } from "three/addons/loaders/FontLoader.js";
-import helvetiker from "three/examples/fonts/helvetiker_regular.typeface.json";
-import DrawLib from "./draw-lib";
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { buildRange, FOG } from "./range";
+import {
+  CameraDirector,
+  ADDRESS,
+  SWING,
+  FLIGHT,
+  LANDED,
+} from "./camera-director";
 import { Shot } from "./shot";
+import { analyzeShot } from "./shot-analysis";
 import { toYards } from "./conversions-lib";
 
-export const StartBall = (options) => {
-  // Note: coordinate unit of 1 = 1 meter
+// Scene units are yards; the physics runs in meters.
+const YARDS_PER_METER = toYards(1);
+const SHOT_DT = 0.001;
+const BALL_RADIUS = 0.0234;
+const TEE_HEIGHT = 0.05;
+const MAT_TOP = 0.06;
+// The ball is drawn at least this big (as a fraction of its distance from the
+// camera) so it stays visible 300 yards out.
+const BALL_MIN_ANGULAR_RADIUS = 0.0052;
+const TRACER_STRIDE = 20; // physics steps per tracer vertex
+const LANDED_HOLD_SECONDS = 4.5;
+const PROGRESS_INTERVAL_SECONDS = 0.08;
+const MAX_FRAME_SECONDS = 0.1;
 
-  // three framework components
-  var renderer;
-  var scene;
-  var camera;
-  var controls;
-  var container;
-  var containerWidth;
-  var containerHeight;
+function labelTexture(text) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 96;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgba(8, 20, 14, 0.82)";
+  ctx.beginPath();
+  ctx.roundRect(4, 4, 248, 88, 22);
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "bold 54px Helvetica, Arial, sans-serif";
+  ctx.fillText(text, 128, 50);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
 
-  // project-specific logic
-  var points;
-  var shot;
-  var line;
-  var shotControl = {
-    dt: 0.001, //seconds
-    displaySpeed: 2.0, // display time multiplier
-    ...options,
-    shoot: beginShot,
-  };
-  var sceneZOffset;
-  var displayStartTime;
-  var displaySpeed;
-  // var statusElementTime;
-  // var statusElementSpeed;
-  // var statusElementHeight;
-  // var statusElementDistance;
-  // var statusElementSpin;
-  var distanceDisplay;
+export function createSimulator(container, callbacks = {}) {
+  const { onState, onProgress, onResult } = callbacks;
 
-  function init() {
-    // add renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setClearColor(0xffffff);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  container.appendChild(renderer.domElement);
 
-    // add container
-    container = document.getElementById("display-container");
-    container.appendChild(renderer.domElement);
-    calculateContainerWidthHeight();
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(FOG.color, FOG.near, FOG.far);
+  scene.add(
+    buildRange({ anisotropy: renderer.capabilities.getMaxAnisotropy() }),
+  );
 
-    // status elements
-    // statusElementTime = document.getElementById("status-time");
-    // statusElementSpeed = document.getElementById("status-speed");
-    // statusElementHeight = document.getElementById("status-height");
-    // statusElementDistance = document.getElementById("status-distance");
-    // statusElementSpin = document.getElementById("status-spin");
-    distanceDisplay = document.getElementById("distance-display");
+  const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 4000);
 
-    // add stats
-    // stats = new Stats();
-    // container.appendChild(stats.domElement);
+  // --- ball, tee, shadow, tracer, landing marker ---
+  const restPosition = new THREE.Vector3(
+    0,
+    MAT_TOP + TEE_HEIGHT + BALL_RADIUS,
+    0,
+  );
 
-    // add scene
-    scene = new THREE.Scene();
+  const ball = new THREE.Mesh(
+    new THREE.SphereGeometry(BALL_RADIUS, 24, 16),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35 }),
+  );
+  ball.name = "ball";
+  ball.castShadow = true;
+  scene.add(ball);
 
-    // add camera: field of view, aspect ratio, start distance, max distance
-    camera = new THREE.PerspectiveCamera(
-      45,
-      containerWidth / containerHeight,
-      0.1,
-      20000
-    );
-    camera.lookAt(scene.position);
+  const tee = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.012, 0.004, TEE_HEIGHT, 8),
+    new THREE.MeshStandardMaterial({ color: 0xf2e6c9 }),
+  );
+  tee.position.set(0, MAT_TOP + TEE_HEIGHT / 2, 0);
+  scene.add(tee);
 
-    // Add OrbitControls so that we can pan around with the mouse.
-    controls = new OrbitControls(camera, renderer.domElement);
+  const ballShadow = new THREE.Mesh(
+    new THREE.CircleGeometry(1, 20),
+    new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.35,
+      depthWrite: false,
+    }),
+  );
+  ballShadow.rotation.x = -Math.PI / 2;
+  ballShadow.visible = false;
+  scene.add(ballShadow);
 
-    // add dat.gui
-    // gui = new dat.GUI({ autoPlace: false });
-    // container.appendChild(gui.domElement);
-    // gui.add(shotControl, "initSpeedMPH", 50, 150);
-    // gui.add(shotControl, "initVerticalAngleDegrees", 0, 90);
-    // gui.add(shotControl, "initHorizontalAngleDegrees", -45, 45);
-    // gui.add(shotControl, "initBackspinRPM", 0, 6000);
-    // gui.add(shotControl, "initSpinAngle", -45, 45);
-    // gui.add(shotControl, "displaySpeed", 0, 5);
-    // gui.add(shotControl, "shoot");
+  const tracerMaterial = new LineMaterial({
+    color: 0xff4d2e,
+    linewidth: 4,
+    transparent: true,
+    opacity: 0.95,
+  });
+  const tracer = new Line2(new LineGeometry(), tracerMaterial);
+  tracer.name = "tracer";
+  tracer.visible = false;
+  tracer.frustumCulled = false;
+  scene.add(tracer);
 
-    // window sizing
-    onWindowResize(); // set initial size
-    window.addEventListener("resize", onWindowResize, false); // add handlers
-
-    addInitialElements();
-
-    beginShot();
-  }
-
-  var frameId;
-  function animate() {
-    frameId = requestAnimationFrame(animate);
-
-    controls.update();
-    // stats.update();
-    renderer.render(scene, camera);
-
-    if (shot) {
-      updateShot();
-    }
-  }
-
-  function calculateContainerWidthHeight() {
-    var comStyle = window.getComputedStyle(container, null);
-    containerWidth = parseInt(comStyle.getPropertyValue("width"), 10);
-    containerHeight = parseInt(comStyle.getPropertyValue("height"), 10);
-  }
-
-  function onWindowResize() {
-    calculateContainerWidthHeight();
-    camera.aspect = containerWidth / containerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(containerWidth, containerHeight);
-  }
-
-  function addInitialElements() {
-    var gridWidth = 70;
-    var gridHeight = 400;
-
-    sceneZOffset = -gridHeight / 2.0;
-
-    // adjust camera position
-    camera.position.set(0, 24.4, -254.3);
-    controls.update();
-
-    // add ground grid
-    var gridColor = new THREE.Color(0x00bbbb);
-    var grid = DrawLib.getGrid(gridWidth, gridHeight, 10, gridColor);
-    grid.position.z = sceneZOffset + gridHeight / 2.0;
-
-    var gridGeometry = new THREE.PlaneGeometry(
-      gridWidth,
-      gridHeight,
-      gridWidth / 10,
-      gridHeight / 10
-    );
-    var cellColor = new THREE.Color(0x4c8435); // Green color for cells
-    var gridMaterial = new THREE.MeshBasicMaterial({
-      color: cellColor,
+  const landingMarker = new THREE.Group();
+  landingMarker.name = "landing-marker";
+  landingMarker.visible = false;
+  const landingRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.7, 0.95, 40),
+    new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.9,
       side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  landingRing.rotation.x = -Math.PI / 2;
+  landingRing.position.y = 0.05;
+  const landingLabel = new THREE.Sprite(
+    new THREE.SpriteMaterial({ depthTest: false, fog: false }),
+  );
+  landingLabel.position.y = 2.6;
+  landingLabel.scale.set(4, 1.5, 1);
+  landingMarker.add(landingRing, landingLabel);
+  scene.add(landingMarker);
+
+  // --- shot state ---
+  let side = callbacks.side || "Right";
+  let state = ADDRESS;
+  let shot = null;
+  let analysis = null;
+  let flightSeconds = 0;
+  let landedSeconds = 0;
+  let progressSeconds = 0;
+  const ballVelocity = new THREE.Vector3(0, 0, 1);
+  const landing = new THREE.Vector3();
+  const director = new CameraDirector(side);
+
+  function setState(next) {
+    if (state === next) return;
+    state = next;
+    if (onState) onState(state);
+  }
+
+  function ballToRest() {
+    ball.position.copy(restPosition);
+    ball.scale.setScalar(1);
+    ballShadow.visible = false;
+  }
+
+  function toAddress() {
+    ballToRest();
+    setState(ADDRESS);
+  }
+
+  function hit(launch, hitSide = side) {
+    side = hitSide;
+    // A new shot always starts from the address view, even mid-flight.
+    director.reset(side);
+    ballToRest();
+    landingMarker.visible = false;
+
+    shot = new Shot({ dt: SHOT_DT, ...launch });
+    analysis = analyzeShot(shot, side);
+
+    const positions = [];
+    for (let i = 0; i < shot.points.length; i += TRACER_STRIDE) {
+      const p = shot.points[i].position;
+      positions.push(
+        p.x * YARDS_PER_METER,
+        p.y * YARDS_PER_METER + restPosition.y,
+        p.z * YARDS_PER_METER,
+      );
+    }
+    const last = shot.points[shot.points.length - 1].position;
+    positions.push(
+      last.x * YARDS_PER_METER,
+      BALL_RADIUS,
+      last.z * YARDS_PER_METER,
+    );
+    tracer.geometry.dispose();
+    tracer.geometry = new LineGeometry();
+    tracer.geometry.setPositions(positions);
+    tracer.geometry.instanceCount = 0;
+    tracer.visible = true;
+
+    flightSeconds = 0;
+    progressSeconds = 0;
+    setState(SWING);
+  }
+
+  function setSide(nextSide) {
+    side = nextSide;
+    if (state === ADDRESS) director.reset(side);
+  }
+
+  function updateFlight(dt) {
+    flightSeconds += dt;
+    const lastIndex = shot.points.length - 1;
+    const index = Math.min(Math.floor(flightSeconds / SHOT_DT), lastIndex);
+    const point = shot.points[index];
+
+    ball.position
+      .copy(point.position)
+      .multiplyScalar(YARDS_PER_METER)
+      .add(restPosition);
+    ballVelocity.copy(point.velocity).multiplyScalar(YARDS_PER_METER);
+    tracer.geometry.instanceCount = Math.floor(index / TRACER_STRIDE);
+
+    progressSeconds += dt;
+    if (onProgress && progressSeconds >= PROGRESS_INTERVAL_SECONDS) {
+      progressSeconds = 0;
+      onProgress({
+        carryYards: ball.position.z,
+        heightYards: ball.position.y,
+        offlineYards: -ball.position.x,
+      });
+    }
+
+    if (index === lastIndex) {
+      ball.position.y = BALL_RADIUS;
+      landing.copy(ball.position).setY(0);
+      tracer.geometry.instanceCount = Infinity;
+
+      landingMarker.position.copy(landing);
+      const material = landingLabel.material;
+      if (material.map) material.map.dispose();
+      material.map = labelTexture(`${Math.round(analysis.carryYards)} yd`);
+      material.needsUpdate = true;
+      landingMarker.visible = true;
+
+      landedSeconds = 0;
+      setState(LANDED);
+      if (onResult) onResult(analysis);
+    }
+  }
+
+  function update(dt) {
+    if (state === SWING) {
+      // Phase 2 puts the golfer's swing here; until then the ball leaves at once.
+      setState(FLIGHT);
+    } else if (state === FLIGHT) {
+      updateFlight(dt);
+    } else if (state === LANDED) {
+      landedSeconds += dt;
+      if (landedSeconds >= LANDED_HOLD_SECONDS) toAddress();
+    }
+
+    director.update(dt, {
+      state,
+      side,
+      ball: ball.position,
+      velocity: ballVelocity,
+      landing,
     });
-    var gridMesh = new THREE.Mesh(gridGeometry, gridMaterial);
-    gridMesh.rotation.x = -Math.PI / 2; // Rotate the grid to align with the scene
-    scene.add(gridMesh);
+    camera.position.copy(director.position);
+    camera.lookAt(director.target);
 
-    scene.add(grid);
-
-    // add marker indicators
-    var markerColor = 0x00ffff;
-    var textMesh = new THREE.MeshNormalMaterial();
-    var font = new FontLoader().parse(helvetiker);
-    var markerYardage = 0;
-    while (markerYardage < gridHeight) {
-      // text
-      markerYardage += 50;
-      var textGeometry = new TextGeometry(markerYardage + "yd", {
-        size: 4,
-        depth: 0.1,
-        curveSegments: 1,
-        font: font,
-      });
-      textGeometry.computeBoundingBox();
-      textGeometry.computeVertexNormals();
-      var words = new THREE.Mesh(textGeometry, textMesh);
-      words.position.x = gridWidth / 2.0 + 5;
-      words.position.z =
-        markerYardage +
-        sceneZOffset -
-        0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-      words.rotation.y = (-1 * Math.PI) / 2;
-      scene.add(words);
-
-      // line across grid
-      var pointA = new THREE.Vector3(
-        -gridWidth / 2.0,
-        0,
-        markerYardage + sceneZOffset
+    // Keep the ball readable at range, and give it a ground shadow in the air.
+    const distance = camera.position.distanceTo(ball.position);
+    ball.scale.setScalar(
+      Math.max(1, (distance * BALL_MIN_ANGULAR_RADIUS) / BALL_RADIUS),
+    );
+    const airborne = state === FLIGHT || state === LANDED;
+    ballShadow.visible = airborne;
+    if (airborne) {
+      const height = Math.max(0, ball.position.y);
+      ballShadow.position.set(ball.position.x, 0.04, ball.position.z);
+      ballShadow.scale.setScalar(
+        BALL_RADIUS * ball.scale.x * (1 + height * 0.02),
       );
-      var pointB = new THREE.Vector3(
-        gridWidth / 2.0,
-        0,
-        markerYardage + sceneZOffset
-      );
-      var lineGeometry = new THREE.BufferGeometry().setFromPoints([
-        pointA,
-        pointB,
-      ]);
-      var lineMaterial = new THREE.LineBasicMaterial({
-        color: markerColor,
-        linewidth: 2,
-      });
-      var markerLine = new THREE.Line(lineGeometry, lineMaterial);
-      scene.add(markerLine);
+      ballShadow.material.opacity = 0.4 / (1 + height * 0.05);
     }
   }
 
-  function beginShot() {
-    points = [];
-    shot = new Shot(shotControl);
-    points.push(shot.points[0].position.clone());
-    displaySpeed = shotControl.displaySpeed;
-    displayStartTime = Date.now();
+  // --- render loop ---
+  function resize() {
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (!width || !height) return;
+    renderer.setSize(width, height);
+    camera.aspect = width / height;
+    // On tall, narrow screens widen the lens so the range still reads.
+    camera.fov = camera.aspect < 1 ? 62 : 48;
+    camera.updateProjectionMatrix();
+    tracerMaterial.resolution.set(width, height);
   }
+  const resizeObserver = new ResizeObserver(resize);
+  resizeObserver.observe(container);
+  resize();
 
-
-  function updateShot() {
-    var now = Date.now();
-    var rawTimeElapsed = now - displayStartTime;
-    var displayTimeElapsed = Math.floor(displaySpeed * rawTimeElapsed);
-    var initPoint = new THREE.Vector3(0, 0, sceneZOffset);
-    var lineColor = new THREE.Color(0x0000ff);
-    var splineInterpolationNum = 2;
-
-    if (displayTimeElapsed <= shot.points.length) {
-      var point = shot.points[displayTimeElapsed];
-      if (point == null) {
-        return;
-      }
-      var convertedPosition = point.position.clone().multiplyScalar(toYards(1)); // convert meters to yards
-      points.push(convertedPosition);
-
-      // draw interpolated line
-      if (points.length < 2) return;
-      var newline = DrawLib.getSplinedLine(
-        points,
-        splineInterpolationNum,
-        lineColor
-      );
-      if (line) {
-        scene.remove(line);
-        line.geometry.dispose();
-      }
-      line = newline;
-      line.position.copy(initPoint);
-      scene.add(line);
-
-      // statusElementTime.innerHTML =
-      //   (displayTimeElapsed / 1000).toFixed(1) + " s";
-      // statusElementSpeed.innerHTML =
-      //   toMPH(point.velocity.length()).toFixed(1) + " mph";
-      // statusElementHeight.innerHTML = convertedPosition.y.toFixed(0) + " yds";
-      // statusElementDistance.innerHTML = convertedPosition.z.toFixed(0) + " yds";
-      // statusElementSpin.innerHTML =
-      //   toRPM(point.angularVelocity.length()).toFixed(0) + " rpm";
-      distanceDisplay.innerHTML = convertedPosition.z.toFixed(0);
-
-      // for adding particles
-      // if (points.length % 10 == 0) {
-      //     particlePoints.push(position);
-      //     var newParticles = DrawLib.getBallParticles(THREE,particlePoints);
-      //     scene.remove(particles);
-      //     particles = newParticles;
-      //     particles.position = initPoint;
-      //     scene.add(particles);
-      //     lastParticleTime = now;
-      // }
-    }
+  const clock = new THREE.Clock();
+  let frameId = null;
+  function frame() {
+    frameId = requestAnimationFrame(frame);
+    update(Math.min(clock.getDelta(), MAX_FRAME_SECONDS));
+    renderer.render(scene, camera);
   }
-
-  // begin
-  init();
-  animate();
+  ballToRest();
+  frame();
 
   function dispose() {
     cancelAnimationFrame(frameId);
-    window.removeEventListener("resize", onWindowResize, false);
-    controls.dispose();
+    resizeObserver.disconnect();
+    scene.traverse((object) => {
+      if (object.geometry) object.geometry.dispose();
+      const materials = [].concat(object.material || []);
+      for (const material of materials) {
+        if (material.map) material.map.dispose();
+        material.dispose();
+      }
+    });
     renderer.dispose();
     container.removeChild(renderer.domElement);
   }
 
-  return {
-    beginShot,
-    shotControl,
+  const api = {
+    hit,
+    setSide,
     dispose,
+    // Step the simulation by hand; used to verify behaviour without waiting
+    // on real time.
+    advance(seconds, step = 1 / 60) {
+      for (let t = 0; t < seconds; t += step) update(step);
+      renderer.render(scene, camera);
+    },
+    inspect() {
+      return {
+        state,
+        side,
+        ball: ball.position.toArray(),
+        camera: camera.position.toArray(),
+        cameraTarget: director.target.toArray(),
+        flightSeconds,
+        analysis,
+      };
+    },
+    scene,
+    camera,
   };
-};
+  if (process.env.NODE_ENV !== "production") window.__golfSim = api;
+  return api;
+}

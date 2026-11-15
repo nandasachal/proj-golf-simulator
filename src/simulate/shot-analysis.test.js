@@ -5,7 +5,7 @@ import { analyzeShot, shotShape } from "./shot-analysis";
 const hit = (faceAngle, pathAngle, side = "Right", swingSpeedMPH = 95) =>
   analyzeShot(
     new Shot(launchConditions({ faceAngle, pathAngle, swingSpeedMPH, side })),
-    side
+    side,
   );
 
 describe("analyzeShot", () => {
@@ -54,7 +54,7 @@ describe("analyzeShot", () => {
 
   test("bigger face-to-path gap curves more", () => {
     expect(Math.abs(hit(4, 0).curveYards)).toBeGreaterThan(
-      Math.abs(hit(2, 0).curveYards)
+      Math.abs(hit(2, 0).curveYards),
     );
   });
 });
@@ -67,7 +67,7 @@ describe("shotShape", () => {
         curveYards: 0,
         carryYards: 0,
         side: "Right",
-      })
+      }),
     ).toBe("Straight");
   });
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "./App.scss";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -10,7 +10,7 @@ import { useQueryState } from "./hooks/use-query";
 import ButtonRow from "./components/simulator/button-row";
 import { Toaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
-import { StartBall } from "./simulate/main";
+import { createSimulator } from "./simulate/main";
 import { launchConditions } from "./simulate/launch-conditions";
 import {
   CLUB_FACE_ANGLE_VALUES,
@@ -28,19 +28,19 @@ function App() {
   const [clubFaceAngleSliderValue, setClubFaceAngleSliderState] = useQueryState(
     "face",
     CLUB_FACE_ANGLE_VALUES.DEFAULT,
-    true
+    true,
   );
   // InitSpinAngle
   const [clubPathAngleSliderValue, setClubPathAngleSliderState] = useQueryState(
     "path",
     CLUB_PATH_ANGLE_VALUES.DEFAULT,
-    true
+    true,
   );
   // InitSpeedMPH
   const [swingSpeedSliderValue, setSwingSpeedSliderState] = useQueryState(
     "speed",
     SWING_SPEED_VALUES.DEFAULT,
-    true
+    true,
   );
 
   const handleClubFaceAngleSliderChange = (newValue) => {
@@ -74,19 +74,26 @@ function App() {
     side,
   });
 
+  const containerRef = useRef(null);
+  const [carry, setCarry] = useState(null);
+
   useEffect(() => {
-    const sim = StartBall(launch);
+    const sim = createSimulator(containerRef.current, {
+      side,
+      onProgress: (progress) => setCarry(progress.carryYards),
+      onResult: (result) => setCarry(result.carryYards),
+    });
     shotRef.current = sim;
     return () => sim.dispose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (shotRef.current) shotRef.current.setSide(side);
+  }, [side]);
+
   const handleClick = () => {
-    const sim = shotRef.current;
-    if (sim) {
-      Object.assign(sim.shotControl, launch);
-      sim.beginShot();
-    }
+    if (shotRef.current) shotRef.current.hit(launch, side);
   };
 
   return (
@@ -139,13 +146,16 @@ function App() {
                 clubPathAngle={clubPathAngleSliderValue}
               />
             </div> */}
-            <div className="h-full">
-              <div id="display-container">
-                <div className="absolute top-4 right-4 bg-gray-200 p-2 w-[80px] font-semibold text-center aspect-square flex items-center justify-center text-lg flex-col">
-                  <p id="distance-display"></p>
-                  <p className="text-sm font-normal">Yards</p>
-                </div>
-
+            <div
+              id="display-container"
+              ref={containerRef}
+              className="h-[560px] rounded-lg overflow-hidden shadow-lg"
+            >
+              <div className="absolute top-4 right-4 bg-gray-200 p-2 w-[80px] font-semibold text-center aspect-square flex items-center justify-center text-lg flex-col">
+                <p id="distance-display">
+                  {carry == null ? "–" : Math.round(carry)}
+                </p>
+                <p className="text-sm font-normal">Yards</p>
               </div>
             </div>
           </div>

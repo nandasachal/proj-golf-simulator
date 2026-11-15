@@ -32,20 +32,20 @@ describe("launchConditions", () => {
 
   test("start direction is mostly the face, partly the path", () => {
     expect(
-      setup({ faceAngle: 4, pathAngle: 0 }).initHorizontalAngleDegrees
+      setup({ faceAngle: 4, pathAngle: 0 }).initHorizontalAngleDegrees,
     ).toBeCloseTo(4 * FACE_START_WEIGHT);
     expect(
-      setup({ faceAngle: 0, pathAngle: 4 }).initHorizontalAngleDegrees
+      setup({ faceAngle: 0, pathAngle: 4 }).initHorizontalAngleDegrees,
     ).toBeCloseTo(4 * (1 - FACE_START_WEIGHT));
   });
 
   test("curve comes from face-to-path, not face alone", () => {
     expect(setup({ faceAngle: 5, pathAngle: 5 }).initSpinAngle).toBeCloseTo(0);
     expect(setup({ faceAngle: 4, pathAngle: 1 }).initSpinAngle).toBeCloseTo(
-      -3 * AXIS_TILT_PER_DEGREE
+      -3 * AXIS_TILT_PER_DEGREE,
     );
     expect(setup({ faceAngle: 1, pathAngle: 4 }).initSpinAngle).toBeCloseTo(
-      3 * AXIS_TILT_PER_DEGREE
+      3 * AXIS_TILT_PER_DEGREE,
     );
   });
 
@@ -53,7 +53,7 @@ describe("launchConditions", () => {
     const right = setup({ faceAngle: 3, pathAngle: -2 });
     const left = setup({ faceAngle: 3, pathAngle: -2, side: "Left" });
     expect(left.initHorizontalAngleDegrees).toBeCloseTo(
-      -right.initHorizontalAngleDegrees
+      -right.initHorizontalAngleDegrees,
     );
     expect(left.initSpinAngle).toBeCloseTo(-right.initSpinAngle);
   });
