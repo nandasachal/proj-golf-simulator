@@ -251,10 +251,17 @@ function App() {
                 onNewTarget={handleNewTarget}
               />
             )}
+          </div>
+        </div>
+        {/* Result bar along the bottom, centred in the part of the scene the
+            control panel doesn't cover. On phones it takes the full width and
+            the feedback button sits above it. */}
+        <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex justify-center md:bottom-4 md:left-[332px] md:right-20">
+          <div className="pointer-events-auto max-w-full">
             <ShotReadout live={live} result={result} />
           </div>
         </div>
-        <div className="absolute bottom-3 right-3 md:bottom-4 md:right-4">
+        <div className="absolute bottom-[84px] right-3 md:bottom-4 md:right-4">
           <FloatingFeedbackButton />
         </div>
       </div>

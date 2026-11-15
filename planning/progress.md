@@ -50,3 +50,8 @@ new target after a hit. check: green (117 tests + strict build) · decisions:
 "hit" means any ground contact inside the ring, not only where the ball stops;
 bentgrass/bermudagrass modifiers are rough, direction-only adjustments · next:
 game-mode follow-ups on the roadmap; phone layout is crowded with both cards up.
+
+2026-11-15 — result bar — done: the shot readout is now a low, wide bar along the
+bottom of the scene (centred in the area the control panel doesn't cover; full
+width on phones with the feedback button above it) instead of a card top-right.
+check: green · next: nothing queued.
