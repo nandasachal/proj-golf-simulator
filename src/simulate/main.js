@@ -307,6 +307,7 @@ export function createSimulator(container, callbacks = {}) {
   }
 
   // --- render loop ---
+  let viewInset = 0;
   function resize() {
     const width = container.clientWidth;
     const height = container.clientHeight;
@@ -315,8 +316,19 @@ export function createSimulator(container, callbacks = {}) {
     camera.aspect = width / height;
     // On tall, narrow screens widen the lens so the range still reads.
     camera.fov = camera.aspect < 1 ? 62 : 48;
+    // Shift the picture right by half the covered strip so the scene is
+    // centred in the uncovered part of the container.
+    if (viewInset) {
+      camera.setViewOffset(width, height, -viewInset / 2, 0, width, height);
+    } else {
+      camera.clearViewOffset();
+    }
     camera.updateProjectionMatrix();
     tracerMaterial.resolution.set(width, height);
+  }
+  function setViewInset(leftPixels) {
+    viewInset = leftPixels;
+    resize();
   }
   const resizeObserver = new ResizeObserver(resize);
   resizeObserver.observe(container);
@@ -350,6 +362,7 @@ export function createSimulator(container, callbacks = {}) {
   const api = {
     hit,
     setSide,
+    setViewInset,
     dispose,
     // Step the simulation by hand; used to verify behaviour without waiting
     // on real time.

@@ -4,12 +4,13 @@ import { Question } from "react-bootstrap-icons";
 const FloatingFeedbackButton = () => {
   return (
     <a
-      className="fixed bottom-6 right-6 p-2 z-[1000] border border-gray-50 h-[50px] w-[50px] flex items-center justify-center shadow-md rounded-full bg-white"
+      className="hud-panel flex h-10 w-10 items-center justify-center !rounded-full"
       href="https://docs.google.com/forms/d/e/1FAIpQLSfR6vP8GLaPvjIRF9qY8NDl5em_JxNO10pJcJrR03tU-B0YIw/viewform"
       target="_blank"
       rel="noreferrer"
+      aria-label="Send feedback"
     >
-      <Question size={30} color="#444" />
+      <Question size={24} />
     </a>
   );
 };

@@ -1,58 +1,45 @@
 import React, { useState } from "react";
 import {
   ArrowCounterclockwise,
-  Paperclip,
+  Check,
   PlayFill,
   ShareFill,
 } from "react-bootstrap-icons";
 import toast from "react-hot-toast";
 
+const secondary =
+  "flex items-center justify-center rounded-lg bg-white/10 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/20 hover:text-white";
+
 const ButtonRow = ({ handleReset, simulate }) => {
   const [isCopied, setIsCopied] = useState(false);
   const handleCopyURL = () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(window.location.href);
     setIsCopied(true);
-    toast.success("Share Link Copied!", {
-      duration: 3000,
-    });
-    setTimeout(() => {
-      setIsCopied(false);
-    }, 700);
+    toast.success("Share link copied");
+    setTimeout(() => setIsCopied(false), 1500);
   };
 
   return (
-    <div className="mt-4">
+    <div className="mt-5">
       <button
-        className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold w-full mb-4 flex items-center justify-center disabled:opacity-50"
+        type="button"
+        className="flex w-full items-center justify-center rounded-lg bg-lime-400 py-2.5 text-base font-bold text-slate-900 transition-colors hover:bg-lime-300 active:bg-lime-500"
         onClick={simulate}
       >
         <PlayFill size={20} className="mr-1" />
-        Simulate
+        Hit
       </button>
-      <div className="grid grid-cols-2 gap-4">
-        <button
-          className="bg-gray-200 text-primary-600 px-6 py-2 rounded-lg font-semibold flex items-center justify-center disabled:opacity-50"
-          onClick={handleCopyURL}
-          disabled={isCopied}
-        >
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button type="button" className={secondary} onClick={handleCopyURL}>
           {isCopied ? (
-            <>
-              <Paperclip size={14} className="mr-1" />
-              Copied
-            </>
+            <Check size={16} className="mr-1" />
           ) : (
-            <>
-              <ShareFill size={14} className="mr-1" />
-              Share
-            </>
+            <ShareFill size={12} className="mr-1.5" />
           )}
+          {isCopied ? "Copied" : "Share"}
         </button>
-        <button
-          className="bg-gray-200 text-red-500 px-6 py-2 rounded-lg font-semibold flex items-center justify-center disabled:opacity-50"
-          onClick={handleReset}
-        >
-          <ArrowCounterclockwise size={14} className="mr-1" />
+        <button type="button" className={secondary} onClick={handleReset}>
+          <ArrowCounterclockwise size={14} className="mr-1.5" />
           Reset
         </button>
       </div>

@@ -39,16 +39,16 @@ function canvasTexture(width, height, draw) {
 function speckle(ctx, width, height, random, count, colors) {
   for (let i = 0; i < count; i++) {
     ctx.fillStyle = colors[Math.floor(random() * colors.length)];
-    const size = 1 + random() * 2.5;
+    const size = 1 + random() * 1.5;
     ctx.fillRect(random() * width, random() * height, size, size);
   }
 }
 
 function roughTexture(random) {
-  const texture = canvasTexture(256, 256, (ctx, w, h) => {
+  const texture = canvasTexture(512, 512, (ctx, w, h) => {
     ctx.fillStyle = "#3f6f2c";
     ctx.fillRect(0, 0, w, h);
-    speckle(ctx, w, h, random, 5000, [
+    speckle(ctx, w, h, random, 26000, [
       "#35622a",
       "#4a7a33",
       "#2f5825",
@@ -61,12 +61,12 @@ function roughTexture(random) {
 
 // Two mowing bands per tile, so one tile spans 2 * bandYards down the range.
 function fairwayTexture(random) {
-  const texture = canvasTexture(256, 256, (ctx, w, h) => {
+  const texture = canvasTexture(512, 512, (ctx, w, h) => {
     ctx.fillStyle = "#66ab40";
     ctx.fillRect(0, 0, w, h / 2);
     ctx.fillStyle = "#4b8a31";
     ctx.fillRect(0, h / 2, w, h / 2);
-    speckle(ctx, w, h, random, 2500, ["#6fb548", "#447f2d", "#5a9a3b"]);
+    speckle(ctx, w, h, random, 14000, ["#6fb548", "#447f2d", "#5a9a3b"]);
   });
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   return texture;
@@ -172,7 +172,7 @@ function buildGround(random, anisotropy) {
   const bandYards = 12.5;
   const fairwayLength = RANGE_LENGTH + 30;
   const fairway = fairwayTexture(random);
-  fairway.repeat.set(10, fairwayLength / (2 * bandYards));
+  fairway.repeat.set(24, fairwayLength / (2 * bandYards));
   fairway.anisotropy = anisotropy;
   const fairwayMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(FAIRWAY_HALF_WIDTH * 2, fairwayLength),
