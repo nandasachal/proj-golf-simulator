@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
-import { buildRange, FOG } from "./range";
+import { buildRange, groundOverlay, FOG } from "./range";
 import {
   CameraDirector,
   ADDRESS,
@@ -67,7 +67,7 @@ export function createSimulator(container, callbacks = {}) {
     buildRange({ anisotropy: renderer.capabilities.getMaxAnisotropy() }),
   );
 
-  const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 4000);
+  const camera = new THREE.PerspectiveCamera(48, 1, 0.5, 2600);
 
   // --- ball, tee, shadow, tracer, landing marker ---
   const restPosition = new THREE.Vector3(
@@ -101,6 +101,7 @@ export function createSimulator(container, callbacks = {}) {
     }),
   );
   ballShadow.rotation.x = -Math.PI / 2;
+  groundOverlay(ballShadow, 6);
   ballShadow.visible = false;
   scene.add(ballShadow);
 
@@ -130,6 +131,7 @@ export function createSimulator(container, callbacks = {}) {
     }),
   );
   landingRing.rotation.x = -Math.PI / 2;
+  groundOverlay(landingRing, 6);
   landingRing.position.y = 0.05;
   const landingLabel = new THREE.Sprite(
     new THREE.SpriteMaterial({ depthTest: false, fog: false }),
@@ -170,18 +172,21 @@ export function createSimulator(container, callbacks = {}) {
     targetMaterial,
   );
   targetDisc.rotation.x = -Math.PI / 2;
+  groundOverlay(targetDisc, 4);
   targetDisc.position.y = 0.06;
   const targetEdge = new THREE.Mesh(
     new THREE.RingGeometry(0.93, 1, 64),
     targetEdgeMaterial,
   );
   targetEdge.rotation.x = -Math.PI / 2;
+  groundOverlay(targetEdge, 5);
   targetEdge.position.y = 0.07;
   const targetBullseye = new THREE.Mesh(
     new THREE.RingGeometry(0.3, 0.36, 48),
     targetEdgeMaterial,
   );
   targetBullseye.rotation.x = -Math.PI / 2;
+  groundOverlay(targetBullseye, 5);
   targetBullseye.position.y = 0.07;
   const targetBeacon = new THREE.Mesh(
     new THREE.CylinderGeometry(1.2, 1.2, 45, 16, 1, true),

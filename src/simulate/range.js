@@ -87,6 +87,20 @@ function signTexture(yards) {
   });
 }
 
+// Flat things painted on the ground (fairway, greens, lines) sit only a
+// hundredth of a yard above the turf, far closer than the depth buffer can
+// tell apart a few hundred yards out, so left alone they flicker against it as
+// the camera moves. Each overlay is drawn after the layer beneath it, is
+// nudged toward the camera in depth, and leaves the depth buffer alone.
+export function groundOverlay(mesh, layer) {
+  mesh.renderOrder = layer;
+  mesh.material.polygonOffset = true;
+  mesh.material.polygonOffsetFactor = -layer;
+  mesh.material.polygonOffsetUnits = -8 * layer;
+  mesh.material.depthWrite = false;
+  return mesh;
+}
+
 function buildSky() {
   const material = new THREE.ShaderMaterial({
     side: THREE.BackSide,
@@ -181,6 +195,7 @@ function buildGround(random, anisotropy) {
   fairwayMesh.rotation.x = -Math.PI / 2;
   fairwayMesh.position.set(0, 0.01, fairwayLength / 2 - 10);
   fairwayMesh.receiveShadow = true;
+  groundOverlay(fairwayMesh, 1);
   fairwayMesh.name = "fairway";
   group.add(fairwayMesh);
 
@@ -216,6 +231,7 @@ function buildMarkers() {
       lineMaterial,
     );
     line.rotation.x = -Math.PI / 2;
+    groundOverlay(line, 3);
     line.position.y = 0.03;
     marker.add(line);
 
@@ -261,6 +277,7 @@ function buildMarkers() {
     green.rotation.x = -Math.PI / 2;
     green.position.set(flagX, 0.02, 0);
     green.receiveShadow = true;
+    groundOverlay(green, 2);
     marker.add(green);
     const pole = new THREE.Mesh(
       new THREE.CylinderGeometry(0.07, 0.07, 5),
@@ -385,6 +402,7 @@ function buildTeeLine(random) {
   deck.rotation.x = -Math.PI / 2;
   deck.position.set(0, 0.02, -2.2);
   deck.receiveShadow = true;
+  groundOverlay(deck, 2);
   group.add(deck);
 
   const matMaterial = new THREE.MeshStandardMaterial({

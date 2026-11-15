@@ -38,3 +38,11 @@ the aerodynamic constants moves run as well as carry; re-check the ground tests.
 2026-11-15 — note — The ground model's bounce constants (Penner) were recalled by
 the review, not read from the paper, and its turf scalings are tuned to three
 published roll-out figures. Treat `ground.js` numbers as calibrated, not derived.
+2026-11-15 — mistake — The ground flickered whenever the camera followed the ball.
+Cause: the fairway, greens, marker lines and tee deck were planes stacked 0.01–0.03
+yd above the rough, with a 0.1 near plane; past ~100 yd the depth buffer can't
+separate them, so which plane won changed frame to frame (50–70% of ground pixels
+flipping on bad frames). Anything flat on the ground must go through
+`groundOverlay()` in `range.js` (draw order + polygon offset + no depth write), not
+just a small y offset. Still screenshots hid this; it only shows in motion, so
+measure frame-to-frame pixel change when touching the ground layers.

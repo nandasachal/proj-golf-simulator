@@ -55,3 +55,11 @@ game-mode follow-ups on the roadmap; phone layout is crowded with both cards up.
 bottom of the scene (centred in the area the control panel doesn't cover; full
 width on phones with the feedback button above it) instead of a card top-right.
 check: green · next: nothing queued.
+
+2026-11-15 — ground flicker fix — done: root-caused the flashing turf during the
+follow camera to depth fighting between the stacked ground planes (measured: up to
+72% of ground pixels changing between consecutive frames, vs a steady ~2% with the
+overlays hidden). Overlays now render through `groundOverlay()` (draw order, polygon
+offset, no depth write) and the camera near plane went 0.1 → 0.5. After: a smooth
+5–11% per frame with no spikes, which is the mowing stripes legitimately moving.
+check: green · next: nothing queued.
