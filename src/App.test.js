@@ -113,27 +113,55 @@ test("shows live carry in flight, then distance and shape once the ball lands", 
   ).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: /hit/i }));
-  act(() => callbacks.onProgress({ carryYards: 87.4 }));
-  expect(screen.getByRole("status", { name: "Shot result" })).toHaveTextContent(
-    "In the air",
-  );
-  expect(screen.getByRole("status", { name: "Shot result" })).toHaveTextContent(
-    "87",
-  );
+  act(() => callbacks.onProgress({ distanceYards: 87.4, onGround: false }));
+  const status = () => screen.getByRole("status", { name: "Shot result" });
+  expect(status()).toHaveTextContent("In the air");
+  expect(status()).toHaveTextContent("87");
+
+  act(() => callbacks.onProgress({ distanceYards: 251.6, onGround: true }));
+  expect(status()).toHaveTextContent("On the ground");
 
   act(() =>
     callbacks.onResult({
       shape: "Push Fade",
       carryYards: 243.2,
+      runYards: 18.4,
+      totalYards: 261.6,
       offlineYards: 26.4,
       apexYards: 31,
       flightSeconds: 6.24,
     }),
   );
-  const status = screen.getByRole("status", { name: "Shot result" });
-  expect(status).toHaveTextContent("Push Fade");
-  expect(status).toHaveTextContent("243");
-  expect(status).toHaveTextContent("26 yd right");
-  expect(status).toHaveTextContent("93 ft");
-  expect(status).toHaveTextContent("6.2 s");
+  expect(status()).toHaveTextContent("Push Fade");
+  expect(status()).toHaveTextContent("262yd total");
+  expect(status()).toHaveTextContent("243 yd");
+  expect(status()).toHaveTextContent("18 yd");
+  expect(status()).toHaveTextContent("26 yd right");
+  expect(status()).toHaveTextContent("93 ft");
+});
+
+test("turf defaults to normal, can be changed, and goes with the next hit", () => {
+  renderApp();
+  expect(screen.getByRole("button", { name: "Normal" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  fireEvent.click(screen.getByRole("button", { name: /hit/i }));
+  expect(simulator.hit.mock.calls.at(-1)[2]).toBe("normal");
+
+  fireEvent.click(screen.getByRole("button", { name: "Firm" }));
+  expect(screen.getByRole("button", { name: "Firm" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  fireEvent.click(screen.getByRole("button", { name: /hit/i }));
+  expect(simulator.hit.mock.calls.at(-1)[2]).toBe("firm");
+});
+
+test("an unknown turf in the URL falls back to normal", () => {
+  renderApp("/?turf=lava");
+  expect(screen.getByRole("button", { name: "Normal" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });

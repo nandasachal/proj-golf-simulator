@@ -90,6 +90,41 @@ describe("Shot trajectory", () => {
     expect(end.x / end.z).toBeGreaterThan(mid.x / mid.z);
   });
 
+  test("the last point is exactly on the ground", () => {
+    expect(landing(shoot()).y).toBeCloseTo(0, 9);
+    expect(landing(shoot({ initSpinAngle: 30 })).y).toBeCloseTo(0, 9);
+  });
+
+  test("the spin angle is a true tilt of the spin axis", () => {
+    const spin = shoot({ initBackspinRPM: 3000, initSpinAngle: 30 }).points[0]
+      .angularVelocity;
+    expect((Math.atan2(spin.y, -spin.x) * 180) / Math.PI).toBeCloseTo(30, 6);
+  });
+
+  // TrackMan: a 10° spin-axis tilt curves the ball about 11 yd at 150 yd of
+  // carry and about 15 yd at 200.
+  test.each([
+    ["LPGA 7 iron", 76, 1.37, 19.0, 6699, 11, 150],
+    ["LPGA 5 wood", 88, 1.455, 12.1, 4501, 15, 200],
+  ])(
+    "%s curves the published amount for 10° of axis tilt",
+    (_name, speed, smash, launch, rpm, curveYards, atCarry) => {
+      const end = landing(
+        shoot({
+          initSpeedMPH: speed,
+          smashFactor: smash,
+          initVerticalAngleDegrees: launch,
+          initBackspinRPM: rpm,
+          initSpinAngle: 10,
+        }),
+      );
+      const yards = 1.09361;
+      // scale the published figure to the carry this shot actually had
+      const expected = curveYards * ((end.z * yards) / atCarry);
+      expect(Math.abs(end.x * yards - expected) / expected).toBeLessThan(0.2);
+    },
+  );
+
   test("spin decays during flight", () => {
     const shot = shoot();
     const first = shot.points[0].angularVelocity.length();

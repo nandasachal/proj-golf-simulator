@@ -29,3 +29,14 @@ physics fixed despite spec saying out of scope; procedural golfer instead of an
 imported rig; hosting moves to Render static site (GitHub Pages + custom domain left
 untouched) · next: judge it live, then scope Phase 4 (visual fidelity) with Sachal;
 move golfswingsimulator.com DNS to Render if wanted.
+
+2026-11-15 — ball physics review + bounce and roll — done: independent review of the
+flight model; added `ground.js` (Penner bounce, Stimpmeter roll, Soft/Normal/Firm
+ryegrass presets) with the run animated in the scene and a Turf toggle; readout now
+leads with total and shows carry and run. Flight fixes from the review: true
+spin-axis tilt at ~4.5° per degree of face-to-path, speed-dependent driver launch
+table, landing interpolated to the ground. check: green (94 tests + strict build) ·
+decisions: implemented the review's recommendations A, B and D; left the
+Reynolds-number drag term (C) for later · next: verify Penner's constants against
+the paper; consider damping first-bounce height; see
+planning/eng-plans/ball-physics-review.md.

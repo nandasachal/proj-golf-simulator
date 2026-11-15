@@ -32,3 +32,9 @@ locally first.
 2026-11-15 — preference — Sachal: press ahead and ship rather than stopping for
 approvals on this project; hosting is Render (static site), deployed through the
 Render MCP.
+2026-11-15 — note — Roll-out depends strongly on descent angle, so launch angle and
+spin feed total distance far more than they feed carry. Changing `driverLaunch` or
+the aerodynamic constants moves run as well as carry; re-check the ground tests.
+2026-11-15 — note — The ground model's bounce constants (Penner) were recalled by
+the review, not read from the paper, and its turf scalings are tuned to three
+published roll-out figures. Treat `ground.js` numbers as calibrated, not derived.

@@ -2,11 +2,13 @@ import { toYards } from "./conversions-lib";
 
 const STRAIGHT_START_DEGREES = 1;
 const STRAIGHT_CURVE_FRACTION = 0.012; // curve as a share of carry
-const BIG_CURVE_FRACTION = 0.085;
+const BIG_CURVE_FRACTION = 0.1;
 
 // Summarizes a finished Shot in the units and vocabulary a golfer uses.
-// Lateral values are positive to the right when looking downrange.
-export function analyzeShot(shot, side = "Right") {
+// Lateral values are positive to the right when looking downrange. Pass the
+// groundRun result to include bounce and roll; without it the ball is taken
+// to stop where it lands.
+export function analyzeShot(shot, side = "Right", run = null) {
   const points = shot.points;
   const launch = points[0].velocity;
   const landing = points[points.length - 1].position;
@@ -24,9 +26,17 @@ export function analyzeShot(shot, side = "Right") {
     offlineYards -
     carryYards * Math.tan((startDirectionDegrees * Math.PI) / 180);
 
+  const rest = run ? run.rest : landing;
+
   return {
     carryYards,
-    offlineYards,
+    runYards: run ? toYards(run.runDistance) : 0,
+    totalYards: toYards(rest.z),
+    // where the ball lands, and where it finally stops
+    carryOfflineYards: offlineYards,
+    offlineYards: toYards(-rest.x),
+    hops: run ? run.hops : 0,
+    runSeconds: run ? run.seconds : 0,
     apexYards: toYards(apex),
     flightSeconds: (points.length - 1) * shot.dt,
     startDirectionDegrees,

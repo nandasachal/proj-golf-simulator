@@ -6,6 +6,7 @@ import {
   CLUB_PATH_ANGLE_VALUES,
   SWING_SPEED_VALUES,
 } from "../../utils/constant";
+import { TURF_PRESETS } from "../../simulate/ground";
 
 const describeAngle = (value, positive, negative) => {
   if (value === 0) return "square";
@@ -44,6 +45,9 @@ const Slider = ({ id, name, display, range, value, onChange, tooltip }) => (
     />
   </div>
 );
+
+const TURF_HELP =
+  "How the landing area plays. Normal is a ryegrass fairway cut at 0.6 in with average moisture. Soft is longer (0.75 in), wet turf that kills the bounce. Firm is short (0.45 in), dry turf that runs.";
 
 const ParameterSelection = ({ values, handleValueChange }) => {
   const rightHanded = values.side === "Right";
@@ -117,6 +121,44 @@ const ParameterSelection = ({ values, handleValueChange }) => {
         onChange={(value) => handleValueChange("swingSpeed", value)}
         tooltip="Club head speed at impact with a driver. Faster swings carry farther."
       />
+
+      <div className="mt-4">
+        <p className="text-sm font-medium text-white/80">
+          Turf
+          <span
+            data-tooltip-id="main-tooltip"
+            data-tooltip-content={TURF_HELP}
+            className="cursor-help"
+          >
+            <QuestionCircleFill
+              size={12}
+              className="ml-1.5 inline text-white/40"
+            />
+          </span>
+        </p>
+        <div
+          className="mt-2 grid grid-cols-3 rounded-lg bg-white/10 p-1 text-sm"
+          role="group"
+          aria-label="Turf"
+        >
+          {Object.entries(TURF_PRESETS).map(([key, preset]) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={values.turf === key}
+              className={classNames(
+                "rounded-md py-1 font-medium transition-colors",
+                values.turf === key
+                  ? "bg-white text-slate-900"
+                  : "text-white/70 hover:text-white",
+              )}
+              onClick={() => handleValueChange("turf", key)}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
     </>
   );
 };

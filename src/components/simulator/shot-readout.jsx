@@ -19,10 +19,12 @@ const Stat = ({ label, value }) => (
   </div>
 );
 
-// Live carry while the ball is in the air, then the full result once it lands.
+const liveLabel = (live) => (live.onGround ? "On the ground" : "In the air");
+
+// Live distance while the ball is moving, then the full result once it stops.
 const ShotReadout = ({ live, result }) => {
   if (!live && !result) return null;
-  const carry = result ? result.carryYards : live.carryYards;
+  const distance = result ? result.totalYards : live.distanceYards;
 
   return (
     <div
@@ -31,25 +33,28 @@ const ShotReadout = ({ live, result }) => {
       aria-label="Shot result"
     >
       <p className="text-[11px] font-semibold uppercase tracking-wider text-lime-300">
-        {result ? result.shape : "In the air"}
+        {result ? result.shape : liveLabel(live)}
       </p>
       <p className="mt-0.5 leading-none">
         <span
           id="distance-display"
           className="text-3xl font-bold tabular-nums md:text-4xl"
         >
-          {Math.round(carry)}
+          {Math.round(distance)}
         </span>
-        <span className="ml-1.5 text-sm text-white/60">yd carry</span>
+        <span className="ml-1.5 text-sm text-white/60">
+          {result ? "yd total" : "yd"}
+        </span>
       </p>
       {result && (
         <dl className="mt-2.5 flex gap-4 border-t border-white/10 pt-2">
+          <Stat label="Carry" value={`${Math.round(result.carryYards)} yd`} />
+          <Stat label="Run" value={`${Math.round(result.runYards)} yd`} />
           <Stat label="Offline" value={describeOffline(result.offlineYards)} />
           <Stat
             label="Apex"
             value={`${Math.round(result.apexYards * FEET_PER_YARD)} ft`}
           />
-          <Stat label="Hang" value={`${result.flightSeconds.toFixed(1)} s`} />
         </dl>
       )}
     </div>

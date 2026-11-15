@@ -67,7 +67,8 @@ export const Shot = function (options) {
 
 Shot.prototype.getInitialSpin = function (spinRPM, spinAngle) {
   var spin = new Vector3(0, 0, 0);
-  spin.x = -1; // full backspin
+  // backspin about -x, tilted toward +y by the spin-axis angle
+  spin.x = -Math.cos((spinAngle * Math.PI) / 180);
   spin.y = Math.sin((spinAngle * Math.PI) / 180);
 
   spin.normalize().multiplyScalar((spinRPM * 2 * Math.PI) / 60);
@@ -108,11 +109,25 @@ Shot.prototype.projectShot = function (initPoint) {
     var decayRate = this.angularDecayVector(newPoint);
     newPoint.angularVelocity.add(decayRate);
 
-    this.points.push(newPoint);
-
     if (newPoint.position.y <= 0) {
+      // Finish exactly on the ground rather than a fraction of a step below it.
+      var fraction =
+        lastPoint.position.y / (lastPoint.position.y - newPoint.position.y);
+      newPoint.position.lerpVectors(
+        lastPoint.position,
+        newPoint.position,
+        fraction,
+      );
+      newPoint.velocity.lerpVectors(
+        lastPoint.velocity,
+        newPoint.velocity,
+        fraction,
+      );
+      this.points.push(newPoint);
       break;
     }
+
+    this.points.push(newPoint);
 
     lastPoint = newPoint;
   }

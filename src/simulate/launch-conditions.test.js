@@ -1,8 +1,8 @@
 import {
   launchConditions,
-  DRIVER,
+  driverLaunch,
+  spinAxisTiltDegrees,
   FACE_START_WEIGHT,
-  AXIS_TILT_PER_DEGREE,
 } from "./launch-conditions";
 
 const setup = (overrides = {}) =>
@@ -14,13 +14,43 @@ const setup = (overrides = {}) =>
     ...overrides,
   });
 
+describe("driverLaunch", () => {
+  test("faster swings launch lower with less spin and a better strike", () => {
+    const slow = driverLaunch(80);
+    const tour = driverLaunch(113);
+    const fast = driverLaunch(140);
+    expect(slow.launchAngleDegrees).toBeGreaterThan(tour.launchAngleDegrees);
+    expect(tour.launchAngleDegrees).toBeGreaterThan(fast.launchAngleDegrees);
+    expect(slow.backspinRPM).toBeGreaterThan(fast.backspinRPM);
+    expect(slow.smashFactor).toBeLessThan(fast.smashFactor);
+    expect(fast.smashFactor).toBeLessThanOrEqual(1.5);
+  });
+
+  test("is close to PGA Tour averages at tour speed (10.9°, 2686 rpm)", () => {
+    const tour = driverLaunch(113);
+    expect(tour.launchAngleDegrees).toBeCloseTo(11.4, 1);
+    expect(Math.abs(tour.backspinRPM - 2686)).toBeLessThan(100);
+  });
+});
+
+describe("spinAxisTiltDegrees", () => {
+  test("each degree of face-to-path tilts the axis about four and a half degrees", () => {
+    expect(spinAxisTiltDegrees(0)).toBeCloseTo(0);
+    expect(spinAxisTiltDegrees(1)).toBeGreaterThan(4);
+    expect(spinAxisTiltDegrees(1)).toBeLessThan(5);
+    expect(spinAxisTiltDegrees(-3)).toBeCloseTo(-spinAxisTiltDegrees(3));
+    expect(spinAxisTiltDegrees(12)).toBeLessThan(60);
+  });
+});
+
 describe("launchConditions", () => {
-  test("passes swing speed through and uses driver launch numbers", () => {
+  test("passes swing speed through and uses the driver numbers for that speed", () => {
+    const driver = driverLaunch(120);
     expect(setup({ swingSpeedMPH: 120 })).toMatchObject({
       initSpeedMPH: 120,
-      smashFactor: DRIVER.smashFactor,
-      initVerticalAngleDegrees: DRIVER.launchAngleDegrees,
-      initBackspinRPM: DRIVER.backspinRPM,
+      smashFactor: driver.smashFactor,
+      initVerticalAngleDegrees: driver.launchAngleDegrees,
+      initBackspinRPM: driver.backspinRPM,
     });
   });
 
@@ -42,10 +72,10 @@ describe("launchConditions", () => {
   test("curve comes from face-to-path, not face alone", () => {
     expect(setup({ faceAngle: 5, pathAngle: 5 }).initSpinAngle).toBeCloseTo(0);
     expect(setup({ faceAngle: 4, pathAngle: 1 }).initSpinAngle).toBeCloseTo(
-      -3 * AXIS_TILT_PER_DEGREE,
+      -spinAxisTiltDegrees(3),
     );
     expect(setup({ faceAngle: 1, pathAngle: 4 }).initSpinAngle).toBeCloseTo(
-      3 * AXIS_TILT_PER_DEGREE,
+      spinAxisTiltDegrees(3),
     );
   });
 

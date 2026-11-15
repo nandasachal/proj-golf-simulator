@@ -12,6 +12,7 @@ import ShotReadout from "./components/simulator/shot-readout";
 import { useQueryState } from "./hooks/use-query";
 import { createSimulator } from "./simulate/main";
 import { launchConditions } from "./simulate/launch-conditions";
+import { TURF_PRESETS } from "./simulate/ground";
 import {
   CLUB_FACE_ANGLE_VALUES,
   CLUB_PATH_ANGLE_VALUES,
@@ -47,6 +48,8 @@ function App() {
     true,
   );
 
+  const [rawTurf, setTurf] = useQueryState("turf", "normal", false);
+  const turf = TURF_PRESETS[rawTurf] ? rawTurf : "normal";
   const side = rawSide === "Left" ? "Left" : "Right";
   const faceAngle = clamp(rawFace, CLUB_FACE_ANGLE_VALUES);
   const pathAngle = clamp(rawPath, CLUB_PATH_ANGLE_VALUES);
@@ -95,6 +98,7 @@ function App() {
     else if (type === "clubFaceAngle") setFaceAngle(newValue);
     else if (type === "clubPathAngle") setPathAngle(newValue);
     else if (type === "swingSpeed") setSwingSpeed(newValue);
+    else if (type === "turf") setTurf(newValue);
   };
 
   const handleReset = () => {
@@ -112,6 +116,7 @@ function App() {
         side,
       }),
       side,
+      turf,
     );
   };
 
@@ -149,6 +154,7 @@ function App() {
             clubPathAngleSliderValue: pathAngle,
             swingSpeedSliderValue: swingSpeed,
             side,
+            turf,
           }}
           handleValueChange={handleValueChange}
         />

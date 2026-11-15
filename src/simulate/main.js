@@ -13,6 +13,7 @@ import {
 import { createGolfer, CONTACT_TIME, SWING_DURATION } from "./golfer";
 import { Shot } from "./shot";
 import { analyzeShot } from "./shot-analysis";
+import { groundRun, turfParameters, TURF_PRESETS } from "./ground";
 import { toYards } from "./conversions-lib";
 
 // Scene units are yards; the physics runs in meters.
@@ -25,7 +26,7 @@ const MAT_TOP = 0.06;
 // camera) so it stays visible 300 yards out.
 const BALL_MIN_ANGULAR_RADIUS = 0.0052;
 const TRACER_STRIDE = 20; // physics steps per tracer vertex
-const LANDED_HOLD_SECONDS = 4.5;
+const LANDED_HOLD_SECONDS = 3.5;
 const PROGRESS_INTERVAL_SECONDS = 0.08;
 const MAX_FRAME_SECONDS = 0.1;
 
@@ -146,6 +147,11 @@ export function createSimulator(container, callbacks = {}) {
   let state = ADDRESS;
   let shot = null;
   let analysis = null;
+  // Bounce and roll after touchdown, as timed points in scene units.
+  let runPath = [];
+  let runIndex = 0;
+  let airSeconds = 0;
+  let airSegments = 0;
   let flightSeconds = 0;
   let landedSeconds = 0;
   let progressSeconds = 0;
@@ -174,7 +180,7 @@ export function createSimulator(container, callbacks = {}) {
     setState(ADDRESS);
   }
 
-  function hit(launch, hitSide = side) {
+  function hit(launch, hitSide = side, turf = "normal") {
     side = hitSide;
     // A new shot always starts from the address view, even mid-flight.
     director.reset(side);
@@ -184,7 +190,12 @@ export function createSimulator(container, callbacks = {}) {
     landingMarker.visible = false;
 
     shot = new Shot({ dt: SHOT_DT, ...launch });
-    analysis = analyzeShot(shot, side);
+    const touchdown = shot.points[shot.points.length - 1];
+    const run = groundRun(
+      touchdown,
+      turfParameters(TURF_PRESETS[turf] || TURF_PRESETS.normal),
+    );
+    analysis = analyzeShot(shot, side, run);
 
     const positions = [];
     for (let i = 0; i < shot.points.length; i += TRACER_STRIDE) {
@@ -195,12 +206,21 @@ export function createSimulator(container, callbacks = {}) {
         p.z * YARDS_PER_METER,
       );
     }
-    const last = shot.points[shot.points.length - 1].position;
-    positions.push(
-      last.x * YARDS_PER_METER,
-      BALL_RADIUS,
-      last.z * YARDS_PER_METER,
-    );
+    airSegments = positions.length / 3 - 1;
+    airSeconds = (shot.points.length - 1) * SHOT_DT;
+
+    runPath = run.points.map((point) => ({
+      t: point.t,
+      position: point.position
+        .clone()
+        .multiplyScalar(YARDS_PER_METER)
+        .add(new THREE.Vector3(0, BALL_RADIUS, 0)),
+    }));
+    runIndex = 0;
+    for (const { position } of runPath) {
+      positions.push(position.x, position.y, position.z);
+    }
+
     tracer.geometry.dispose();
     tracer.geometry = new LineGeometry();
     tracer.geometry.setPositions(positions);
@@ -220,38 +240,67 @@ export function createSimulator(container, callbacks = {}) {
     }
   }
 
-  function updateFlight(dt) {
-    flightSeconds += dt;
-    const lastIndex = shot.points.length - 1;
-    const index = Math.min(Math.floor(flightSeconds / SHOT_DT), lastIndex);
+  // In the air: follow the precomputed trajectory point for this moment.
+  function followAir() {
+    const index = Math.floor(flightSeconds / SHOT_DT);
     const point = shot.points[index];
-
     ball.position
       .copy(point.position)
       .multiplyScalar(YARDS_PER_METER)
       .add(restPosition);
     ballVelocity.copy(point.velocity).multiplyScalar(YARDS_PER_METER);
     tracer.geometry.instanceCount = Math.floor(index / TRACER_STRIDE);
+  }
+
+  // On the ground: interpolate along the bounce-and-roll path. Returns true
+  // once the ball has stopped.
+  function followRun() {
+    const t = flightSeconds - airSeconds;
+    while (runIndex < runPath.length - 2 && runPath[runIndex + 1].t <= t) {
+      runIndex++;
+    }
+    const from = runPath[runIndex];
+    const to = runPath[runIndex + 1];
+    const span = to.t - from.t;
+    const fraction =
+      span > 0 ? Math.min(1, Math.max(0, (t - from.t) / span)) : 1;
+    ball.position.lerpVectors(from.position, to.position, fraction);
+    // Keep the last heading once the ball is nearly still so the camera
+    // doesn't swing round on a rounding error.
+    if (span > 0 && from.position.distanceToSquared(to.position) > 1e-6) {
+      ballVelocity
+        .subVectors(to.position, from.position)
+        .divideScalar(span)
+        .setY(0);
+    }
+    tracer.geometry.instanceCount = airSegments + runIndex + 1;
+    return t >= runPath[runPath.length - 1].t;
+  }
+
+  function updateFlight(dt) {
+    flightSeconds += dt;
+    const onGround = flightSeconds >= airSeconds;
+    const stopped = onGround ? followRun() : followAir();
 
     progressSeconds += dt;
     if (onProgress && progressSeconds >= PROGRESS_INTERVAL_SECONDS) {
       progressSeconds = 0;
       onProgress({
-        carryYards: ball.position.z,
+        distanceYards: ball.position.z,
         heightYards: ball.position.y,
         offlineYards: -ball.position.x,
+        onGround,
       });
     }
 
-    if (index === lastIndex) {
-      ball.position.y = BALL_RADIUS;
+    if (stopped) {
       landing.copy(ball.position).setY(0);
       tracer.geometry.instanceCount = Infinity;
 
       landingMarker.position.copy(landing);
       const material = landingLabel.material;
       if (material.map) material.map.dispose();
-      material.map = labelTexture(`${Math.round(analysis.carryYards)} yd`);
+      material.map = labelTexture(`${Math.round(analysis.totalYards)} yd`);
       material.needsUpdate = true;
       landingMarker.visible = true;
 

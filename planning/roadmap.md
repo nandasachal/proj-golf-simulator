@@ -19,7 +19,14 @@
 - **Move golfswingsimulator.com to Render** — the domain still serves the
   pre-redesign GitHub Pages build; needs a DNS change and a custom domain on the
   Render static site.
-- **Bounce and roll** — distance is carry only; the ball stops where it lands.
+- [done] **Bounce and roll** (2026-11-15) — Penner bounce + Stimpmeter roll with
+  Soft / Normal / Firm ryegrass presets; readout shows total, carry and run.
+- **Physics follow-ups from the 2026-11-15 review** — a Reynolds-number drag term
+  (driver carry is ~3% short at tour speed); irons and fairway woods land 6–11°
+  too shallow (matters once club selection exists); first-bounce heights look
+  high on shallow landings; Penner's bounce constants were taken from memory and
+  should be checked against the paper. See
+  [eng-plans/ball-physics-review.md](eng-plans/ball-physics-review.md).
 
 ## Nice to Have
 
