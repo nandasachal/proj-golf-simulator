@@ -14,6 +14,7 @@ import { createGolfer, CONTACT_TIME, SWING_DURATION } from "./golfer";
 import { Shot } from "./shot";
 import { analyzeShot } from "./shot-analysis";
 import { groundRun, turfParameters, TURF_PRESETS } from "./ground";
+import { evaluateTarget } from "./game";
 import { toYards } from "./conversions-lib";
 
 // Scene units are yards; the physics runs in meters.
@@ -138,6 +139,96 @@ export function createSimulator(container, callbacks = {}) {
   landingMarker.add(landingRing, landingLabel);
   scene.add(landingMarker);
 
+  // --- game-mode target: a ring on the ground with a beacon above it ---
+  const TARGET_COLOR = 0xffb020;
+  const TARGET_HIT_COLOR = 0x8dff3a;
+  const targetMaterial = new THREE.MeshBasicMaterial({
+    color: TARGET_COLOR,
+    transparent: true,
+    opacity: 0.3,
+    depthWrite: false,
+  });
+  const targetEdgeMaterial = new THREE.MeshBasicMaterial({
+    color: TARGET_COLOR,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const targetBeaconMaterial = new THREE.MeshBasicMaterial({
+    color: TARGET_COLOR,
+    transparent: true,
+    opacity: 0.22,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    fog: false,
+  });
+  const targetGroup = new THREE.Group();
+  targetGroup.name = "target";
+  targetGroup.visible = false;
+  const targetDisc = new THREE.Mesh(
+    new THREE.CircleGeometry(1, 48),
+    targetMaterial,
+  );
+  targetDisc.rotation.x = -Math.PI / 2;
+  targetDisc.position.y = 0.06;
+  const targetEdge = new THREE.Mesh(
+    new THREE.RingGeometry(0.93, 1, 64),
+    targetEdgeMaterial,
+  );
+  targetEdge.rotation.x = -Math.PI / 2;
+  targetEdge.position.y = 0.07;
+  const targetBullseye = new THREE.Mesh(
+    new THREE.RingGeometry(0.3, 0.36, 48),
+    targetEdgeMaterial,
+  );
+  targetBullseye.rotation.x = -Math.PI / 2;
+  targetBullseye.position.y = 0.07;
+  const targetBeacon = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.2, 1.2, 45, 16, 1, true),
+    targetBeaconMaterial,
+  );
+  targetBeacon.position.y = 22.5;
+  const targetLabel = new THREE.Sprite(
+    new THREE.SpriteMaterial({ depthTest: false, fog: false }),
+  );
+  targetGroup.add(
+    targetDisc,
+    targetEdge,
+    targetBullseye,
+    targetBeacon,
+    targetLabel,
+  );
+  scene.add(targetGroup);
+  let target = null;
+
+  function paintTarget(hit) {
+    const color = hit ? TARGET_HIT_COLOR : TARGET_COLOR;
+    targetMaterial.color.set(color);
+    targetEdgeMaterial.color.set(color);
+    targetBeaconMaterial.color.set(color);
+    targetMaterial.opacity = hit ? 0.55 : 0.3;
+  }
+
+  // Pass null to clear it.
+  function setTarget(next) {
+    target = next;
+    targetGroup.visible = Boolean(next);
+    if (!next) return;
+    targetGroup.position.set(next.x, 0, next.z);
+    targetDisc.scale.setScalar(next.radius);
+    targetEdge.scale.setScalar(next.radius);
+    targetBullseye.scale.setScalar(next.radius);
+    // Sized by distance so the label reads the same from the tee.
+    const labelWidth = next.z * 0.085;
+    targetLabel.scale.set(labelWidth, labelWidth * 0.375, 1);
+    targetLabel.position.y = 6 + next.z * 0.05;
+    const material = targetLabel.material;
+    if (material.map) material.map.dispose();
+    material.map = labelTexture(`${next.distanceYards} yd`);
+    material.needsUpdate = true;
+    paintTarget(false);
+  }
+
   // --- shot state ---
   let side = callbacks.side || "Right";
   const golfer = createGolfer();
@@ -180,7 +271,8 @@ export function createSimulator(container, callbacks = {}) {
     setState(ADDRESS);
   }
 
-  function hit(launch, hitSide = side, turf = "normal") {
+  // `turf` is a set of conditions for turfParameters.
+  function hit(launch, hitSide = side, turf = TURF_PRESETS.normal) {
     side = hitSide;
     // A new shot always starts from the address view, even mid-flight.
     director.reset(side);
@@ -191,10 +283,7 @@ export function createSimulator(container, callbacks = {}) {
 
     shot = new Shot({ dt: SHOT_DT, ...launch });
     const touchdown = shot.points[shot.points.length - 1];
-    const run = groundRun(
-      touchdown,
-      turfParameters(TURF_PRESETS[turf] || TURF_PRESETS.normal),
-    );
+    const run = groundRun(touchdown, turfParameters(turf));
     analysis = analyzeShot(shot, side, run);
 
     const positions = [];
@@ -220,6 +309,13 @@ export function createSimulator(container, callbacks = {}) {
     for (const { position } of runPath) {
       positions.push(position.x, position.y, position.z);
     }
+    if (target) {
+      analysis.target = evaluateTarget(
+        target,
+        runPath.map((point) => point.position),
+      );
+    }
+    paintTarget(false);
 
     tracer.geometry.dispose();
     tracer.geometry = new LineGeometry();
@@ -304,6 +400,7 @@ export function createSimulator(container, callbacks = {}) {
       material.needsUpdate = true;
       landingMarker.visible = true;
 
+      if (analysis.target) paintTarget(analysis.target.hit);
       landedSeconds = 0;
       setState(LANDED);
       if (onResult) onResult(analysis);
@@ -413,6 +510,7 @@ export function createSimulator(container, callbacks = {}) {
   const api = {
     hit,
     setSide,
+    setTarget,
     setViewInset,
     dispose,
     // Step the simulation by hand; used to verify behaviour without waiting
@@ -430,6 +528,7 @@ export function createSimulator(container, callbacks = {}) {
         cameraTarget: director.target.toArray(),
         flightSeconds,
         swingSeconds,
+        target,
         clubhead: golfer.group
           .getObjectByName("clubhead")
           .getWorldPosition(new THREE.Vector3())

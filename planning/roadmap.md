@@ -36,6 +36,13 @@
 - Fix the stale `caniuse-lite` browserslist data (build-time warning).
 - Club selection (irons, wedges) — the physics already matches tour numbers for
   them; every shot is currently a driver.
-- Target/scoring challenges, shot history, saved presets — deferred from Phase 3.
+- [done] Target challenge (2026-11-15) — Game mode: random target rings, hit/miss
+  scoring and streak.
+- [done] Tunable turf (2026-11-15) — grass, height of cut, firmness and leaf
+  wetness editable from the ⋯ menu.
+- Game mode follow-ups: closest-to-centre scoring, a best-streak record that
+  survives a reload, difficulty levels, and a more compact phone layout (the
+  target and result cards cover much of the scene together).
+- Shot history, saved presets — deferred from Phase 3.
 - Delete dead pre-redesign code: `src/components/old/`, the unused root-level
   `src/*Component.js` files, and the old build artifacts committed at the repo root.

@@ -15,12 +15,12 @@ export const useQueryState = (query, defaulValue = "", isInteger) => {
 
       const queryString = qs.stringify(
         { ...existingQueries, [query]: value },
-        { skipNulls: true }
+        { skipNulls: true },
       );
 
       navigate(`${location.pathname}?${queryString}`);
     },
-    [navigate, location, query]
+    [navigate, location, query],
   );
 
   const value = qs.parse(location.search, { ignoreQueryPrefix: true })[query];
@@ -29,4 +29,23 @@ export const useQueryState = (query, defaulValue = "", isInteger) => {
     (isInteger && value ? Number.parseInt(value) : value) ?? defaulValue,
     setQuery,
   ];
+};
+
+// Set (or, with null, clear) several query params in one navigation. Separate
+// useQueryState setters called back to back would each start from the same
+// stale URL and overwrite one another.
+export const useSetQueries = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  return useCallback(
+    (updates) => {
+      const existing = qs.parse(location.search, { ignoreQueryPrefix: true });
+      const queryString = qs.stringify(
+        { ...existing, ...updates },
+        { skipNulls: true },
+      );
+      navigate(`${location.pathname}?${queryString}`);
+    },
+    [navigate, location],
+  );
 };

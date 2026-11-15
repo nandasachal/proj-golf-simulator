@@ -40,3 +40,13 @@ decisions: implemented the review's recommendations A, B and D; left the
 Reynolds-number drag term (C) for later · next: verify Penner's constants against
 the paper; consider damping first-bounce height; see
 planning/eng-plans/ball-physics-review.md.
+
+2026-11-15 — tunable turf + game mode — done: ⋯ overflow menu on the control panel
+exposes every turf assumption (grass species, height of cut, firmness, leaf
+wetness) with the presets still one tap away and custom values carried in the URL;
+Game mode puts a random target ring with a beacon downrange, scores a shot that
+touches the ground inside it, shows hit/miss with the miss distance, and serves a
+new target after a hit. check: green (117 tests + strict build) · decisions:
+"hit" means any ground contact inside the ring, not only where the ball stops;
+bentgrass/bermudagrass modifiers are rough, direction-only adjustments · next:
+game-mode follow-ups on the roadmap; phone layout is crowded with both cards up.

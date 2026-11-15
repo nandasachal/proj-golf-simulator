@@ -47,12 +47,40 @@ const Slider = ({ id, name, display, range, value, onChange, tooltip }) => (
 );
 
 const TURF_HELP =
-  "How the landing area plays. Normal is a ryegrass fairway cut at 0.6 in with average moisture. Soft is longer (0.75 in), wet turf that kills the bounce. Firm is short (0.45 in), dry turf that runs.";
+  "How the landing area plays. Normal is a ryegrass fairway cut at 0.6 in with average moisture. Soft is longer (0.75 in), wet turf that kills the bounce. Firm is short (0.45 in), dry turf that runs. Use the ⋯ menu to set grass, cut, firmness and wetness yourself.";
+
+const MODES = [
+  ["practice", "Practice"],
+  ["game", "Game mode"],
+];
 
 const ParameterSelection = ({ values, handleValueChange }) => {
   const rightHanded = values.side === "Right";
   return (
     <>
+      <div
+        className="mb-2 grid grid-cols-2 rounded-lg bg-white/10 p-1 text-sm"
+        role="group"
+        aria-label="Mode"
+      >
+        {MODES.map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={values.mode === key}
+            className={classNames(
+              "rounded-md py-1.5 font-medium transition-colors",
+              values.mode === key
+                ? "bg-lime-400 text-slate-900"
+                : "text-white/70 hover:text-white",
+            )}
+            onClick={() => handleValueChange("mode", key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div
         className="grid grid-cols-2 rounded-lg bg-white/10 p-1 text-sm"
         role="group"

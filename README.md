@@ -19,6 +19,11 @@ than abstract.
   The tilt is atan(tan(face-to-path) / tan(spin loft)) with a 12.5° driver spin
   loft: about 4.5° of axis tilt per degree, in line with TrackMan's published
   driver examples.
+- **Game mode** (`src/simulate/game.js`) — a random target ring appears 140–330 yd
+  out and up to 40 yd either side, bigger the farther it is (13–20 yd radius). A
+  shot scores if the ball touches the ground inside the ring at any point:
+  landing, bouncing, rolling through or stopping. A hit brings a new target; a
+  miss keeps it and reports how far short/long and left/right the ball finished.
 - **Sign convention** — for a right-hander, positive is right of target (open face,
   in-to-out path). A left-hander is the mirror image, so "open" and "in-to-out"
   mean the same thing to both. `src/simulate/launch-conditions.js` owns this.
@@ -35,8 +40,13 @@ than abstract.
   kills forward speed) until a hop would rise under about 5 cm, then rolls to rest
   at a constant deceleration tied to a Stimpmeter reading. Steeper landings and
   more spin run less.
-- **Turf** — the landing area is perennial ryegrass (upright, no grain), flat.
-  Three presets differ in height of cut, soil firmness and leaf wetness:
+- **Turf** — the landing area is flat. Four conditions feed the ground model and
+  are all editable from the ⋯ menu on the control panel: grass species, height of
+  cut (0.35–1.5 in), ground firmness (0–1) and leaf wetness (0–1). Ryegrass is
+  the baseline the model was tuned on; bentgrass (rolls ~12% farther) and
+  bermudagrass (thatchy: deeper pitch mark, deader bounce, slower roll) are rough
+  adjustments in the direction the USGA/R&A study reports, not fitted values.
+  Three ryegrass presets set the other fields:
   Normal (0.6 in, average moisture, dry leaf; about 18 yd of run for a tour
   drive), Soft (0.75 in, wet; about 8 yd) and Firm (0.45 in, dry; about 32 yd).
   The bounce mechanics and the Stimpmeter-to-deceleration conversion are standard
@@ -54,7 +64,8 @@ than abstract.
 React UI (App.js, components/)          src/simulate/ (no React)
   sliders + side toggle  ──────────►  launch-conditions.js   face/path/speed → launch
   Hit button                          shot.js                launch → trajectory points
-  turf toggle                         ground.js              touchdown → bounces + roll
+  turf toggle + ⋯ turf menu           ground.js              touchdown → bounces + roll
+  practice / game toggle, score       game.js                random target, hit or miss
   shot readout  ◄── callbacks ──────  shot-analysis.js       trajectory → carry, total, shape…
   URL query state (hooks/use-query)   main.js                scene, render loop, shot states
                                         ├─ range.js          turf, markers, trees, sky, lights
@@ -64,11 +75,12 @@ React UI (App.js, components/)          src/simulate/ (no React)
 
 - **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
   viewport and the controls float over it as a HUD panel (stacked under the scene
-  on phones). Shot setup lives in the query string (`hooks/use-query.js`), so a
-  setup is shareable via URL. The UI talks to the scene only through
+  on phones). Shot setup, turf (`turf` preset plus `cut`/`firm`/`wet`/`grass`
+  overrides) and `mode` live in the query string (`hooks/use-query.js`), so a
+  setup is shareable via URL; the game score and current target are not. The UI talks to the scene only through
   `createSimulator(container, callbacks)` in `main.js`.
 - **Simulation** (`src/simulate/`) — framework-agnostic. `launch-conditions.js`,
-  `shot.js`, `ground.js`, `shot-analysis.js`, `camera-director.js`, and the pose math in
+  `shot.js`, `ground.js`, `game.js`, `shot-analysis.js`, `camera-director.js`, and the pose math in
   `golfer.js` are pure and unit-tested; `main.js` and `range.js` need WebGL and are
   verified in the browser.
 - **A shot** moves through four states owned by `main.js`: `address` → `swing`

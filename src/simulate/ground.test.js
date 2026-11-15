@@ -1,6 +1,8 @@
 import { Vector3 } from "three";
 import {
   TURF_PRESETS,
+  GRASSES,
+  stimpFeet,
   turfParameters,
   restitution,
   bounce,
@@ -55,6 +57,59 @@ describe("turfParameters", () => {
     const dry = turfParameters({ ...TURF_PRESETS.normal, leafWetness: 0 });
     const wet = turfParameters({ ...TURF_PRESETS.normal, leafWetness: 1 });
     expect(wet.rollFriction).toBeCloseTo(dry.rollFriction * 1.3);
+  });
+});
+
+describe("grass and custom conditions", () => {
+  const tourRun = (conditions) =>
+    groundRun(landing(TOUR_DRIVE), turfParameters(conditions)).runDistance *
+    YARDS;
+  const base = TURF_PRESETS.normal;
+
+  test("normal ryegrass rolls like a 4.2 ft Stimpmeter", () => {
+    expect(stimpFeet(base)).toBeCloseTo(4.2, 1);
+  });
+
+  test("every grass is a known species and an unknown one plays as ryegrass", () => {
+    expect(Object.keys(GRASSES)).toEqual(
+      expect.arrayContaining(["ryegrass", "bentgrass", "bermudagrass"]),
+    );
+    expect(turfParameters({ ...base, grass: "astroturf" })).toEqual(
+      turfParameters(base),
+    );
+  });
+
+  test("bentgrass runs farther than ryegrass, bermudagrass less", () => {
+    const rye = tourRun(base);
+    expect(tourRun({ ...base, grass: "bentgrass" })).toBeGreaterThan(rye);
+    expect(tourRun({ ...base, grass: "bermudagrass" })).toBeLessThan(rye);
+  });
+
+  test("each field moves run the way real turf does", () => {
+    const run = tourRun(base);
+    expect(tourRun({ ...base, mowHeightInches: 1.2 })).toBeLessThan(run);
+    expect(tourRun({ ...base, firmness: 0.9 })).toBeGreaterThan(run);
+    expect(tourRun({ ...base, firmness: 0.1 })).toBeLessThan(run);
+    expect(tourRun({ ...base, leafWetness: 1 })).toBeLessThan(run);
+  });
+
+  test("the extremes of every field still give a finite, sensible run", () => {
+    for (const mowHeightInches of [0.35, 1.5]) {
+      for (const firmness of [0, 1]) {
+        for (const leafWetness of [0, 1]) {
+          for (const grass of Object.keys(GRASSES)) {
+            const yards = tourRun({
+              mowHeightInches,
+              firmness,
+              leafWetness,
+              grass,
+            });
+            expect(yards).toBeGreaterThanOrEqual(0);
+            expect(yards).toBeLessThan(80);
+          }
+        }
+      }
+    }
   });
 });
 

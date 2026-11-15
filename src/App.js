@@ -9,10 +9,13 @@ import FloatingFeedbackButton from "./components/common/floating-feedback-button
 import ParameterSelection from "./components/simulator/parameter-selection";
 import ButtonRow from "./components/simulator/button-row";
 import ShotReadout from "./components/simulator/shot-readout";
-import { useQueryState } from "./hooks/use-query";
+import TurfMenu from "./components/simulator/turf-menu";
+import GameCard from "./components/simulator/game-card";
+import { useQueryState, useSetQueries } from "./hooks/use-query";
 import { createSimulator } from "./simulate/main";
 import { launchConditions } from "./simulate/launch-conditions";
-import { TURF_PRESETS } from "./simulate/ground";
+import { GRASSES, TURF_LIMITS, TURF_PRESETS } from "./simulate/ground";
+import { randomTarget } from "./simulate/game";
 import {
   CLUB_FACE_ANGLE_VALUES,
   CLUB_PATH_ANGLE_VALUES,
@@ -26,6 +29,38 @@ const clamp = (value, range) =>
   Number.isFinite(value)
     ? Math.min(range.MAX, Math.max(range.MIN, value))
     : range.DEFAULT;
+
+// Turf fields and the query params that carry a custom value for each.
+const TURF_PARAMS = {
+  mowHeightInches: "cut",
+  firmness: "firm",
+  leafWetness: "wet",
+  grass: "grass",
+};
+const CLEAR_TURF_OVERRIDES = { cut: null, firm: null, wet: null, grass: null };
+const TURF_FIELDS = ["mowHeightInches", "firmness", "leafWetness"];
+const NO_SCORE = { hits: 0, attempts: 0, streak: 0 };
+
+// A preset with any custom values from the URL laid over it.
+function turfConditions(presetKey, query) {
+  const conditions = { ...TURF_PRESETS[presetKey] };
+  for (const field of TURF_FIELDS) {
+    const value = Number.parseFloat(query[TURF_PARAMS[field]]);
+    const { min, max } = TURF_LIMITS[field];
+    if (Number.isFinite(value)) {
+      conditions[field] = Math.min(max, Math.max(min, value));
+    }
+  }
+  if (GRASSES[query.grass]) conditions.grass = query.grass;
+  return conditions;
+}
+
+const matchingPreset = (conditions) =>
+  Object.keys(TURF_PRESETS).find((key) =>
+    [...TURF_FIELDS, "grass"].every(
+      (field) => TURF_PRESETS[key][field] === conditions[field],
+    ),
+  ) || null;
 
 function App() {
   const navigate = useNavigate();
@@ -48,8 +83,22 @@ function App() {
     true,
   );
 
-  const [rawTurf, setTurf] = useQueryState("turf", "normal", false);
-  const turf = TURF_PRESETS[rawTurf] ? rawTurf : "normal";
+  const [rawTurf] = useQueryState("turf", "normal", false);
+  const [cut] = useQueryState("cut", null, false);
+  const [firm] = useQueryState("firm", null, false);
+  const [wet] = useQueryState("wet", null, false);
+  const [grass] = useQueryState("grass", null, false);
+  const [rawMode] = useQueryState("mode", "practice", false);
+  const setQueries = useSetQueries();
+
+  const turf = turfConditions(TURF_PRESETS[rawTurf] ? rawTurf : "normal", {
+    cut,
+    firm,
+    wet,
+    grass,
+  });
+  const turfPreset = matchingPreset(turf);
+  const mode = rawMode === "game" ? "game" : "practice";
   const side = rawSide === "Left" ? "Left" : "Right";
   const faceAngle = clamp(rawFace, CLUB_FACE_ANGLE_VALUES);
   const pathAngle = clamp(rawPath, CLUB_PATH_ANGLE_VALUES);
@@ -60,6 +109,12 @@ function App() {
   const panel = useRef(null);
   const [live, setLive] = useState(null);
   const [result, setResult] = useState(null);
+  const [target, setTarget] = useState(null);
+  const [score, setScore] = useState(NO_SCORE);
+  // How the last shot did against the target that is still up.
+  const [outcome, setOutcome] = useState(null);
+  // Set when a target is hit, so the next one appears once the camera is back.
+  const targetHit = useRef(false);
 
   useEffect(() => {
     const sim = createSimulator(stage.current, {
@@ -68,6 +123,23 @@ function App() {
       onResult: (shotResult) => {
         setResult(shotResult);
         setLive(null);
+        if (shotResult.target) {
+          const { hit } = shotResult.target;
+          setOutcome(shotResult.target);
+          targetHit.current = hit;
+          setScore((previous) => ({
+            hits: previous.hits + (hit ? 1 : 0),
+            attempts: previous.attempts + 1,
+            streak: hit ? previous.streak + 1 : 0,
+          }));
+        }
+      },
+      onState: (state) => {
+        if (state === "address" && targetHit.current) {
+          targetHit.current = false;
+          setOutcome(null);
+          setTarget((previous) => randomTarget(Math.random, previous));
+        }
       },
     });
     simulator.current = sim;
@@ -93,21 +165,59 @@ function App() {
     simulator.current.setSide(side);
   }, [side]);
 
+  // Entering game mode puts up a first target; leaving it clears the range.
+  useEffect(() => {
+    targetHit.current = false;
+    setScore(NO_SCORE);
+    setOutcome(null);
+    setTarget(mode === "game" ? randomTarget() : null);
+  }, [mode]);
+
+  useEffect(() => {
+    simulator.current.setTarget(target);
+  }, [target]);
+
+  const handleNewTarget = () => {
+    targetHit.current = false;
+    setOutcome(null);
+    setTarget((previous) => randomTarget(Math.random, previous));
+  };
+
+  const handleTurfPreset = (key) =>
+    setQueries({ turf: key, ...CLEAR_TURF_OVERRIDES });
+
+  // Changing one field keeps the others as they are now, even if they came
+  // from a preset.
+  const handleTurfField = (field, value) =>
+    setQueries({
+      [TURF_PARAMS.mowHeightInches]: turf.mowHeightInches,
+      [TURF_PARAMS.firmness]: turf.firmness,
+      [TURF_PARAMS.leafWetness]: turf.leafWetness,
+      [TURF_PARAMS.grass]: turf.grass,
+      [TURF_PARAMS[field]]: value,
+    });
+
   const handleValueChange = (type, newValue) => {
     if (type === "side") setSide(newValue);
     else if (type === "clubFaceAngle") setFaceAngle(newValue);
     else if (type === "clubPathAngle") setPathAngle(newValue);
     else if (type === "swingSpeed") setSwingSpeed(newValue);
-    else if (type === "turf") setTurf(newValue);
+    else if (type === "turf") handleTurfPreset(newValue);
+    else if (type === "mode")
+      setQueries({ mode: newValue === "game" ? "game" : null });
   };
 
   const handleReset = () => {
-    navigate(location.pathname);
+    // Back to the default shot; stay in whichever mode you were in.
+    navigate(
+      mode === "game" ? `${location.pathname}?mode=game` : location.pathname,
+    );
   };
 
   const handleHit = () => {
     setResult(null);
     setLive(null);
+    setOutcome(null);
     simulator.current.hit(
       launchConditions({
         faceAngle,
@@ -132,7 +242,15 @@ function App() {
           <div className="pointer-events-auto md:hidden">
             <Navbar />
           </div>
-          <div className="pointer-events-auto ml-auto">
+          <div className="pointer-events-auto ml-auto flex flex-col items-end gap-2">
+            {target && (
+              <GameCard
+                target={target}
+                score={score}
+                outcome={outcome}
+                onNewTarget={handleNewTarget}
+              />
+            )}
             <ShotReadout live={live} result={result} />
           </div>
         </div>
@@ -145,8 +263,17 @@ function App() {
         ref={panel}
         className="hud-panel z-10 m-3 p-4 md:absolute md:left-4 md:top-4 md:m-0 md:w-[300px]"
       >
-        <div className="mb-4 hidden md:block">
-          <Navbar />
+        <div className="mb-4 flex items-center justify-between">
+          <div className="hidden md:block">
+            <Navbar />
+          </div>
+          <p className="text-sm font-bold md:hidden">Shot setup</p>
+          <TurfMenu
+            conditions={turf}
+            presetKey={turfPreset}
+            onChange={handleTurfField}
+            onPreset={handleTurfPreset}
+          />
         </div>
         <ParameterSelection
           values={{
@@ -154,7 +281,8 @@ function App() {
             clubPathAngleSliderValue: pathAngle,
             swingSpeedSliderValue: swingSpeed,
             side,
-            turf,
+            turf: turfPreset,
+            mode,
           }}
           handleValueChange={handleValueChange}
         />

@@ -28,35 +28,86 @@ const STEP_SECONDS = 0.01;
 // All three are perennial ryegrass (upright, no grain), differing in height of
 // cut, soil firmness and whether the leaf is wet.
 export const TURF_PRESETS = {
-  soft: { label: "Soft", mowHeightInches: 0.75, firmness: 0.2, leafWetness: 1 },
+  soft: {
+    label: "Soft",
+    grass: "ryegrass",
+    mowHeightInches: 0.75,
+    firmness: 0.2,
+    leafWetness: 1,
+  },
   normal: {
     label: "Normal",
+    grass: "ryegrass",
     mowHeightInches: 0.6,
     firmness: 0.5,
     leafWetness: 0,
   },
   firm: {
     label: "Firm",
+    grass: "ryegrass",
     mowHeightInches: 0.45,
     firmness: 0.75,
     leafWetness: 0,
   },
 };
 
+// Grass species shift how a given cut plays. Ryegrass is the baseline the
+// model was tuned on; the other two are rough adjustments in the direction
+// the USGA/R&A bounce-and-roll study reports, not fitted values.
+export const GRASSES = {
+  ryegrass: { label: "Ryegrass", stimpScale: 1, tilt: 0, restitution: 0 },
+  // denser, finer canopy: the ball rolls a little farther
+  bentgrass: { label: "Bentgrass", stimpScale: 1.12, tilt: 0, restitution: 0 },
+  // thatchy and spongy: deeper pitch marks, deader bounce, slower roll
+  bermudagrass: {
+    label: "Bermudagrass",
+    stimpScale: 0.9,
+    tilt: 0.12,
+    restitution: -0.08,
+  },
+};
+
+// The ranges the turf fields can take.
+export const TURF_LIMITS = {
+  mowHeightInches: { min: 0.35, max: 1.5, step: 0.05 },
+  firmness: { min: 0, max: 1, step: 0.05 },
+  leafWetness: { min: 0, max: 1, step: 0.1 },
+};
+
+// How far a ball rolls off a Stimpmeter on this turf, in feet. Longer grass
+// is slower: about 5.7 ft at a 0.4 in cut.
+export function stimpFeet({ mowHeightInches, grass = "ryegrass" }) {
+  const species = GRASSES[grass] || GRASSES.ryegrass;
+  return Math.max(2, 5.7 - 7.5 * (mowHeightInches - 0.4)) * species.stimpScale;
+}
+
 // Turf conditions → the numbers the physics uses.
 //   mowHeightInches: height of cut
 //   firmness: 0 saturated or thatchy, 0.5 normally irrigated, 1 hard and dry
 //   leafWetness: 0 dry leaf, 1 dew or rain on the leaf
-export function turfParameters({ mowHeightInches, firmness, leafWetness = 0 }) {
-  // Longer grass is slower: about 5.7 ft on the Stimpmeter at 0.4 in.
-  const stimpFeet = Math.max(2, 5.7 - 7.5 * (mowHeightInches - 0.4));
+//   grass: a key of GRASSES
+export function turfParameters({
+  mowHeightInches,
+  firmness,
+  leafWetness = 0,
+  grass = "ryegrass",
+}) {
+  const species = GRASSES[grass] || GRASSES.ryegrass;
   return {
     // rolling deceleration as a fraction of g; wet leaf drags more
-    rollFriction: (0.56 / stimpFeet) * (1 + 0.3 * leafWetness),
+    rollFriction:
+      (0.56 / stimpFeet({ mowHeightInches, grass })) * (1 + 0.3 * leafWetness),
     // softer ground and longer grass dig a deeper pitch mark
-    tiltScale: 1.1 - 0.45 * (firmness - 0.5) + 0.2 * (mowHeightInches - 0.6),
+    tiltScale:
+      1.1 -
+      0.45 * (firmness - 0.5) +
+      0.2 * (mowHeightInches - 0.6) +
+      species.tilt,
     // firmer ground gives a livelier bounce
-    restitutionScale: 0.7 + 0.5 * (firmness - 0.5),
+    restitutionScale: Math.max(
+      0.2,
+      0.7 + 0.5 * (firmness - 0.5) + species.restitution,
+    ),
     impactFriction: 0.4,
   };
 }
