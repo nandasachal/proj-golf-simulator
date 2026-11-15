@@ -74,3 +74,10 @@ now clears only the shot, not the settings. check: green (136 tests + strict
 build) · decisions: letter keys rather than arrows so shortcuts don't fight a
 focused slider; diagrams exaggerate angles 3× with true numbers in captions ·
 next: more shot controls per roadmap (attack angle / dynamic loft first).
+
+2026-11-15 — attack angle and loft — done: two new shot controls (attack angle ±5°,
+loft at impact ±4° around the standard for the swing speed) feeding launch angle,
+backspin, smash factor and curve through spin loft; sliders, G/T and H/Y shortcuts,
+URL params `attack`/`loft`; the toe view now tilts the arriving-head arrow and the
+face line with them. Defaults reproduce the previous flight exactly. check: green
+(148 tests + strict build) · next: strike location on the face per roadmap.

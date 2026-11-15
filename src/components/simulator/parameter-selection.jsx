@@ -2,11 +2,14 @@ import React from "react";
 import { QuestionCircleFill } from "react-bootstrap-icons";
 import {
   AIM_VALUES,
+  ATTACK_ANGLE_VALUES,
+  LOFT_CHANGE_VALUES,
   CLUB_FACE_ANGLE_VALUES,
   CLUB_PATH_ANGLE_VALUES,
   SWING_SPEED_VALUES,
 } from "../../utils/constant";
 import { SHORTCUTS, keyLabel } from "../../utils/shortcuts";
+import { driverLaunch } from "../../simulate/launch-conditions";
 
 const describeAngle = (value, positive, negative, zero = "square") => {
   if (value === 0) return zero;
@@ -65,6 +68,11 @@ const Slider = ({
 // The controls that shape the shot. Everything else lives in Settings.
 const ParameterSelection = ({ values, handleValueChange }) => {
   const rightHanded = values.side === "Right";
+  const launch = driverLaunch(values.swingSpeed, {
+    attackAngle: values.attackAngle,
+    loftChange: values.loftChange,
+  });
+  const loftSign = values.loftChange > 0 ? "+" : "";
   return (
     <>
       <Slider
@@ -109,6 +117,32 @@ const ParameterSelection = ({ values, handleValueChange }) => {
         keys={SHORTCUTS.swingSpeed}
         keyHint={{ down: "slower", up: "faster" }}
         tooltip="Club head speed at impact with a driver. Faster swings carry farther."
+      />
+
+      <Slider
+        id="attack-angle"
+        name="Attack angle"
+        display={describeAngle(values.attackAngle, "up", "down", "level")}
+        range={ATTACK_ANGLE_VALUES}
+        value={values.attackAngle}
+        onChange={(value) => handleValueChange("attackAngle", value)}
+        keys={SHORTCUTS.attackAngle}
+        keyHint={{ down: "more down", up: "more up" }}
+        tooltip="Whether the club head is travelling up or down when it meets the ball. Hitting up with the same loft launches higher with less backspin and a more solid strike; hitting down adds spin and costs distance."
+      />
+
+      <Slider
+        id="loft"
+        name="Loft at impact"
+        display={`${launch.dynamicLoftDegrees.toFixed(1)}°${
+          values.loftChange === 0 ? "" : ` (${loftSign}${values.loftChange})`
+        }`}
+        range={LOFT_CHANGE_VALUES}
+        value={values.loftChange}
+        onChange={(value) => handleValueChange("loftChange", value)}
+        keys={SHORTCUTS.loftChange}
+        keyHint={{ down: "less loft", up: "more loft" }}
+        tooltip="The loft the face presents to the ball (dynamic loft). The standard amount depends on swing speed; add or take off up to 4°. More loft launches higher with more backspin and less ball speed, and curves less for the same face-to-path."
       />
 
       <Slider

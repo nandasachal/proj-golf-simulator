@@ -31,9 +31,19 @@ than abstract.
 - **Sign convention** — for a right-hander, positive is right of target (open face,
   in-to-out path). A left-hander is the mirror image, so "open" and "in-to-out"
   mean the same thing to both. `src/simulate/launch-conditions.js` owns this.
-- **Club** — every shot is a solidly struck driver. Launch numbers move with swing
-  speed (`driverLaunch`): 80 mph is 13.8° / 3075 rpm / 1.445 smash, 140 mph is
-  9.6° / 2295 rpm / 1.50, passing close to PGA Tour averages at 113 mph.
+- **Club** — every shot is a solidly struck driver. The standard delivery moves
+  with swing speed (`driverLaunch`): 80 mph is 13.8° launch / 3075 rpm / 1.445
+  smash, 140 mph is 9.6° / 2295 rpm / 1.50, passing close to PGA Tour averages
+  at 113 mph.
+- **Attack angle and loft** — attack angle is how far up (+) or down (-) the head
+  is travelling at impact (±5°); loft at impact (dynamic loft) is the standard
+  loft for the swing speed plus or minus up to 4°. Spin loft is loft minus attack
+  angle. Launch is 85% loft + 15% attack angle; backspin scales with spin loft;
+  each extra degree of spin loft costs 0.012 of smash factor (capped at 1.50);
+  and more spin loft means less curve for the same face-to-path. So hitting up
+  with the same loft launches higher, spins less and carries farther. The
+  proportionalities are standard launch-monitor relationships; the smash-loss
+  rate is fitted to one comparison (driver vs 7 iron), not measured.
 - **Aerodynamics** — quadratic drag plus Magnus lift, with both coefficients a
   function of spin ratio. The constants in `src/simulate/shot.js` are fitted to
   published TrackMan tour averages (driver, 7 iron, wedge), which are regression
@@ -79,9 +89,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
 
 - **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
   viewport with a HUD over it (stacked under the scene on phones). The left panel
-  holds only what shapes a shot: face, path, swing speed, aim, Hit. Each has
-  keyboard shortcuts (`src/utils/shortcuts.js`: Q/E face, A/D path, S/W speed, Z/C
-  aim, Space hit, R reset), shown on hover. Under the panel, three diagrams of the
+  holds only what shapes a shot: face, path, swing speed, attack angle, loft,
+  aim, Hit. Each has
+  keyboard shortcuts (`src/utils/shortcuts.js`: Q/E face, A/D path, S/W speed, G/T
+  attack, H/Y loft, Z/C aim, Space hit, R reset), shown on hover. Under the panel, three diagrams of the
   club at impact (from behind, from the toe, from above) redraw as the controls
   move, with angles drawn at three times their size. Session settings (game mode,
   dominant side, turf) are in a modal behind the ⋯ button. Shot setup, turf (`turf` preset plus `cut`/`firm`/`wet`/`grass`

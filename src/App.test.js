@@ -48,13 +48,15 @@ const openSettings = () => {
 const result = () => screen.getByRole("status", { name: "Shot result" });
 
 describe("shot controls", () => {
-  test("the panel holds the four shot controls and nothing about the session", () => {
+  test("the panel holds the shot controls and nothing about the session", () => {
     renderApp();
     expect(screen.getAllByText(/golf simulator/i).length).toBeGreaterThan(0);
     expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
     expect(screen.getByLabelText(/club path/i)).toHaveValue("0");
     expect(screen.getByLabelText(/swing speed/i)).toHaveValue("95");
     expect(screen.getByLabelText(/^aim/i)).toHaveValue("0");
+    expect(screen.getByLabelText(/attack angle/i)).toHaveValue("0");
+    expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("0");
 
     // session settings are behind the overflow menu, not on the panel
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -124,6 +126,41 @@ describe("shot controls", () => {
     expect(lastHit()[1]).toBe("Right");
   });
 
+  test("attack angle and loft change the launch of the next hit", () => {
+    renderApp("/?speed=105");
+    hit();
+    const level = lastLaunch();
+    expect(screen.getByText("level")).toBeInTheDocument();
+    expect(screen.getByText("14.1°")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/attack angle/i), {
+      target: { value: "5" },
+    });
+    expect(screen.getByText("5° up")).toBeInTheDocument();
+    hit();
+    const up = lastLaunch();
+    expect(up.initVerticalAngleDegrees).toBeGreaterThan(
+      level.initVerticalAngleDegrees,
+    );
+    expect(up.initBackspinRPM).toBeLessThan(level.initBackspinRPM);
+
+    fireEvent.change(screen.getByLabelText(/loft at impact/i), {
+      target: { value: "3" },
+    });
+    expect(screen.getByText("17.1° (+3)")).toBeInTheDocument();
+    hit();
+    expect(lastLaunch().initVerticalAngleDegrees).toBeGreaterThan(
+      up.initVerticalAngleDegrees,
+    );
+    expect(lastLaunch().initBackspinRPM).toBeGreaterThan(up.initBackspinRPM);
+  });
+
+  test("attack and loft are read from the URL", () => {
+    renderApp("/?attack=-3&loft=2");
+    expect(screen.getByLabelText(/attack angle/i)).toHaveValue("-3");
+    expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("2");
+  });
+
   test("aiming shows the stance in the scene before the shot", () => {
     renderApp();
     fireEvent.change(screen.getByLabelText(/^aim/i), {
@@ -133,12 +170,16 @@ describe("shot controls", () => {
   });
 
   test("Reset clears the shot but keeps the session settings", () => {
-    renderApp("/?face=3&path=-2&speed=120&aim=5&side=Left&turf=firm&mode=game");
+    renderApp(
+      "/?face=3&path=-2&speed=120&aim=5&attack=4&loft=-2&side=Left&turf=firm&mode=game",
+    );
     fireEvent.click(screen.getByRole("button", { name: /reset/i }));
     expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
     expect(screen.getByLabelText(/club path/i)).toHaveValue("0");
     expect(screen.getByLabelText(/swing speed/i)).toHaveValue("95");
     expect(screen.getByLabelText(/^aim/i)).toHaveValue("0");
+    expect(screen.getByLabelText(/attack angle/i)).toHaveValue("0");
+    expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("0");
 
     hit();
     expect(lastHit()[1]).toBe("Left");
@@ -173,6 +214,18 @@ describe("keyboard shortcuts", () => {
     press("z");
     press("z");
     expect(screen.getByLabelText(/^aim/i)).toHaveValue("-1");
+
+    press("t");
+    press("t");
+    expect(screen.getByLabelText(/attack angle/i)).toHaveValue("2");
+    press("g");
+    expect(screen.getByLabelText(/attack angle/i)).toHaveValue("1");
+
+    press("y");
+    expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("1");
+    press("h");
+    press("h");
+    expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("-1");
   });
 
   test("a control stops at the end of its range", () => {
@@ -224,6 +277,14 @@ describe("keyboard shortcuts", () => {
     expect(screen.getByLabelText(/^aim/i)).toHaveAttribute(
       "data-tooltip-content",
       "Keys: Z left · C right",
+    );
+    expect(screen.getByLabelText(/attack angle/i)).toHaveAttribute(
+      "data-tooltip-content",
+      "Keys: G more down · T more up",
+    );
+    expect(screen.getByLabelText(/loft at impact/i)).toHaveAttribute(
+      "data-tooltip-content",
+      "Keys: H less loft · Y more loft",
     );
     expect(screen.getByRole("button", { name: /^hit$/i })).toHaveAttribute(
       "data-tooltip-content",
@@ -395,7 +456,7 @@ describe("club views", () => {
       "From above: face 2° open, path 1° out-to-in, ball starts 1.5° right, aim straight",
     );
     expect(view("From the toe")).toHaveAccessibleName(
-      "From the toe: 100 mph, launches at 12.4° with 2815 rpm of backspin",
+      "From the toe: 100 mph, attack level, 14.5° of loft, launches at 12.4° with 2815 rpm of backspin",
     );
   });
 
@@ -419,6 +480,19 @@ describe("club views", () => {
 
     press("c");
     expect(view("From behind")).toHaveAccessibleName(/aim 1° right$/);
+
+    // the toe view shows the vertical controls
+    const toeArrow = (arrow) =>
+      view("From the toe")
+        .querySelector(`[data-arrow="${arrow}"]`)
+        .getAttribute("transform");
+    const levelAttack = toeArrow("path");
+    const standardLoft = toeArrow("face");
+    press("t");
+    press("y");
+    expect(toeArrow("path")).not.toBe(levelAttack);
+    expect(toeArrow("face")).not.toBe(standardLoft);
+    expect(view("From the toe")).toHaveAccessibleName(/attack 1° up/);
   });
 
   test("a left-hander's open face points the other way on the page", () => {

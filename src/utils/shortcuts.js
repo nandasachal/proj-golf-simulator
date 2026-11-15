@@ -5,9 +5,20 @@ export const SHORTCUTS = {
   clubPathAngle: { down: "a", up: "d" },
   swingSpeed: { down: "s", up: "w" },
   aim: { down: "z", up: "c" },
+  attackAngle: { down: "g", up: "t" },
+  loftChange: { down: "h", up: "y" },
   hit: " ",
   reset: "r",
 };
+
+export const ADJUSTABLE = [
+  "clubFaceAngle",
+  "clubPathAngle",
+  "swingSpeed",
+  "aim",
+  "attackAngle",
+  "loftChange",
+];
 
 export const keyLabel = (key) => (key === " " ? "Space" : key.toUpperCase());
 
@@ -16,12 +27,7 @@ export function shortcutFor(key) {
   const pressed = key.length === 1 ? key.toLowerCase() : key;
   if (pressed === SHORTCUTS.hit) return { action: "hit" };
   if (pressed === SHORTCUTS.reset) return { action: "reset" };
-  for (const control of [
-    "clubFaceAngle",
-    "clubPathAngle",
-    "swingSpeed",
-    "aim",
-  ]) {
+  for (const control of ADJUSTABLE) {
     if (pressed === SHORTCUTS[control].down) {
       return { action: "adjust", control, direction: -1 };
     }

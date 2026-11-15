@@ -27,3 +27,19 @@ export const AIM_VALUES = {
   DEFAULT: 0,
   STEP: 1,
 };
+
+// Degrees the club head is travelling up (+) or down (-) at impact.
+export const ATTACK_ANGLE_VALUES = {
+  MAX: 5,
+  MIN: -5,
+  DEFAULT: 0,
+  STEP: 1,
+};
+
+// Degrees of loft added to (+) or taken off (-) the standard delivery.
+export const LOFT_CHANGE_VALUES = {
+  MAX: 4,
+  MIN: -4,
+  DEFAULT: 0,
+  STEP: 1,
+};

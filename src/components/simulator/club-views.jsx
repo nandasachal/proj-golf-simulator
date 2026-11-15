@@ -223,19 +223,31 @@ const BehindView = ({ angles, golferSide, label, detail }) => {
   );
 };
 
-// Side on, from beyond the toe looking back at the golfer. Shows what swing
-// speed does: how fast the head arrives and how the ball leaves.
-const ToeView = ({ swingSpeed, launch, targetSide, label, detail }) => {
+// Side on, from beyond the toe looking back at the golfer. Shows the
+// vertical story: how fast and at what angle the head arrives, the loft on
+// the face, and how the ball leaves.
+const ToeView = ({
+  swingSpeed,
+  attackAngle,
+  launch,
+  targetSide,
+  label,
+  detail,
+}) => {
   const speedLength = 16 + ((swingSpeed - 80) / 60) * 26;
   const launchDrawn = (launch.launchAngleDegrees * 2 * Math.PI) / 180;
   const reach = 40;
+  // The face leans back from vertical by its loft; the head arrives along
+  // the attack angle. Both drawn larger than life like the other views.
+  const loftDrawn = launch.dynamicLoftDegrees * 1.5;
+  const attackDrawn = attackAngle * EXAGGERATE;
   // drawn for a target to the right; a left-hander's is mirrored
   const mirror = targetSide < 0 ? "translate(120 0) scale(-1 1)" : undefined;
   return (
     <Card title="From the toe" detail={detail} label={label}>
       <g transform={mirror}>
         <line x1="4" y1="96" x2="116" y2="96" stroke={MUTED} />
-        {/* shaft and head in profile, face tilted back by its loft */}
+        {/* shaft and head in profile */}
         <line
           x1="36"
           y1="10"
@@ -245,9 +257,20 @@ const ToeView = ({ swingSpeed, launch, targetSide, label, detail }) => {
           strokeWidth="2"
         />
         <path
-          d="M30 80 Q28 94 44 94 L56 94 L53 76 Q40 72 30 80 Z"
+          d="M30 80 Q28 94 44 94 L55 94 L55 76 Q40 72 30 80 Z"
           fill="#16181d"
           stroke={FACE}
+        />
+        {/* the face, leaning back by the loft delivered */}
+        <line
+          data-arrow="face"
+          transform={`rotate(${-loftDrawn} 55 94)`}
+          x1="55"
+          y1="94"
+          x2="55"
+          y2="68"
+          stroke={FACE}
+          strokeWidth="2.5"
         />
         {/* tee and ball */}
         <line
@@ -259,8 +282,10 @@ const ToeView = ({ swingSpeed, launch, targetSide, label, detail }) => {
           strokeWidth="2"
         />
         <circle cx="62" cy="85" r="4.5" fill="#fff" />
+        {/* the head arriving: longer is faster, tilted by the attack angle */}
         <line
           data-arrow="path"
+          transform={`rotate(${-attackDrawn} ${8 + speedLength} 106)`}
           x1="8"
           y1="106"
           x2={8 + speedLength}
@@ -297,7 +322,15 @@ const direction = (value, positive, negative, zero) => {
   return `${Math.abs(round(value))}° ${value > 0 ? positive : negative}`;
 };
 
-const ClubViews = ({ faceAngle, pathAngle, swingSpeed, aim, side }) => {
+const ClubViews = ({
+  faceAngle,
+  pathAngle,
+  swingSpeed,
+  aim,
+  attackAngle = 0,
+  loftChange = 0,
+  side,
+}) => {
   // On the page right is positive. A left-hander's "open" and "in-to-out"
   // point left, and they stand on the other side of the ball.
   const mirror = side === "Left" ? -1 : 1;
@@ -309,7 +342,7 @@ const ClubViews = ({ faceAngle, pathAngle, swingSpeed, aim, side }) => {
     start: mirror * start * EXAGGERATE,
     aim: aim * EXAGGERATE,
   };
-  const launch = driverLaunch(swingSpeed);
+  const launch = driverLaunch(swingSpeed, { attackAngle, loftChange });
   const summary = [
     `face ${direction(faceAngle, "open", "closed", "square")}`,
     `path ${direction(pathAngle, "in-to-out", "out-to-in", "square")}`,
@@ -328,12 +361,18 @@ const ClubViews = ({ faceAngle, pathAngle, swingSpeed, aim, side }) => {
         />
         <ToeView
           swingSpeed={swingSpeed}
+          attackAngle={attackAngle}
           launch={launch}
           targetSide={mirror}
           detail={`${round(launch.launchAngleDegrees)}° · ${Math.round(
             launch.backspinRPM,
           )} rpm`}
-          label={`From the toe: ${swingSpeed} mph, launches at ${round(
+          label={`From the toe: ${swingSpeed} mph, attack ${direction(
+            attackAngle,
+            "up",
+            "down",
+            "level",
+          )}, ${round(launch.dynamicLoftDegrees)}° of loft, launches at ${round(
             launch.launchAngleDegrees,
           )}° with ${Math.round(launch.backspinRPM)} rpm of backspin`}
         />

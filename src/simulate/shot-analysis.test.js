@@ -119,6 +119,51 @@ describe("analyzeShot with bounce and roll", () => {
   });
 });
 
+describe("attack angle and loft change the flight", () => {
+  const carry = (options) =>
+    analyzeShot(
+      new Shot(
+        launchConditions({
+          faceAngle: 0,
+          pathAngle: 0,
+          swingSpeedMPH: 105,
+          side: "Right",
+          ...options,
+        }),
+      ),
+    );
+
+  test("hitting up on the driver carries farther than hitting down", () => {
+    const up = carry({ attackAngle: 5 });
+    const level = carry({});
+    const down = carry({ attackAngle: -5 });
+    expect(up.carryYards).toBeGreaterThan(level.carryYards + 3);
+    expect(level.carryYards).toBeGreaterThan(down.carryYards + 3);
+  });
+
+  test("more loft flies higher", () => {
+    expect(carry({ loftChange: 4 }).apexYards).toBeGreaterThan(
+      carry({}).apexYards + 3,
+    );
+    expect(carry({ loftChange: -4 }).apexYards).toBeLessThan(
+      carry({}).apexYards - 3,
+    );
+  });
+
+  test("every corner of the controls still lands on the range", () => {
+    for (const swingSpeedMPH of [80, 140]) {
+      for (const attackAngle of [-5, 5]) {
+        for (const loftChange of [-4, 4]) {
+          const result = carry({ swingSpeedMPH, attackAngle, loftChange });
+          expect(result.carryYards).toBeGreaterThan(110);
+          expect(result.carryYards).toBeLessThan(365);
+          expect(result.flightSeconds).toBeLessThan(10);
+        }
+      }
+    }
+  });
+});
+
 describe("shotShape", () => {
   test("zero carry does not divide by zero", () => {
     expect(

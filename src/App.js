@@ -19,6 +19,8 @@ import { randomTarget } from "./simulate/game";
 import { shortcutFor, shouldIgnoreKey } from "./utils/shortcuts";
 import {
   AIM_VALUES,
+  ATTACK_ANGLE_VALUES,
+  LOFT_CHANGE_VALUES,
   CLUB_FACE_ANGLE_VALUES,
   CLUB_PATH_ANGLE_VALUES,
   SWING_SPEED_VALUES,
@@ -83,6 +85,16 @@ function App() {
   );
 
   const [rawAim, setAim] = useQueryState("aim", AIM_VALUES.DEFAULT, true);
+  const [rawAttack, setAttackAngle] = useQueryState(
+    "attack",
+    ATTACK_ANGLE_VALUES.DEFAULT,
+    true,
+  );
+  const [rawLoft, setLoftChange] = useQueryState(
+    "loft",
+    LOFT_CHANGE_VALUES.DEFAULT,
+    true,
+  );
 
   const [rawTurf] = useQueryState("turf", "normal", false);
   const [cut] = useQueryState("cut", null, false);
@@ -105,6 +117,8 @@ function App() {
   const pathAngle = clamp(rawPath, CLUB_PATH_ANGLE_VALUES);
   const swingSpeed = clamp(rawSpeed, SWING_SPEED_VALUES);
   const aim = clamp(rawAim, AIM_VALUES);
+  const attackAngle = clamp(rawAttack, ATTACK_ANGLE_VALUES);
+  const loftChange = clamp(rawLoft, LOFT_CHANGE_VALUES);
 
   const simulator = useRef(null);
   const stage = useRef(null);
@@ -209,6 +223,8 @@ function App() {
     else if (type === "clubPathAngle") setPathAngle(newValue);
     else if (type === "swingSpeed") setSwingSpeed(newValue);
     else if (type === "aim") setAim(newValue);
+    else if (type === "attackAngle") setAttackAngle(newValue);
+    else if (type === "loftChange") setLoftChange(newValue);
     else if (type === "turf") handleTurfPreset(newValue);
     else if (type === "mode")
       setQueries({ mode: newValue === "game" ? "game" : null });
@@ -216,7 +232,14 @@ function App() {
 
   // Back to the default shot. Settings (mode, side, turf) stay as they are.
   const handleReset = () =>
-    setQueries({ face: null, path: null, speed: null, aim: null });
+    setQueries({
+      face: null,
+      path: null,
+      speed: null,
+      aim: null,
+      attack: null,
+      loft: null,
+    });
 
   const handleHit = () => {
     setResult(null);
@@ -228,6 +251,8 @@ function App() {
         pathAngle,
         swingSpeedMPH: swingSpeed,
         side,
+        attackAngle,
+        loftChange,
       }),
       side,
       turf,
@@ -253,6 +278,8 @@ function App() {
         clubPathAngle: [pathAngle, CLUB_PATH_ANGLE_VALUES],
         swingSpeed: [swingSpeed, SWING_SPEED_VALUES],
         aim: [aim, AIM_VALUES],
+        attackAngle: [attackAngle, ATTACK_ANGLE_VALUES],
+        loftChange: [loftChange, LOFT_CHANGE_VALUES],
       }[shortcut.control];
       const next = clamp(value + shortcut.direction * range.STEP, range);
       if (next !== value) handleValueChange(shortcut.control, next);
@@ -324,6 +351,8 @@ function App() {
               clubPathAngle: pathAngle,
               swingSpeed,
               aim,
+              attackAngle,
+              loftChange,
               side,
             }}
             handleValueChange={handleValueChange}
@@ -335,6 +364,8 @@ function App() {
           pathAngle={pathAngle}
           swingSpeed={swingSpeed}
           aim={aim}
+          attackAngle={attackAngle}
+          loftChange={loftChange}
           side={side}
         />
       </div>

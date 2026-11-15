@@ -1,4 +1,10 @@
-import { SHORTCUTS, keyLabel, shortcutFor, shouldIgnoreKey } from "./shortcuts";
+import {
+  ADJUSTABLE,
+  SHORTCUTS,
+  keyLabel,
+  shortcutFor,
+  shouldIgnoreKey,
+} from "./shortcuts";
 
 describe("shortcutFor", () => {
   test("maps each control's two keys to down and up, in either case", () => {
@@ -24,6 +30,22 @@ describe("shortcutFor", () => {
     });
     expect(shortcutFor("z")).toMatchObject({ control: "aim", direction: -1 });
     expect(shortcutFor("c")).toMatchObject({ control: "aim", direction: 1 });
+    expect(shortcutFor("g")).toMatchObject({
+      control: "attackAngle",
+      direction: -1,
+    });
+    expect(shortcutFor("t")).toMatchObject({
+      control: "attackAngle",
+      direction: 1,
+    });
+    expect(shortcutFor("h")).toMatchObject({
+      control: "loftChange",
+      direction: -1,
+    });
+    expect(shortcutFor("y")).toMatchObject({
+      control: "loftChange",
+      direction: 1,
+    });
   });
 
   test("space hits and R resets; other keys do nothing", () => {
@@ -38,9 +60,10 @@ describe("shortcutFor", () => {
     const keys = [
       SHORTCUTS.hit,
       SHORTCUTS.reset,
-      ...["clubFaceAngle", "clubPathAngle", "swingSpeed", "aim"].flatMap(
-        (control) => [SHORTCUTS[control].down, SHORTCUTS[control].up],
-      ),
+      ...ADJUSTABLE.flatMap((control) => [
+        SHORTCUTS[control].down,
+        SHORTCUTS[control].up,
+      ]),
     ];
     expect(new Set(keys).size).toBe(keys.length);
   });
