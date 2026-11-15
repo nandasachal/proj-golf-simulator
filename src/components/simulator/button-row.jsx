@@ -6,6 +6,7 @@ import {
   ShareFill,
 } from "react-bootstrap-icons";
 import toast from "react-hot-toast";
+import { SHORTCUTS, keyLabel } from "../../utils/shortcuts";
 
 const secondary =
   "flex items-center justify-center rounded-lg bg-white/10 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/20 hover:text-white";
@@ -25,6 +26,9 @@ const ButtonRow = ({ handleReset, simulate }) => {
         type="button"
         className="flex w-full items-center justify-center rounded-lg bg-lime-400 py-2.5 text-base font-bold text-slate-900 transition-colors hover:bg-lime-300 active:bg-lime-500"
         onClick={simulate}
+        aria-keyshortcuts={keyLabel(SHORTCUTS.hit)}
+        data-tooltip-id="main-tooltip"
+        data-tooltip-content={`Key: ${keyLabel(SHORTCUTS.hit)}`}
       >
         <PlayFill size={20} className="mr-1" />
         Hit
@@ -38,7 +42,14 @@ const ButtonRow = ({ handleReset, simulate }) => {
           )}
           {isCopied ? "Copied" : "Share"}
         </button>
-        <button type="button" className={secondary} onClick={handleReset}>
+        <button
+          type="button"
+          className={secondary}
+          onClick={handleReset}
+          aria-keyshortcuts={keyLabel(SHORTCUTS.reset)}
+          data-tooltip-id="main-tooltip"
+          data-tooltip-content={`Key: ${keyLabel(SHORTCUTS.reset)}`}
+        >
           <ArrowCounterclockwise size={14} className="mr-1.5" />
           Reset
         </button>

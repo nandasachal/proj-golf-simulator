@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import "./App.scss";
-import { useNavigate, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
 
@@ -9,14 +8,17 @@ import FloatingFeedbackButton from "./components/common/floating-feedback-button
 import ParameterSelection from "./components/simulator/parameter-selection";
 import ButtonRow from "./components/simulator/button-row";
 import ShotReadout from "./components/simulator/shot-readout";
-import TurfMenu from "./components/simulator/turf-menu";
+import SettingsModal from "./components/simulator/settings-modal";
+import ClubViews from "./components/simulator/club-views";
 import GameCard from "./components/simulator/game-card";
 import { useQueryState, useSetQueries } from "./hooks/use-query";
 import { createSimulator } from "./simulate/main";
 import { launchConditions } from "./simulate/launch-conditions";
 import { GRASSES, TURF_LIMITS, TURF_PRESETS } from "./simulate/ground";
 import { randomTarget } from "./simulate/game";
+import { shortcutFor, shouldIgnoreKey } from "./utils/shortcuts";
 import {
+  AIM_VALUES,
   CLUB_FACE_ANGLE_VALUES,
   CLUB_PATH_ANGLE_VALUES,
   SWING_SPEED_VALUES,
@@ -63,9 +65,6 @@ const matchingPreset = (conditions) =>
   ) || null;
 
 function App() {
-  const navigate = useNavigate();
-  const location = useLocation();
-
   const [rawSide, setSide] = useQueryState("side", "Right", false);
   const [rawFace, setFaceAngle] = useQueryState(
     "face",
@@ -82,6 +81,8 @@ function App() {
     SWING_SPEED_VALUES.DEFAULT,
     true,
   );
+
+  const [rawAim, setAim] = useQueryState("aim", AIM_VALUES.DEFAULT, true);
 
   const [rawTurf] = useQueryState("turf", "normal", false);
   const [cut] = useQueryState("cut", null, false);
@@ -103,6 +104,7 @@ function App() {
   const faceAngle = clamp(rawFace, CLUB_FACE_ANGLE_VALUES);
   const pathAngle = clamp(rawPath, CLUB_PATH_ANGLE_VALUES);
   const swingSpeed = clamp(rawSpeed, SWING_SPEED_VALUES);
+  const aim = clamp(rawAim, AIM_VALUES);
 
   const simulator = useRef(null);
   const stage = useRef(null);
@@ -165,6 +167,10 @@ function App() {
     simulator.current.setSide(side);
   }, [side]);
 
+  useEffect(() => {
+    simulator.current.setAim(aim);
+  }, [aim]);
+
   // Entering game mode puts up a first target; leaving it clears the range.
   useEffect(() => {
     targetHit.current = false;
@@ -202,17 +208,15 @@ function App() {
     else if (type === "clubFaceAngle") setFaceAngle(newValue);
     else if (type === "clubPathAngle") setPathAngle(newValue);
     else if (type === "swingSpeed") setSwingSpeed(newValue);
+    else if (type === "aim") setAim(newValue);
     else if (type === "turf") handleTurfPreset(newValue);
     else if (type === "mode")
       setQueries({ mode: newValue === "game" ? "game" : null });
   };
 
-  const handleReset = () => {
-    // Back to the default shot; stay in whichever mode you were in.
-    navigate(
-      mode === "game" ? `${location.pathname}?mode=game` : location.pathname,
-    );
-  };
+  // Back to the default shot. Settings (mode, side, turf) stay as they are.
+  const handleReset = () =>
+    setQueries({ face: null, path: null, speed: null, aim: null });
 
   const handleHit = () => {
     setResult(null);
@@ -227,8 +231,38 @@ function App() {
       }),
       side,
       turf,
+      aim,
     );
   };
+
+  // Keyboard shortcuts for the shot controls. The handler is replaced every
+  // render so it always sees the current values.
+  const onShortcut = useRef(null);
+  onShortcut.current = (event) => {
+    if (shouldIgnoreKey(event)) return;
+    // Leave the keyboard alone while the settings dialog is open.
+    if (document.querySelector('[role="dialog"]')) return;
+    const shortcut = shortcutFor(event.key);
+    if (!shortcut) return;
+    event.preventDefault();
+    if (shortcut.action === "hit") handleHit();
+    else if (shortcut.action === "reset") handleReset();
+    else {
+      const [value, range] = {
+        clubFaceAngle: [faceAngle, CLUB_FACE_ANGLE_VALUES],
+        clubPathAngle: [pathAngle, CLUB_PATH_ANGLE_VALUES],
+        swingSpeed: [swingSpeed, SWING_SPEED_VALUES],
+        aim: [aim, AIM_VALUES],
+      }[shortcut.control];
+      const next = clamp(value + shortcut.direction * range.STEP, range);
+      if (next !== value) handleValueChange(shortcut.control, next);
+    }
+  };
+  useEffect(() => {
+    const listener = (event) => onShortcut.current(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-slate-950 text-white md:block">
@@ -253,10 +287,9 @@ function App() {
             )}
           </div>
         </div>
-        {/* Result bar along the bottom, centred in the part of the scene the
-            control panel doesn't cover. On phones it takes the full width and
-            the feedback button sits above it. */}
-        <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex justify-center md:bottom-4 md:left-[332px] md:right-20">
+        {/* Result bar along the bottom, centred on the screen. On phones it
+            takes the full width and the feedback button sits above it. */}
+        <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-20 flex justify-center md:bottom-4 md:left-20 md:right-20">
           <div className="pointer-events-auto max-w-full">
             <ShotReadout live={live} result={result} />
           </div>
@@ -266,34 +299,44 @@ function App() {
         </div>
       </div>
 
-      <div
-        ref={panel}
-        className="hud-panel z-10 m-3 p-4 md:absolute md:left-4 md:top-4 md:m-0 md:w-[300px]"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <div className="hidden md:block">
-            <Navbar />
+      {/* Left column: the shot controls, then the club-at-impact views. */}
+      <div className="z-10 m-3 flex flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-2rem)] md:w-[340px] md:overflow-y-auto">
+        <div ref={panel} className="hud-panel p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="hidden md:block">
+              <Navbar />
+            </div>
+            <p className="text-sm font-bold md:hidden">Shot setup</p>
+            <SettingsModal
+              mode={mode}
+              side={side}
+              turf={turf}
+              turfPreset={turfPreset}
+              onMode={(value) => handleValueChange("mode", value)}
+              onSide={(value) => handleValueChange("side", value)}
+              onTurfPreset={handleTurfPreset}
+              onTurfField={handleTurfField}
+            />
           </div>
-          <p className="text-sm font-bold md:hidden">Shot setup</p>
-          <TurfMenu
-            conditions={turf}
-            presetKey={turfPreset}
-            onChange={handleTurfField}
-            onPreset={handleTurfPreset}
+          <ParameterSelection
+            values={{
+              clubFaceAngle: faceAngle,
+              clubPathAngle: pathAngle,
+              swingSpeed,
+              aim,
+              side,
+            }}
+            handleValueChange={handleValueChange}
           />
+          <ButtonRow handleReset={handleReset} simulate={handleHit} />
         </div>
-        <ParameterSelection
-          values={{
-            clubFaceAngleSliderValue: faceAngle,
-            clubPathAngleSliderValue: pathAngle,
-            swingSpeedSliderValue: swingSpeed,
-            side,
-            turf: turfPreset,
-            mode,
-          }}
-          handleValueChange={handleValueChange}
+        <ClubViews
+          faceAngle={faceAngle}
+          pathAngle={pathAngle}
+          swingSpeed={swingSpeed}
+          aim={aim}
+          side={side}
         />
-        <ButtonRow handleReset={handleReset} simulate={handleHit} />
       </div>
     </div>
   );

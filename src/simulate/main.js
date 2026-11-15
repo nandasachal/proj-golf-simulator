@@ -240,6 +240,7 @@ export function createSimulator(container, callbacks = {}) {
   golfer.setSide(side);
   scene.add(golfer.group);
   let swingSeconds = 0;
+  let aim = 0;
   let state = ADDRESS;
   let shot = null;
   let analysis = null;
@@ -271,13 +272,21 @@ export function createSimulator(container, callbacks = {}) {
     ballToRest();
     swingSeconds = 0;
     golfer.setTime(0);
-    // Picks up a handedness change made while the last shot was in the air.
+    // Picks up a handedness or aim change made while the last shot was in
+    // the air.
     golfer.setSide(side);
+    golfer.setAim(aim);
     setState(ADDRESS);
   }
 
-  // `turf` is a set of conditions for turfParameters.
-  function hit(launch, hitSide = side, turf = TURF_PRESETS.normal) {
+  // `turf` is a set of conditions for turfParameters; `aimDegrees` is where
+  // the golfer is set up, right (+) or left (-) of the centre line.
+  function hit(
+    launch,
+    hitSide = side,
+    turf = TURF_PRESETS.normal,
+    aimDegrees = 0,
+  ) {
     side = hitSide;
     // A new shot always starts from the address view, even mid-flight.
     director.reset(side);
@@ -287,9 +296,15 @@ export function createSimulator(container, callbacks = {}) {
     landingMarker.visible = false;
 
     shot = new Shot({ dt: SHOT_DT, ...launch });
+    // Shape is judged against the line the golfer aimed down, so name it
+    // before turning the shot onto that line.
+    const { shape } = analyzeShot(shot, side);
+    aim = aimDegrees;
+    shot.aim(aim);
+    golfer.setAim(aim);
     const touchdown = shot.points[shot.points.length - 1];
     const run = groundRun(touchdown, turfParameters(turf));
-    analysis = analyzeShot(shot, side, run);
+    analysis = { ...analyzeShot(shot, side, run), shape, aimDegrees };
 
     const positions = [];
     for (let i = 0; i < shot.points.length; i += TRACER_STRIDE) {
@@ -331,6 +346,12 @@ export function createSimulator(container, callbacks = {}) {
     flightSeconds = 0;
     progressSeconds = 0;
     setState(SWING);
+  }
+
+  // Show the stance for an aim before the shot is hit.
+  function setAim(aimDegrees) {
+    aim = aimDegrees;
+    if (state === ADDRESS) golfer.setAim(aim);
   }
 
   function setSide(nextSide) {
@@ -515,6 +536,7 @@ export function createSimulator(container, callbacks = {}) {
   const api = {
     hit,
     setSide,
+    setAim,
     setTarget,
     setViewInset,
     dispose,

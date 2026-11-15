@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import App from "./App";
 import { createSimulator } from "./simulate/main";
@@ -15,6 +15,7 @@ beforeEach(() => {
   simulator = {
     hit: jest.fn(),
     setSide: jest.fn(),
+    setAim: jest.fn(),
     setTarget: jest.fn(),
     setViewInset: jest.fn(),
     dispose: jest.fn(),
@@ -33,178 +34,279 @@ const renderApp = (url = "/") =>
     </MemoryRouter>,
   );
 
-const lastLaunch = () => simulator.hit.mock.calls.at(-1)[0];
+const hit = () =>
+  fireEvent.click(screen.getByRole("button", { name: /^hit$/i }));
+const lastHit = () => simulator.hit.mock.calls.at(-1);
+const lastLaunch = () => lastHit()[0];
+const lastTurf = () => lastHit()[2];
+const press = (key, options = {}) =>
+  fireEvent.keyDown(document.body, { key, ...options });
+const openSettings = () => {
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  return within(screen.getByRole("dialog"));
+};
+const result = () => screen.getByRole("status", { name: "Shot result" });
 
-test("renders the title and the three shot controls", () => {
-  renderApp();
-  expect(screen.getAllByText(/golf simulator/i).length).toBeGreaterThan(0);
-  expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
-  expect(screen.getByLabelText(/club path/i)).toHaveValue("0");
-  expect(screen.getByLabelText(/swing speed/i)).toHaveValue("95");
-});
+describe("shot controls", () => {
+  test("the panel holds the four shot controls and nothing about the session", () => {
+    renderApp();
+    expect(screen.getAllByText(/golf simulator/i).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
+    expect(screen.getByLabelText(/club path/i)).toHaveValue("0");
+    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("95");
+    expect(screen.getByLabelText(/^aim/i)).toHaveValue("0");
 
-test("a slider change is used by the very next hit", () => {
-  renderApp();
-  fireEvent.click(screen.getByRole("button", { name: /hit/i }));
-  expect(lastLaunch()).toMatchObject({ initSpeedMPH: 95 });
-  expect(lastLaunch().initHorizontalAngleDegrees).toBeCloseTo(0);
-  expect(lastLaunch().initSpinAngle).toBeCloseTo(0);
-
-  fireEvent.change(screen.getByLabelText(/club face/i), {
-    target: { value: "4" },
+    // session settings are behind the overflow menu, not on the panel
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Firm" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /left-handed/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Game mode" }),
+    ).not.toBeInTheDocument();
   });
-  fireEvent.change(screen.getByLabelText(/club path/i), {
-    target: { value: "-2" },
+
+  test("a slider change is used by the very next hit", () => {
+    renderApp();
+    hit();
+    expect(lastLaunch()).toMatchObject({ initSpeedMPH: 95 });
+    expect(lastLaunch().initHorizontalAngleDegrees).toBeCloseTo(0);
+    expect(lastLaunch().initSpinAngle).toBeCloseTo(0);
+    expect(lastHit()[3]).toBe(0);
+
+    fireEvent.change(screen.getByLabelText(/club face/i), {
+      target: { value: "4" },
+    });
+    fireEvent.change(screen.getByLabelText(/club path/i), {
+      target: { value: "-2" },
+    });
+    fireEvent.change(screen.getByLabelText(/swing speed/i), {
+      target: { value: "120" },
+    });
+    fireEvent.change(screen.getByLabelText(/^aim/i), {
+      target: { value: "-5" },
+    });
+    expect(screen.getByText("4° open")).toBeInTheDocument();
+    expect(screen.getByText("2° out-to-in")).toBeInTheDocument();
+    expect(screen.getAllByText("120 mph").length).toBeGreaterThan(0);
+    expect(screen.getByText("5° left")).toBeInTheDocument();
+
+    hit();
+    const launch = lastLaunch();
+    expect(launch.initSpeedMPH).toBe(120);
+    // Open face, out-to-in path: starts right (positive) and curves right
+    // (negative spin angle) for a right-hander.
+    expect(launch.initHorizontalAngleDegrees).toBeGreaterThan(2);
+    expect(launch.initSpinAngle).toBeLessThan(-10);
+    expect(lastHit()[1]).toBe("Right");
+    expect(lastHit()[3]).toBe(-5);
   });
-  fireEvent.change(screen.getByLabelText(/swing speed/i), {
-    target: { value: "120" },
+
+  test("shot setup is read from the URL, and junk values fall back onto the sliders", () => {
+    renderApp("/?face=-3&path=5&speed=110&aim=4");
+    expect(screen.getByLabelText(/club face/i)).toHaveValue("-3");
+    expect(screen.getByLabelText(/club path/i)).toHaveValue("5");
+    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("110");
+    expect(screen.getByLabelText(/^aim/i)).toHaveValue("4");
   });
-  expect(screen.getByText("4° open")).toBeInTheDocument();
-  expect(screen.getByText("2° out-to-in")).toBeInTheDocument();
-  expect(screen.getByText("120 mph")).toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole("button", { name: /hit/i }));
-  const launch = lastLaunch();
-  expect(launch.initSpeedMPH).toBe(120);
-  // Open face, out-to-in path: starts right (positive) and curves right
-  // (negative spin angle) for a right-hander.
-  expect(launch.initHorizontalAngleDegrees).toBeGreaterThan(2);
-  expect(launch.initSpinAngle).toBeLessThan(-10);
-  expect(simulator.hit.mock.calls.at(-1)[1]).toBe("Right");
+  test("out-of-range or junk URL values are clamped", () => {
+    renderApp("/?face=abc&path=40&speed=500&aim=-90&side=Banana");
+    expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
+    expect(screen.getByLabelText(/club path/i)).toHaveValue("6");
+    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("140");
+    expect(screen.getByLabelText(/^aim/i)).toHaveValue("-10");
+    hit();
+    expect(lastLaunch().initSpeedMPH).toBe(140);
+    expect(lastHit()[1]).toBe("Right");
+  });
+
+  test("aiming shows the stance in the scene before the shot", () => {
+    renderApp();
+    fireEvent.change(screen.getByLabelText(/^aim/i), {
+      target: { value: "6" },
+    });
+    expect(simulator.setAim).toHaveBeenLastCalledWith(6);
+  });
+
+  test("Reset clears the shot but keeps the session settings", () => {
+    renderApp("/?face=3&path=-2&speed=120&aim=5&side=Left&turf=firm&mode=game");
+    fireEvent.click(screen.getByRole("button", { name: /reset/i }));
+    expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
+    expect(screen.getByLabelText(/club path/i)).toHaveValue("0");
+    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("95");
+    expect(screen.getByLabelText(/^aim/i)).toHaveValue("0");
+
+    hit();
+    expect(lastHit()[1]).toBe("Left");
+    expect(lastTurf()).toMatchObject(TURF_PRESETS.firm);
+    expect(screen.getByRole("status", { name: "Game" })).toBeInTheDocument();
+  });
 });
 
-test("shot setup is read from the URL", () => {
-  renderApp("/?face=-3&path=5&speed=110&side=Left");
-  expect(screen.getByLabelText(/club face/i)).toHaveValue("-3");
-  expect(screen.getByLabelText(/club path/i)).toHaveValue("5");
-  expect(screen.getByLabelText(/swing speed/i)).toHaveValue("110");
-  expect(screen.getByRole("button", { name: /left-handed/i })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+describe("keyboard shortcuts", () => {
+  test("each control has a key to nudge it down and one to nudge it up", () => {
+    renderApp();
+    press("e");
+    press("e");
+    expect(screen.getByLabelText(/club face/i)).toHaveValue("2");
+    press("q");
+    expect(screen.getByLabelText(/club face/i)).toHaveValue("1");
+
+    press("a");
+    expect(screen.getByLabelText(/club path/i)).toHaveValue("-1");
+    press("D");
+    press("d");
+    expect(screen.getByLabelText(/club path/i)).toHaveValue("1");
+
+    press("w");
+    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("96");
+    press("s");
+    press("s");
+    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("94");
+
+    press("c");
+    expect(screen.getByLabelText(/^aim/i)).toHaveValue("1");
+    press("z");
+    press("z");
+    expect(screen.getByLabelText(/^aim/i)).toHaveValue("-1");
+  });
+
+  test("a control stops at the end of its range", () => {
+    renderApp("/?face=6&speed=80");
+    press("e");
+    expect(screen.getByLabelText(/club face/i)).toHaveValue("6");
+    press("s");
+    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("80");
+  });
+
+  test("Space hits with the current setup and R resets it", () => {
+    renderApp();
+    press("e");
+    press(" ");
+    expect(simulator.hit).toHaveBeenCalledTimes(1);
+    expect(lastLaunch().initHorizontalAngleDegrees).toBeGreaterThan(0);
+
+    press("r");
+    expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
+  });
+
+  test("shortcuts stand down for modifier combos and while Settings is open", () => {
+    renderApp();
+    press("r", { metaKey: true });
+    press("e", { ctrlKey: true });
+    expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
+
+    openSettings();
+    press("e");
+    press(" ");
+    expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
+    expect(simulator.hit).not.toHaveBeenCalled();
+  });
+
+  test("the keys are discoverable from the controls themselves", () => {
+    renderApp();
+    expect(screen.getByLabelText(/club face/i)).toHaveAttribute(
+      "data-tooltip-content",
+      "Keys: Q closes · E opens",
+    );
+    expect(screen.getByLabelText(/club path/i)).toHaveAttribute(
+      "data-tooltip-content",
+      "Keys: A out-to-in · D in-to-out",
+    );
+    expect(screen.getByLabelText(/swing speed/i)).toHaveAttribute(
+      "data-tooltip-content",
+      "Keys: S slower · W faster",
+    );
+    expect(screen.getByLabelText(/^aim/i)).toHaveAttribute(
+      "data-tooltip-content",
+      "Keys: Z left · C right",
+    );
+    expect(screen.getByRole("button", { name: /^hit$/i })).toHaveAttribute(
+      "data-tooltip-content",
+      "Key: Space",
+    );
+    expect(screen.getByRole("button", { name: /reset/i })).toHaveAttribute(
+      "data-tooltip-content",
+      "Key: R",
+    );
+  });
 });
 
-test("out-of-range or junk URL values fall back onto the sliders", () => {
-  renderApp("/?face=abc&path=40&speed=500&side=Banana");
-  expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
-  expect(screen.getByLabelText(/club path/i)).toHaveValue("6");
-  expect(screen.getByLabelText(/swing speed/i)).toHaveValue("140");
-  expect(screen.getByRole("button", { name: /right-handed/i })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+describe("settings", () => {
+  test("opens from the overflow button and closes again", () => {
+    renderApp();
+    const dialog = openSettings();
+    expect(dialog.getByText("Settings")).toBeInTheDocument();
+    fireEvent.click(dialog.getByRole("button", { name: "Close settings" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 
-  fireEvent.click(screen.getByRole("button", { name: /hit/i }));
-  expect(lastLaunch().initSpeedMPH).toBe(140);
-});
+  test("dominant side tells the scene and mirrors the next launch", () => {
+    renderApp("/?face=4");
+    const dialog = openSettings();
+    fireEvent.click(dialog.getByRole("button", { name: /left-handed/i }));
+    expect(simulator.setSide).toHaveBeenLastCalledWith("Left");
+    expect(
+      dialog.getByRole("button", { name: /left-handed/i }),
+    ).toHaveAttribute("aria-pressed", "true");
 
-test("switching dominant side tells the scene and mirrors the next launch", () => {
-  renderApp("/?face=4");
-  fireEvent.click(screen.getByRole("button", { name: /left-handed/i }));
-  expect(simulator.setSide).toHaveBeenLastCalledWith("Left");
+    fireEvent.click(dialog.getByRole("button", { name: "Close settings" }));
+    hit();
+    expect(lastLaunch().initHorizontalAngleDegrees).toBeLessThan(0);
+    expect(lastHit()[1]).toBe("Left");
+  });
 
-  fireEvent.click(screen.getByRole("button", { name: /hit/i }));
-  expect(lastLaunch().initHorizontalAngleDegrees).toBeLessThan(0);
-  expect(simulator.hit.mock.calls.at(-1)[1]).toBe("Left");
-});
+  test("turf defaults to normal, and a preset goes with the next hit", () => {
+    renderApp();
+    hit();
+    expect(lastTurf()).toMatchObject(TURF_PRESETS.normal);
 
-test("shows live carry in flight, then distance and shape once the ball lands", () => {
-  renderApp();
-  expect(
-    screen.queryByRole("status", { name: "Shot result" }),
-  ).not.toBeInTheDocument();
+    const dialog = openSettings();
+    expect(dialog.getByRole("button", { name: "Normal" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(dialog.getByRole("button", { name: "Firm" }));
+    expect(dialog.getByRole("button", { name: "Firm" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(dialog.getByRole("button", { name: "Close settings" }));
+    hit();
+    expect(lastTurf()).toMatchObject(TURF_PRESETS.firm);
+  });
 
-  fireEvent.click(screen.getByRole("button", { name: /hit/i }));
-  act(() => callbacks.onProgress({ distanceYards: 87.4, onGround: false }));
-  const status = () => screen.getByRole("status", { name: "Shot result" });
-  expect(status()).toHaveTextContent("In the air");
-  expect(status()).toHaveTextContent("87");
-
-  act(() => callbacks.onProgress({ distanceYards: 251.6, onGround: true }));
-  expect(status()).toHaveTextContent("On the ground");
-
-  act(() =>
-    callbacks.onResult({
-      shape: "Push Fade",
-      carryYards: 243.2,
-      runYards: 18.4,
-      totalYards: 261.6,
-      offlineYards: 26.4,
-      apexYards: 31,
-      flightSeconds: 6.24,
-    }),
-  );
-  expect(status()).toHaveTextContent("Push Fade");
-  expect(status()).toHaveTextContent("262yd total");
-  expect(status()).toHaveTextContent("243 yd");
-  expect(status()).toHaveTextContent("18 yd");
-  expect(status()).toHaveTextContent("26 yd right");
-  expect(status()).toHaveTextContent("93 ft");
-});
-
-test("turf defaults to normal, can be changed, and goes with the next hit", () => {
-  renderApp();
-  expect(screen.getByRole("button", { name: "Normal" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  fireEvent.click(screen.getByRole("button", { name: /hit/i }));
-  expect(simulator.hit.mock.calls.at(-1)[2]).toMatchObject(TURF_PRESETS.normal);
-
-  fireEvent.click(screen.getByRole("button", { name: "Firm" }));
-  expect(screen.getByRole("button", { name: "Firm" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  fireEvent.click(screen.getByRole("button", { name: /hit/i }));
-  expect(simulator.hit.mock.calls.at(-1)[2]).toMatchObject(TURF_PRESETS.firm);
-});
-
-test("an unknown turf in the URL falls back to normal", () => {
-  renderApp("/?turf=lava");
-  expect(screen.getByRole("button", { name: "Normal" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-});
-
-describe("turf settings menu", () => {
-  const openMenu = () =>
-    fireEvent.click(screen.getByRole("button", { name: "Turf settings" }));
-  const lastTurf = () => simulator.hit.mock.calls.at(-1)[2];
-  const hit = () =>
-    fireEvent.click(screen.getByRole("button", { name: /hit/i }));
-
-  test("is closed until the overflow button is pressed, then shows the preset's values", () => {
+  test("shows the preset's turf values", () => {
     renderApp("/?turf=soft");
-    expect(screen.queryByLabelText("Height of cut")).not.toBeInTheDocument();
-
-    openMenu();
-    expect(screen.getByLabelText("Grass")).toHaveValue("ryegrass");
-    expect(screen.getByLabelText("Height of cut")).toHaveValue("0.75");
-    expect(screen.getByLabelText("Ground firmness")).toHaveValue("0.2");
-    expect(screen.getByLabelText("Leaf wetness")).toHaveValue("1");
-    expect(screen.getByText("0.75 in")).toBeInTheDocument();
+    const dialog = openSettings();
+    expect(dialog.getByLabelText("Grass")).toHaveValue("ryegrass");
+    expect(dialog.getByLabelText("Height of cut")).toHaveValue("0.75");
+    expect(dialog.getByLabelText("Ground firmness")).toHaveValue("0.2");
+    expect(dialog.getByLabelText("Leaf wetness")).toHaveValue("1");
+    expect(dialog.getByText("0.75 in")).toBeInTheDocument();
   });
 
-  test("editing a field makes the turf custom, keeps the other fields, and is used by the next hit", () => {
+  test("editing a turf field makes it custom, keeps the other fields, and is used by the next hit", () => {
     renderApp("/?turf=firm");
-    openMenu();
-    fireEvent.change(screen.getByLabelText("Height of cut"), {
+    const dialog = openSettings();
+    fireEvent.change(dialog.getByLabelText("Height of cut"), {
       target: { value: "1.2" },
     });
-
-    expect(screen.getByText("Custom")).toBeInTheDocument();
+    expect(dialog.getByText(/custom conditions/i)).toBeInTheDocument();
     for (const name of ["Soft", "Normal", "Firm"]) {
-      expect(screen.getByRole("button", { name })).toHaveAttribute(
+      expect(dialog.getByRole("button", { name })).toHaveAttribute(
         "aria-pressed",
         "false",
       );
     }
-
-    fireEvent.change(screen.getByLabelText("Grass"), {
+    fireEvent.change(dialog.getByLabelText("Grass"), {
       target: { value: "bermudagrass" },
     });
+    fireEvent.click(dialog.getByRole("button", { name: "Close settings" }));
     hit();
     expect(lastTurf()).toMatchObject({
       grass: "bermudagrass",
@@ -223,14 +325,15 @@ describe("turf settings menu", () => {
       firmness: 0.1,
       leafWetness: 0.5,
     });
-
-    fireEvent.click(screen.getByRole("button", { name: "Firm" }));
+    const dialog = openSettings();
+    fireEvent.click(dialog.getByRole("button", { name: "Firm" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Close settings" }));
     hit();
     expect(lastTurf()).toMatchObject(TURF_PRESETS.firm);
   });
 
-  test("out-of-range or junk turf values in the URL are clamped or ignored", () => {
-    renderApp("/?cut=99&firm=-3&wet=abc&grass=astroturf");
+  test("junk turf values in the URL are clamped or ignored", () => {
+    renderApp("/?turf=lava&cut=99&firm=-3&wet=abc&grass=astroturf");
     hit();
     expect(lastTurf()).toMatchObject({
       grass: "ryegrass",
@@ -238,6 +341,90 @@ describe("turf settings menu", () => {
       firmness: 0,
       leafWetness: 0,
     });
+  });
+});
+
+describe("shot result bar", () => {
+  test("shows live distance in flight and on the ground, then the full result", () => {
+    renderApp();
+    expect(
+      screen.queryByRole("status", { name: "Shot result" }),
+    ).not.toBeInTheDocument();
+
+    hit();
+    act(() => callbacks.onProgress({ distanceYards: 87.4, onGround: false }));
+    expect(result()).toHaveTextContent("In the air");
+    expect(result()).toHaveTextContent("87");
+
+    act(() => callbacks.onProgress({ distanceYards: 251.6, onGround: true }));
+    expect(result()).toHaveTextContent("On the ground");
+
+    act(() =>
+      callbacks.onResult({
+        shape: "Push Fade",
+        carryYards: 243.2,
+        runYards: 18.4,
+        totalYards: 261.6,
+        offlineYards: 26.4,
+        apexYards: 31,
+        flightSeconds: 6.24,
+      }),
+    );
+    expect(result()).toHaveTextContent("Push Fade");
+    expect(result()).toHaveTextContent("262yd total");
+    expect(result()).toHaveTextContent("243 yd");
+    expect(result()).toHaveTextContent("18 yd");
+    expect(result()).toHaveTextContent("26 yd right");
+    expect(result()).toHaveTextContent("93 ft");
+  });
+});
+
+describe("club views", () => {
+  const view = (name) =>
+    screen.getByRole("img", { name: new RegExp(`^${name}`) });
+  const arrowTurn = (name, arrow) =>
+    view(name)
+      .querySelector(`[data-arrow="${arrow}"]`)
+      .getAttribute("transform");
+
+  test("three views sit under the controls and describe the current setup", () => {
+    renderApp("/?face=2&path=-1&speed=100");
+    expect(view("From behind")).toBeInTheDocument();
+    expect(view("From the toe")).toBeInTheDocument();
+    expect(view("From above")).toHaveAccessibleName(
+      "From above: face 2° open, path 1° out-to-in, ball starts 1.5° right, aim straight",
+    );
+    expect(view("From the toe")).toHaveAccessibleName(
+      "From the toe: 100 mph, launches at 12.4° with 2815 rpm of backspin",
+    );
+  });
+
+  test("the arrows turn as the controls change", () => {
+    renderApp();
+    expect(arrowTurn("From above", "face")).toBe("rotate(0 60 72)");
+    expect(arrowTurn("From above", "path")).toBe("rotate(0 60 72)");
+
+    press("e");
+    press("e");
+    press("a");
+    // drawn at three times the real angle so small changes are visible
+    expect(arrowTurn("From above", "face")).toBe("rotate(6 60 72)");
+    expect(arrowTurn("From above", "path")).toBe("rotate(-3 60 72)");
+    expect(view("From above")).toHaveAccessibleName(
+      /face 2° open, path 1° out-to-in/,
+    );
+
+    press("w");
+    expect(view("From the toe")).toHaveAccessibleName(/^From the toe: 96 mph/);
+
+    press("c");
+    expect(view("From behind")).toHaveAccessibleName(/aim 1° right$/);
+  });
+
+  test("a left-hander's open face points the other way on the page", () => {
+    renderApp("/?face=2&side=Left");
+    expect(arrowTurn("From above", "face")).toBe("rotate(-6 60 72)");
+    expect(view("From above")).toHaveAccessibleName(/ball starts 1.7° left/);
   });
 });
 
@@ -265,16 +452,20 @@ describe("game mode", () => {
     expect(lastTarget()).toBeNull();
   });
 
-  test("switching to game mode puts a target on the range and shows it", () => {
+  test("switching to game mode in Settings puts a target on the range and shows it", () => {
     renderApp();
-    fireEvent.click(screen.getByRole("button", { name: "Game mode" }));
+    const dialog = openSettings();
+    fireEvent.click(dialog.getByRole("button", { name: "Game mode" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Close settings" }));
 
     const target = lastTarget();
     expect(target.z).toBeGreaterThanOrEqual(140);
     expect(game()).toHaveTextContent(`${target.distanceYards}`);
     expect(game()).toHaveTextContent("0 of 0 hit · streak 0");
 
-    fireEvent.click(screen.getByRole("button", { name: "Practice" }));
+    const again = openSettings();
+    fireEvent.click(again.getByRole("button", { name: "Practice" }));
+    fireEvent.click(again.getByRole("button", { name: "Close settings" }));
     expect(lastTarget()).toBeNull();
     expect(
       screen.queryByRole("status", { name: "Game" }),

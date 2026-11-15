@@ -13,3 +13,12 @@ window.matchMedia =
     addEventListener: () => {},
     removeEventListener: () => {},
   }));
+
+// jsdom has no ResizeObserver; the settings dialog asks for one.
+window.ResizeObserver =
+  window.ResizeObserver ||
+  class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };

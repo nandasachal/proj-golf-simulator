@@ -24,6 +24,10 @@ than abstract.
   shot scores if the ball touches the ground inside the ring at any point:
   landing, bouncing, rolling through or stopping. A hit brings a new target; a
   miss keeps it and reports how far short/long and left/right the ball finished.
+- **Aim** — where the golfer is set up, up to 10° right or left of the range's
+  centre line. Face and path are measured from the aim line, so aiming turns the
+  whole shot (`Shot.aim`) and the golfer's stance; shot shape is named relative to
+  the aim line, offline distance relative to the centre line.
 - **Sign convention** — for a right-hander, positive is right of target (open face,
   in-to-out path). A left-hander is the mirror image, so "open" and "in-to-out"
   mean the same thing to both. `src/simulate/launch-conditions.js` owns this.
@@ -41,7 +45,7 @@ than abstract.
   at a constant deceleration tied to a Stimpmeter reading. Steeper landings and
   more spin run less.
 - **Turf** — the landing area is flat. Four conditions feed the ground model and
-  are all editable from the ⋯ menu on the control panel: grass species, height of
+  are all editable in Settings (the ⋯ button on the control panel): grass species, height of
   cut (0.35–1.5 in), ground firmness (0–1) and leaf wetness (0–1). Ryegrass is
   the baseline the model was tuned on; bentgrass (rolls ~12% farther) and
   bermudagrass (thatchy: deeper pitch mark, deader bounce, slower roll) are rough
@@ -64,8 +68,8 @@ than abstract.
 React UI (App.js, components/)          src/simulate/ (no React)
   sliders + side toggle  ──────────►  launch-conditions.js   face/path/speed → launch
   Hit button                          shot.js                launch → trajectory points
-  turf toggle + ⋯ turf menu           ground.js              touchdown → bounces + roll
-  practice / game toggle, score       game.js                random target, hit or miss
+  ⋯ settings modal (turf)             ground.js              touchdown → bounces + roll
+  ⋯ settings modal (mode), score      game.js                random target, hit or miss
   shot readout  ◄── callbacks ──────  shot-analysis.js       trajectory → carry, total, shape…
   URL query state (hooks/use-query)   main.js                scene, render loop, shot states
                                         ├─ range.js          turf, markers, trees, sky, lights
@@ -74,8 +78,13 @@ React UI (App.js, components/)          src/simulate/ (no React)
 ```
 
 - **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
-  viewport and the controls float over it as a HUD panel (stacked under the scene
-  on phones). Shot setup, turf (`turf` preset plus `cut`/`firm`/`wet`/`grass`
+  viewport with a HUD over it (stacked under the scene on phones). The left panel
+  holds only what shapes a shot: face, path, swing speed, aim, Hit. Each has
+  keyboard shortcuts (`src/utils/shortcuts.js`: Q/E face, A/D path, S/W speed, Z/C
+  aim, Space hit, R reset), shown on hover. Under the panel, three diagrams of the
+  club at impact (from behind, from the toe, from above) redraw as the controls
+  move, with angles drawn at three times their size. Session settings (game mode,
+  dominant side, turf) are in a modal behind the ⋯ button. Shot setup, turf (`turf` preset plus `cut`/`firm`/`wet`/`grass`
   overrides) and `mode` live in the query string (`hooks/use-query.js`), so a
   setup is shareable via URL; the game score and current target are not. The UI talks to the scene only through
   `createSimulator(container, callbacks)` in `main.js`.

@@ -18,3 +18,12 @@ export const SWING_SPEED_VALUES = {
   DEFAULT: 95,
   STEP: 1,
 };
+
+// Where the golfer is aimed, in degrees right (+) or left (-) of the range's
+// centre line.
+export const AIM_VALUES = {
+  MAX: 10,
+  MIN: -10,
+  DEFAULT: 0,
+  STEP: 1,
+};

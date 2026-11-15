@@ -158,3 +158,39 @@ describe("Shot matches real-world ball flight", () => {
     expect(Math.abs(height - apexYards) / apexYards).toBeLessThan(0.2);
   });
 });
+
+describe("Shot.aim", () => {
+  test("turns the whole flight about the tee without changing it", () => {
+    const straight = shoot({ initSpinAngle: 15 });
+    const aimed = shoot({ initSpinAngle: 15 }).aim(8);
+    const a = landing(straight);
+    const b = landing(aimed);
+
+    // same distance from the tee and same height profile
+    expect(Math.hypot(b.x, b.z)).toBeCloseTo(Math.hypot(a.x, a.z), 6);
+    expect(apex(aimed)).toBeCloseTo(apex(straight), 9);
+    expect(aimed.points.length).toBe(straight.points.length);
+
+    // 8° to the right, and right is -x
+    const bearing = (p) => (Math.atan2(-p.x, p.z) * 180) / Math.PI;
+    expect(bearing(b) - bearing(a)).toBeCloseTo(8, 6);
+
+    const v = aimed.points[0].velocity;
+    expect(bearing(v)).toBeCloseTo(8, 6);
+  });
+
+  test("turns the spin with it, and zero aim changes nothing", () => {
+    const aimed = shoot().aim(-10);
+    const spin = aimed.points[0].angularVelocity;
+    // backspin axis stays square to the new direction of travel
+    expect(spin.dot(aimed.points[0].velocity.clone().setY(0))).toBeCloseTo(
+      0,
+      6,
+    );
+
+    const untouched = shoot();
+    const before = landing(untouched).clone();
+    untouched.aim(0);
+    expect(landing(untouched).equals(before)).toBe(true);
+  });
+});

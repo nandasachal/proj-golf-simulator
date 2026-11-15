@@ -65,6 +65,21 @@ export const Shot = function (options) {
   this.projectShot(initPoint);
 };
 
+// Turn the whole shot about the tee, as if the golfer had set up aimed
+// `degreesRight` of the centre line (-x is right). Everything about the
+// flight is unchanged; it just points somewhere else.
+Shot.prototype.aim = function (degreesRight) {
+  if (!degreesRight) return this;
+  var up = new Vector3(0, 1, 0);
+  var angle = (-degreesRight * Math.PI) / 180;
+  for (var i = 0; i < this.points.length; i++) {
+    this.points[i].position.applyAxisAngle(up, angle);
+    this.points[i].velocity.applyAxisAngle(up, angle);
+    this.points[i].angularVelocity.applyAxisAngle(up, angle);
+  }
+  return this;
+};
+
 Shot.prototype.getInitialSpin = function (spinRPM, spinAngle) {
   var spin = new Vector3(0, 0, 0);
   // backspin about -x, tilted toward +y by the spin-axis angle

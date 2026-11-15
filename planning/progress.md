@@ -63,3 +63,14 @@ overlays hidden). Overlays now render through `groundOverlay()` (draw order, pol
 offset, no depth write) and the camera near plane went 0.1 → 0.5. After: a smooth
 5–11% per frame with no spikes, which is the mowing stripes legitimately moving.
 check: green · next: nothing queued.
+
+2026-11-15 — controls rework — done: session settings (game mode, dominant side,
+turf presets and fields) moved into a modal behind the ⋯ button, leaving the left
+panel for shot controls only; keyboard shortcuts for every shot control with the
+keys shown on hover; result bar centred on the screen; new Aim control (±10°) that
+turns the shot and the golfer's stance; three club-at-impact diagrams under the
+panel (from behind, from the toe, from above) that redraw with the controls. Reset
+now clears only the shot, not the settings. check: green (136 tests + strict
+build) · decisions: letter keys rather than arrows so shortcuts don't fight a
+focused slider; diagrams exaggerate angles 3× with true numbers in captions ·
+next: more shot controls per roadmap (attack angle / dynamic loft first).

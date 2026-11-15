@@ -350,6 +350,12 @@ export function createGolfer() {
     group.scale.x = side === "Left" ? -1 : 1;
   }
 
+  // Turn the stance about the ball so the golfer sets up aimed right (+) or
+  // left (-) of the centre line.
+  function setAim(degreesRight) {
+    group.rotation.y = (-degreesRight * Math.PI) / 180;
+  }
+
   setTime(0);
-  return { group, setTime, setSide };
+  return { group, setTime, setSide, setAim };
 }

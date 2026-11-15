@@ -34,6 +34,12 @@
   mostly in old transitive CRA/webpack deps) — likely needs a CRA → Vite migration
   to fix cleanly rather than patching in place.
 - Fix the stale `caniuse-lite` browserslist data (build-time warning).
+- [done] Settings modal, keyboard shortcuts, aim control and club-at-impact views
+  (2026-11-15).
+- **More shot controls**, in rough order of value: attack angle and dynamic loft
+  (they set launch and spin, and would make the toe view fully live); strike
+  location on the face (heel/toe gear effect); tee height; wind; ball position in
+  the stance. Altitude/temperature and slope are lower value.
 - Club selection (irons, wedges) — the physics already matches tour numbers for
   them; every shot is currently a driver.
 - [done] Target challenge (2026-11-15) — Game mode: random target rings, hit/miss
