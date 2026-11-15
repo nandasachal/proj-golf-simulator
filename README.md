@@ -31,9 +31,10 @@ abstract.
   attached to `window.THREE`, not an npm package — see `src/App.js`'s `window.THREE`
   check. This is why `src/simulate/shot.js` can't easily be unit-tested yet (no
   importable `THREE.Vector3` in a Jest/jsdom environment); see `planning/roadmap.md`.
-- **Hosting** — static React app (Create React App), deployed to GitHub Pages from the
-  `main` branch root (see `CNAME`, deploy steps below). `scripts/check.sh` is the local
-  test+build gate.
+- **Hosting** — static React app (Create React App), deployed to GitHub Pages from
+  the `gh-pages` branch root, served at the custom domain in `CNAME`
+  (golfswingsimulator.com). See the deploy steps below. `scripts/check.sh` is the
+  local test+build gate for `main`.
 
 ### Deployment
 
