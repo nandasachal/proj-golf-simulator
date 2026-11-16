@@ -133,3 +133,17 @@ behind the club; a 3× button amplifies the small angles while tags keep true
 values; the Above camera is pulled back to fit the tags. check: green (174 tests +
 strict build), run in an isolated worktree because another session had
 uncommitted layout work in the main checkout · next: Sachal's notes on the view.
+
+2026-11-16 — direct-manipulation controls (design direction A) — done: the seven
+sliders are replaced by two club pads (from above: aim, face, path, strike; from the
+side: attack, loft) with drag handles, plus a speed bar. Each control also takes its
+shortcut keys, arrow keys on a focused handle, a double-click reset, and a
+click-to-type value that snaps and clamps. The panel names the shot shape for the
+current setup and sketches the flight (no distance, so game mode keeps its
+challenge). The 3D close-up moved behind a toggle. URL updates now replace history
+instead of pushing an entry per step. check: green (204 tests + strict build);
+dragging verified in the browser with pointer events for all seven controls, typing
+verified, fits 1280x720 and phone width · decisions: 2D pads rather than dragging on
+the 3D model (reliable hit targets, testable geometry); 5x angle exaggeration for
+grab comfort · next: real-hand play-test by Sachal; touch dragging on a real phone
+is untested.

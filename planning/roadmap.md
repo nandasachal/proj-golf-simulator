@@ -43,6 +43,8 @@
   pass. Refinements still open: head shape from behind, materials, making small
   face-to-path angles easier to see at true size, labels in the scene, and the
   view's size on short screens.
+- [done] Direct-manipulation shot controls (2026-11-16) — drag handles on the
+  club, click-to-type values, live shot-shape preview; sliders removed.
 - **More shot controls**, in rough order of value: high/low strike on the face
   (changes launch and spin); wind; tee height; ball position in the stance.
   Altitude/temperature and slope are lower value.

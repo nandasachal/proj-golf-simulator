@@ -96,17 +96,29 @@ React UI (App.js, components/)          src/simulate/ (no React)
 ```
 
 - **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
-  viewport with a HUD over it (stacked under the scene on phones). The left panel
-  holds only what shapes a shot: face, path, swing speed, attack angle, loft,
-  strike location, aim, Hit. Each has
-  keyboard shortcuts (`src/utils/shortcuts.js`: Q/E face, A/D path, S/W speed, G/T
-  attack, H/Y loft, B/N strike, Z/C aim, Space hit, R reset), shown on hover. Under the panel, a live 3D
-  close-up of the driver meeting the ball is posed by the controls (see below). Session settings (game mode,
-  dominant side, turf) and the feedback link are in a modal behind the gear
-  button, bottom left. On laptops Hit sits to the right of the result bar. Shot setup, turf (`turf` preset plus `cut`/`firm`/`wet`/`grass`
-  overrides) and `mode` live in the query string (`hooks/use-query.js`), so a
-  setup is shareable via URL; the game score and current target are not. The UI talks to the scene only through
-  `createSimulator(container, callbacks)` in `main.js`.
+  viewport with a HUD over it (stacked under the scene on phones).
+  - **Shot controls are the club itself** (`components/simulator/club-pads.jsx`).
+    The left panel draws the club at impact twice: from above (aim, face, path,
+    strike) and from the side (attack angle, loft), plus one bar for swing
+    speed. Every control can be set three ways: drag its handle, press its keys
+    (`src/utils/shortcuts.js`: Q/E face, A/D path, S/W speed, G/T attack, H/Y
+    loft, B/N strike, Z/C aim, Space hit, R reset), or click its value to type a
+    number. Handles are real `role="slider"` elements (arrow keys, Home/End,
+    double-click to reset). The panel names the shot shape for the current
+    setup and sketches its flight, but gives no distance, so game mode still
+    has to be judged. Drag geometry is pure and tested in
+    `src/utils/club-pad.js`; angles are drawn five times their size so one
+    degree is an easy drag.
+  - A live 3D close-up of the driver (see below) is behind a "3D close-up"
+    toggle under the panel.
+  - Session settings (game mode, dominant side, turf) and the feedback link are
+    in a modal behind the gear button, bottom left. On laptops Hit sits to the
+    right of the result bar.
+  - Shot setup, turf (`turf` preset plus `cut`/`firm`/`wet`/`grass` overrides)
+    and `mode` live in the query string (`hooks/use-query.js`), so a setup is
+    shareable via URL; the game score and current target are not.
+  - The UI talks to the scene only through `createSimulator(container,
+    callbacks)` in `main.js`.
 - **Simulation** (`src/simulate/`) — framework-agnostic. `launch-conditions.js`,
   `shot.js`, `ground.js`, `game.js`, `shot-analysis.js`, `camera-director.js`, and the pose math in
   `golfer.js` are pure and unit-tested; `main.js` and `range.js` need WebGL and are

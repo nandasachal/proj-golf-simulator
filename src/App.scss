@@ -63,3 +63,22 @@
     display: block;
   }
 }
+
+.club-pad {
+  background: #17331f;
+}
+
+.club-handle {
+  outline: none;
+}
+
+// Keyboard focus thickens the handle's own ring; an outline around an SVG
+// group would be a box.
+.club-handle:focus-visible .club-handle-ring {
+  stroke-width: 5;
+}
+
+div.club-handle:focus-visible {
+  outline: 2px solid #a3e635;
+  outline-offset: 2px;
+}

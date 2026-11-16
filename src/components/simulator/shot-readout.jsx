@@ -28,7 +28,7 @@ const ShotReadout = ({ live, result }) => {
 
   return (
     <div
-      className="hud-panel flex max-w-full items-center gap-2.5 overflow-x-auto px-3 py-2 md:gap-6 md:px-5"
+      className="hud-panel flex max-w-full items-center gap-2.5 overflow-x-auto px-3 py-2 md:gap-4 md:px-4"
       role="status"
       aria-label="Shot result"
     >
@@ -49,7 +49,7 @@ const ShotReadout = ({ live, result }) => {
         </p>
       </div>
       {result && (
-        <dl className="flex shrink-0 gap-2.5 border-l border-white/10 pl-2.5 md:gap-6 md:pl-6">
+        <dl className="flex shrink-0 gap-2.5 border-l border-white/10 pl-2.5 md:gap-4 md:pl-4">
           <Stat label="Carry" value={`${Math.round(result.carryYards)} yd`} />
           <Stat label="Run" value={`${Math.round(result.runYards)} yd`} />
           <Stat label="Offline" value={describeOffline(result.offlineYards)} />

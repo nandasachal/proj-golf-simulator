@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./App.scss";
 import { Toaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
 
-import ParameterSelection from "./components/simulator/parameter-selection";
+import ClubPads from "./components/simulator/club-pads";
 import ButtonRow, { HitButton } from "./components/simulator/button-row";
 import ShotReadout from "./components/simulator/shot-readout";
 import SettingsModal from "./components/simulator/settings-modal";
@@ -12,6 +12,7 @@ import GameCard from "./components/simulator/game-card";
 import { useQueryState, useSetQueries } from "./hooks/use-query";
 import { createSimulator } from "./simulate/main";
 import { launchConditions } from "./simulate/launch-conditions";
+import { previewShot } from "./simulate/shot-preview";
 import { GRASSES, TURF_LIMITS, TURF_PRESETS } from "./simulate/ground";
 import { randomTarget } from "./simulate/game";
 import { shortcutFor, shouldIgnoreKey } from "./utils/shortcuts";
@@ -136,6 +137,33 @@ function App() {
     desktop.addEventListener("change", update);
     return () => desktop.removeEventListener("change", update);
   }, []);
+
+  const [showCloseUp, setShowCloseUp] = useState(false);
+
+  // What this setup will do, shown while it is being adjusted.
+  const preview = useMemo(
+    () =>
+      previewShot({
+        faceAngle,
+        pathAngle,
+        swingSpeedMPH: swingSpeed,
+        attackAngle,
+        loftChange,
+        strikeInches: strike,
+        aim,
+        side,
+      }),
+    [
+      faceAngle,
+      pathAngle,
+      swingSpeed,
+      attackAngle,
+      loftChange,
+      strike,
+      aim,
+      side,
+    ],
+  );
 
   const simulator = useRef(null);
   const stage = useRef(null);
@@ -360,8 +388,8 @@ function App() {
 
       {/* Left column: the shot controls, then the club-at-impact views. */}
       <div className="z-10 m-3 flex flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-5.5rem)] md:w-[340px] md:overflow-y-auto">
-        <div ref={panel} className="hud-panel p-4">
-          <ParameterSelection
+        <div ref={panel} className="hud-panel p-4 md:p-3">
+          <ClubPads
             values={{
               clubFaceAngle: faceAngle,
               clubPathAngle: pathAngle,
@@ -370,9 +398,10 @@ function App() {
               attackAngle,
               loftChange,
               strike,
-              side,
             }}
-            handleValueChange={handleValueChange}
+            side={side}
+            preview={preview}
+            onChange={handleValueChange}
           />
           <ButtonRow
             handleReset={handleReset}
@@ -380,16 +409,27 @@ function App() {
             showHit={!isDesktop}
           />
         </div>
-        <ClubView
-          faceAngle={faceAngle}
-          pathAngle={pathAngle}
-          swingSpeed={swingSpeed}
-          aim={aim}
-          attackAngle={attackAngle}
-          loftChange={loftChange}
-          strike={strike}
-          side={side}
-        />
+        <button
+          type="button"
+          className="hud-panel flex h-9 items-center justify-between px-3 text-xs font-semibold text-white/80 hover:text-white"
+          aria-expanded={showCloseUp}
+          onClick={() => setShowCloseUp((shown) => !shown)}
+        >
+          3D close-up
+          <span aria-hidden="true">{showCloseUp ? "Hide" : "Show"}</span>
+        </button>
+        {showCloseUp && (
+          <ClubView
+            faceAngle={faceAngle}
+            pathAngle={pathAngle}
+            swingSpeed={swingSpeed}
+            aim={aim}
+            attackAngle={attackAngle}
+            loftChange={loftChange}
+            strike={strike}
+            side={side}
+          />
+        )}
       </div>
     </div>
   );

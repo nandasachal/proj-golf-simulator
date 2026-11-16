@@ -61,3 +61,10 @@ and the Game-mode default changed, without this session doing either.
 there are changes you did not make, copy only your files into a throwaway
 `git worktree`, run `scripts/check.sh` there, and commit from it, so the other
 session's half-finished work is neither committed nor blocked.
+2026-11-16 — note — The browser tool's real mouse drag aborts when the page URL
+changes mid-drag, and every control change updates the query string. To test a drag
+in the pane, dispatch PointerEvents on the handle (pointerdown, several pointermove,
+pointerup) from page JS instead.
+2026-11-16 — preference — Sachal finds sliders clunky on a laptop: shot controls
+should be direct manipulation on the club picture, with every number also typeable
+and keyboard-adjustable. Don't add a new control as a plain slider.

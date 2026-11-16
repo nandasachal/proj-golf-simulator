@@ -18,7 +18,9 @@ export const useQueryState = (query, defaulValue = "", isInteger) => {
         { skipNulls: true },
       );
 
-      navigate(`${location.pathname}?${queryString}`);
+      // Replace, not push: dragging a control would otherwise leave one
+      // history entry per step.
+      navigate(`${location.pathname}?${queryString}`, { replace: true });
     },
     [navigate, location, query],
   );
@@ -44,7 +46,9 @@ export const useSetQueries = () => {
         { ...existing, ...updates },
         { skipNulls: true },
       );
-      navigate(`${location.pathname}?${queryString}`);
+      // Replace, not push: dragging a control would otherwise leave one
+      // history entry per step.
+      navigate(`${location.pathname}?${queryString}`, { replace: true });
     },
     [navigate, location],
   );

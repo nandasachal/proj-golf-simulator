@@ -59,19 +59,40 @@ const openSettings = () => {
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   return within(screen.getByRole("dialog"));
 };
+// Each shot control is a slider handle on a club pad and a value you can
+// click to type over.
+const valueOf = (name) =>
+  Number(
+    screen
+      .getByRole("slider", { name, hidden: true })
+      .getAttribute("aria-valuenow"),
+  );
+const textOf = (name) =>
+  screen.getByRole("slider", { name }).getAttribute("aria-valuetext");
+const startTyping = (name) => {
+  fireEvent.click(
+    screen.getByRole("button", { name: new RegExp(`^Edit ${name}:`, "i") }),
+  );
+  return screen.getByRole("spinbutton", { name });
+};
+const typeValue = (name, value, key = "Enter") => {
+  const input = startTyping(name);
+  fireEvent.change(input, { target: { value } });
+  fireEvent.keyDown(input, { key });
+};
 const result = () => screen.getByRole("status", { name: "Shot result" });
 
 describe("shot controls", () => {
   test("the panel holds the shot controls and nothing about the session", () => {
     renderApp();
     expect(screen.queryByText(/golf simulator/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
-    expect(screen.getByLabelText(/club path/i)).toHaveValue("0");
-    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("95");
-    expect(screen.getByLabelText(/^aim/i)).toHaveValue("0");
-    expect(screen.getByLabelText(/attack angle/i)).toHaveValue("0");
-    expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("0");
-    expect(screen.getByLabelText(/^strike/i)).toHaveValue("0");
+    expect(valueOf("Club face")).toBe(0);
+    expect(valueOf("Club path")).toBe(0);
+    expect(valueOf("Swing speed")).toBe(95);
+    expect(valueOf("Aim")).toBe(0);
+    expect(valueOf("Attack angle")).toBe(0);
+    expect(valueOf("Loft")).toBe(0);
+    expect(valueOf("Strike")).toBe(0);
 
     // session settings are behind the overflow menu, not on the panel
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -86,7 +107,7 @@ describe("shot controls", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("a slider change is used by the very next hit", () => {
+  test("a changed control is used by the very next hit", () => {
     renderApp();
     hit();
     expect(lastLaunch()).toMatchObject({ initSpeedMPH: 95 });
@@ -94,18 +115,10 @@ describe("shot controls", () => {
     expect(lastLaunch().initSpinAngle).toBeCloseTo(0);
     expect(lastHit()[3]).toBe(0);
 
-    fireEvent.change(screen.getByLabelText(/club face/i), {
-      target: { value: "4" },
-    });
-    fireEvent.change(screen.getByLabelText(/club path/i), {
-      target: { value: "-2" },
-    });
-    fireEvent.change(screen.getByLabelText(/swing speed/i), {
-      target: { value: "120" },
-    });
-    fireEvent.change(screen.getByLabelText(/^aim/i), {
-      target: { value: "-5" },
-    });
+    typeValue("Club face", "4");
+    typeValue("Club path", "-2");
+    typeValue("Swing speed", "120");
+    typeValue("Aim", "-5");
     expect(screen.getAllByText("4° open").length).toBeGreaterThan(0);
     expect(screen.getAllByText("2° out-to-in").length).toBeGreaterThan(0);
     expect(screen.getAllByText("120 mph").length).toBeGreaterThan(0);
@@ -122,20 +135,20 @@ describe("shot controls", () => {
     expect(lastHit()[3]).toBe(-5);
   });
 
-  test("shot setup is read from the URL, and junk values fall back onto the sliders", () => {
+  test("shot setup is read from the URL, and junk values fall back into range", () => {
     renderApp("/?face=-3&path=5&speed=110&aim=4");
-    expect(screen.getByLabelText(/club face/i)).toHaveValue("-3");
-    expect(screen.getByLabelText(/club path/i)).toHaveValue("5");
-    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("110");
-    expect(screen.getByLabelText(/^aim/i)).toHaveValue("4");
+    expect(valueOf("Club face")).toBe(-3);
+    expect(valueOf("Club path")).toBe(5);
+    expect(valueOf("Swing speed")).toBe(110);
+    expect(valueOf("Aim")).toBe(4);
   });
 
   test("out-of-range or junk URL values are clamped", () => {
     renderApp("/?face=abc&path=40&speed=500&aim=-90&side=Banana");
-    expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
-    expect(screen.getByLabelText(/club path/i)).toHaveValue("6");
-    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("140");
-    expect(screen.getByLabelText(/^aim/i)).toHaveValue("-10");
+    expect(valueOf("Club face")).toBe(0);
+    expect(valueOf("Club path")).toBe(6);
+    expect(valueOf("Swing speed")).toBe(140);
+    expect(valueOf("Aim")).toBe(-10);
     hit();
     expect(lastLaunch().initSpeedMPH).toBe(140);
     expect(lastHit()[1]).toBe("Right");
@@ -148,9 +161,7 @@ describe("shot controls", () => {
     expect(screen.getAllByText("level").length).toBeGreaterThan(0);
     expect(screen.getByText("14.1°")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/attack angle/i), {
-      target: { value: "5" },
-    });
+    typeValue("Attack angle", "5");
     expect(screen.getAllByText("5° up").length).toBeGreaterThan(0);
     hit();
     const up = lastLaunch();
@@ -159,9 +170,7 @@ describe("shot controls", () => {
     );
     expect(up.initBackspinRPM).toBeLessThan(level.initBackspinRPM);
 
-    fireEvent.change(screen.getByLabelText(/loft at impact/i), {
-      target: { value: "3" },
-    });
+    typeValue("Loft", "3");
     expect(screen.getByText("17.1° (+3)")).toBeInTheDocument();
     hit();
     expect(lastLaunch().initVerticalAngleDegrees).toBeGreaterThan(
@@ -172,8 +181,8 @@ describe("shot controls", () => {
 
   test("attack and loft are read from the URL", () => {
     renderApp("/?attack=-3&loft=2");
-    expect(screen.getByLabelText(/attack angle/i)).toHaveValue("-3");
-    expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("2");
+    expect(valueOf("Attack angle")).toBe(-3);
+    expect(valueOf("Loft")).toBe(2);
   });
 
   test("strike location is used by the next hit, shown in words, and read from the URL", () => {
@@ -182,9 +191,7 @@ describe("shot controls", () => {
     hit();
     const centre = lastLaunch();
 
-    fireEvent.change(screen.getByLabelText(/^strike/i), {
-      target: { value: "0.75" },
-    });
+    typeValue("Strike", "0.75");
     expect(screen.getByText("0.75 in toe")).toBeInTheDocument();
     hit();
     const toe = lastLaunch();
@@ -192,27 +199,23 @@ describe("shot controls", () => {
     expect(toe.initHorizontalAngleDegrees).toBeGreaterThan(2);
     expect(toe.initSpinAngle).toBeGreaterThan(8);
 
-    fireEvent.change(screen.getByLabelText(/^strike/i), {
-      target: { value: "-0.5" },
-    });
+    typeValue("Strike", "-0.5");
     expect(screen.getByText("0.5 in heel")).toBeInTheDocument();
   });
 
   test("strike is read from the URL and clamped", () => {
     renderApp("/?strike=0.75");
-    expect(screen.getByLabelText(/^strike/i)).toHaveValue("0.75");
+    expect(valueOf("Strike")).toBe(0.75);
   });
 
-  test("a junk or out-of-range strike falls back onto the slider", () => {
+  test("a junk or out-of-range strike falls back into range", () => {
     renderApp("/?strike=9");
-    expect(screen.getByLabelText(/^strike/i)).toHaveValue("1");
+    expect(valueOf("Strike")).toBe(1);
   });
 
   test("aiming shows the stance in the scene before the shot", () => {
     renderApp();
-    fireEvent.change(screen.getByLabelText(/^aim/i), {
-      target: { value: "6" },
-    });
+    typeValue("Aim", "6");
     expect(simulator.setAim).toHaveBeenLastCalledWith(6);
   });
 
@@ -221,13 +224,13 @@ describe("shot controls", () => {
       "/?face=3&path=-2&speed=120&aim=5&attack=4&loft=-2&strike=0.5&side=Left&turf=firm&mode=game",
     );
     fireEvent.click(screen.getByRole("button", { name: /reset/i }));
-    expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
-    expect(screen.getByLabelText(/club path/i)).toHaveValue("0");
-    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("95");
-    expect(screen.getByLabelText(/^aim/i)).toHaveValue("0");
-    expect(screen.getByLabelText(/attack angle/i)).toHaveValue("0");
-    expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("0");
-    expect(screen.getByLabelText(/^strike/i)).toHaveValue("0");
+    expect(valueOf("Club face")).toBe(0);
+    expect(valueOf("Club path")).toBe(0);
+    expect(valueOf("Swing speed")).toBe(95);
+    expect(valueOf("Aim")).toBe(0);
+    expect(valueOf("Attack angle")).toBe(0);
+    expect(valueOf("Loft")).toBe(0);
+    expect(valueOf("Strike")).toBe(0);
 
     hit();
     expect(lastHit()[1]).toBe("Left");
@@ -241,55 +244,55 @@ describe("keyboard shortcuts", () => {
     renderApp();
     press("e");
     press("e");
-    expect(screen.getByLabelText(/club face/i)).toHaveValue("2");
+    expect(valueOf("Club face")).toBe(2);
     press("q");
-    expect(screen.getByLabelText(/club face/i)).toHaveValue("1");
+    expect(valueOf("Club face")).toBe(1);
 
     press("a");
-    expect(screen.getByLabelText(/club path/i)).toHaveValue("-1");
+    expect(valueOf("Club path")).toBe(-1);
     press("D");
     press("d");
-    expect(screen.getByLabelText(/club path/i)).toHaveValue("1");
+    expect(valueOf("Club path")).toBe(1);
 
     press("w");
-    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("96");
+    expect(valueOf("Swing speed")).toBe(96);
     press("s");
     press("s");
-    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("94");
+    expect(valueOf("Swing speed")).toBe(94);
 
     press("c");
-    expect(screen.getByLabelText(/^aim/i)).toHaveValue("1");
+    expect(valueOf("Aim")).toBe(1);
     press("z");
     press("z");
-    expect(screen.getByLabelText(/^aim/i)).toHaveValue("-1");
+    expect(valueOf("Aim")).toBe(-1);
 
     press("t");
     press("t");
-    expect(screen.getByLabelText(/attack angle/i)).toHaveValue("2");
+    expect(valueOf("Attack angle")).toBe(2);
     press("g");
-    expect(screen.getByLabelText(/attack angle/i)).toHaveValue("1");
+    expect(valueOf("Attack angle")).toBe(1);
 
     press("y");
-    expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("1");
+    expect(valueOf("Loft")).toBe(1);
     press("h");
     press("h");
-    expect(screen.getByLabelText(/loft at impact/i)).toHaveValue("-1");
+    expect(valueOf("Loft")).toBe(-1);
 
     press("n");
     press("n");
-    expect(screen.getByLabelText(/^strike/i)).toHaveValue("0.5");
+    expect(valueOf("Strike")).toBe(0.5);
     press("b");
     press("b");
     press("b");
-    expect(screen.getByLabelText(/^strike/i)).toHaveValue("-0.25");
+    expect(valueOf("Strike")).toBe(-0.25);
   });
 
   test("a control stops at the end of its range", () => {
     renderApp("/?face=6&speed=80");
     press("e");
-    expect(screen.getByLabelText(/club face/i)).toHaveValue("6");
+    expect(valueOf("Club face")).toBe(6);
     press("s");
-    expect(screen.getByLabelText(/swing speed/i)).toHaveValue("80");
+    expect(valueOf("Swing speed")).toBe(80);
   });
 
   test("Space hits with the current setup and R resets it", () => {
@@ -300,52 +303,35 @@ describe("keyboard shortcuts", () => {
     expect(lastLaunch().initHorizontalAngleDegrees).toBeGreaterThan(0);
 
     press("r");
-    expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
+    expect(valueOf("Club face")).toBe(0);
   });
 
   test("shortcuts stand down for modifier combos and while Settings is open", () => {
     renderApp();
     press("r", { metaKey: true });
     press("e", { ctrlKey: true });
-    expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
+    expect(valueOf("Club face")).toBe(0);
 
     openSettings();
     press("e");
     press(" ");
-    expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
+    expect(valueOf("Club face")).toBe(0);
     expect(simulator.hit).not.toHaveBeenCalled();
   });
 
   test("the keys are discoverable from the controls themselves", () => {
     renderApp();
-    expect(screen.getByLabelText(/club face/i)).toHaveAttribute(
-      "data-tooltip-content",
-      "Keys: Q closes · E opens",
-    );
-    expect(screen.getByLabelText(/club path/i)).toHaveAttribute(
-      "data-tooltip-content",
-      "Keys: A out-to-in · D in-to-out",
-    );
-    expect(screen.getByLabelText(/swing speed/i)).toHaveAttribute(
-      "data-tooltip-content",
-      "Keys: S slower · W faster",
-    );
-    expect(screen.getByLabelText(/^aim/i)).toHaveAttribute(
-      "data-tooltip-content",
-      "Keys: Z left · C right",
-    );
-    expect(screen.getByLabelText(/attack angle/i)).toHaveAttribute(
-      "data-tooltip-content",
-      "Keys: G more down · T more up",
-    );
-    expect(screen.getByLabelText(/loft at impact/i)).toHaveAttribute(
-      "data-tooltip-content",
-      "Keys: H less loft · Y more loft",
-    );
-    expect(screen.getByLabelText(/^strike/i)).toHaveAttribute(
-      "data-tooltip-content",
-      "Keys: B toward heel · N toward toe",
-    );
+    const hint = (name) =>
+      screen
+        .getByRole("button", { name: new RegExp(`^Edit ${name}:`, "i") })
+        .getAttribute("data-tooltip-content");
+    expect(hint("club face")).toBe("Click to type a value · keys Q / E");
+    expect(hint("club path")).toBe("Click to type a value · keys A / D");
+    expect(hint("swing speed")).toBe("Click to type a value · keys S / W");
+    expect(hint("aim")).toBe("Click to type a value · keys Z / C");
+    expect(hint("attack angle")).toBe("Click to type a value · keys G / T");
+    expect(hint("loft")).toBe("Click to type a value · keys H / Y");
+    expect(hint("strike")).toBe("Click to type a value · keys B / N");
     expect(screen.getByRole("button", { name: /^hit$/i })).toHaveAttribute(
       "data-tooltip-content",
       "Key: Space",
@@ -354,6 +340,135 @@ describe("keyboard shortcuts", () => {
       "data-tooltip-content",
       "Key: R",
     );
+  });
+});
+
+describe("club pads", () => {
+  const handle = (name) => screen.getByRole("slider", { name });
+
+  test("every control is a handle that says its value in words", () => {
+    renderApp("/?face=2&path=-3&speed=105&attack=1&loft=2&strike=-0.5&aim=4");
+    expect(textOf("Club face")).toBe("2° open");
+    expect(textOf("Club path")).toBe("3° out-to-in");
+    expect(textOf("Swing speed")).toBe("105 mph");
+    expect(textOf("Attack angle")).toBe("1° up");
+    expect(textOf("Loft")).toBe("16.1° (+2)");
+    expect(textOf("Strike")).toBe("0.5 in heel");
+    expect(textOf("Aim")).toBe("4° right");
+  });
+
+  test("clicking a value turns it into a field; Enter keeps what was typed", () => {
+    renderApp();
+    const input = startTyping("Club face");
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue(0);
+    fireEvent.change(input, { target: { value: "4" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(valueOf("Club face")).toBe(4);
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Edit club face: 4° open" }),
+    ).toBeInTheDocument();
+  });
+
+  test("clicking away also keeps it, Escape throws it away", () => {
+    renderApp();
+    const speed = startTyping("Swing speed");
+    fireEvent.change(speed, { target: { value: "121" } });
+    fireEvent.blur(speed);
+    expect(valueOf("Swing speed")).toBe(121);
+
+    typeValue("Aim", "7", "Escape");
+    expect(valueOf("Aim")).toBe(0);
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+  });
+
+  test("typed values are snapped to the step and held to the range; junk is ignored", () => {
+    renderApp();
+    typeValue("Club path", "-2.4");
+    expect(valueOf("Club path")).toBe(-2);
+    typeValue("Strike", "0.6");
+    expect(valueOf("Strike")).toBe(0.5);
+    typeValue("Loft", "99");
+    expect(valueOf("Loft")).toBe(4);
+    typeValue("Swing speed", "12");
+    expect(valueOf("Swing speed")).toBe(80);
+    typeValue("Club face", "");
+    expect(valueOf("Club face")).toBe(0);
+  });
+
+  test("typing in a field does not set off the letter shortcuts or Hit", () => {
+    renderApp();
+    const input = startTyping("Club face");
+    fireEvent.keyDown(input, { key: "e" });
+    fireEvent.keyDown(input, { key: " " });
+    fireEvent.keyDown(input, { key: "r" });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(valueOf("Club face")).toBe(0);
+    expect(simulator.hit).not.toHaveBeenCalled();
+  });
+
+  test("a focused handle moves with the arrow keys, jumps with Home and End, and resets on double-click", () => {
+    renderApp();
+    fireEvent.keyDown(handle("Club face"), { key: "ArrowRight" });
+    fireEvent.keyDown(handle("Club face"), { key: "ArrowRight" });
+    expect(valueOf("Club face")).toBe(2);
+    fireEvent.keyDown(handle("Club face"), { key: "ArrowLeft" });
+    expect(valueOf("Club face")).toBe(1);
+
+    fireEvent.keyDown(handle("Aim"), { key: "End" });
+    expect(valueOf("Aim")).toBe(10);
+    fireEvent.keyDown(handle("Aim"), { key: "Home" });
+    expect(valueOf("Aim")).toBe(-10);
+
+    fireEvent.keyDown(handle("Strike"), { key: "ArrowRight" });
+    expect(valueOf("Strike")).toBe(0.25);
+    fireEvent.keyDown(handle("Swing speed"), { key: "ArrowUp" });
+    expect(valueOf("Swing speed")).toBe(96);
+
+    fireEvent.doubleClick(handle("Aim"));
+    fireEvent.doubleClick(handle("Club face"));
+    expect(valueOf("Aim")).toBe(0);
+    expect(valueOf("Club face")).toBe(0);
+  });
+
+  test("names the shot shape for the current setup as it changes, and sketches the flight", () => {
+    renderApp();
+    const pads = screen.getByLabelText("Shot controls");
+    expect(within(pads).getByText("Straight")).toBeInTheDocument();
+    expect(pads.querySelector("[data-preview]")).toBeInTheDocument();
+
+    typeValue("Club face", "3");
+    typeValue("Club path", "-2");
+    expect(within(pads).getByText("Push Slice")).toBeInTheDocument();
+
+    typeValue("Club face", "-1");
+    typeValue("Club path", "2");
+    expect(within(pads).getByText("Draw")).toBeInTheDocument();
+  });
+
+  test("the pads turn with the controls, mirrored for a left-hander", () => {
+    renderApp("/?face=2");
+    const turn = (arrow) =>
+      screen
+        .getByRole("group", { name: "Club from above" })
+        .querySelector(`[data-arrow="${arrow}"]`)
+        .getAttribute("transform");
+    // drawn at five times the real angle so a degree is easy to see and grab
+    expect(turn("face")).toBe("rotate(10 154 106)");
+    typeValue("Club path", "-3");
+    expect(turn("path")).toBe("rotate(-15 154 106)");
+  });
+
+  test("a left-hander's open face points the other way on the pad", () => {
+    renderApp("/?face=2&side=Left");
+    expect(
+      screen
+        .getByRole("group", { name: "Club from above" })
+        .querySelector('[data-arrow="face"]')
+        .getAttribute("transform"),
+    ).toBe("rotate(-10 154 106)");
   });
 });
 
@@ -512,13 +627,39 @@ describe("shot result bar", () => {
 });
 
 describe("club view", () => {
+  // The 3D close-up is tucked away until asked for.
+  const renderWithCloseUp = (url) => {
+    renderApp(url);
+    fireEvent.click(screen.getByRole("button", { name: /3D close-up/ }));
+  };
+
+  test("is hidden until the 3D close-up button is pressed, and hides again", () => {
+    renderApp();
+    const toggle = screen.getByRole("button", { name: /3D close-up/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("region", { name: "Club at impact" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("region", { name: "Club at impact" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(
+      screen.queryByRole("region", { name: "Club at impact" }),
+    ).not.toBeInTheDocument();
+  });
+
   const club = () => screen.getByRole("img", { name: /^Driver at impact/ });
   const posed = () => clubScene.update.mock.calls.at(-1)[0];
   const region = () =>
     within(screen.getByRole("region", { name: "Club at impact" }));
 
   test("a 3D close-up sits under the controls and is posed from the current setup", () => {
-    renderApp("/?face=2&path=-1&speed=100");
+    renderWithCloseUp("/?face=2&path=-1&speed=100");
     expect(club()).toHaveAccessibleName(
       "Driver at impact: face 2° open, path 1° out-to-in, ball starts 1.5° right, aim straight, attack level, 14.5° of loft, launches at 12.4° with 2815 rpm of backspin, struck in the centre",
     );
@@ -535,7 +676,7 @@ describe("club view", () => {
   });
 
   test("the club is re-posed as each control changes", () => {
-    renderApp();
+    renderWithCloseUp();
     press("e");
     press("e");
     press("a");
@@ -560,12 +701,12 @@ describe("club view", () => {
   });
 
   test("a left-hander's club is mirrored", () => {
-    renderApp("/?face=2&side=Left");
+    renderWithCloseUp("/?face=2&side=Left");
     expect(posed()).toMatchObject({ mirror: -1, faceDegrees: -2 });
   });
 
   test("the angle buttons move the camera", () => {
-    renderApp();
+    renderWithCloseUp();
     const angles = region().getByRole("group", { name: "Camera angle" });
     expect(
       within(angles).getByRole("button", { name: "Behind" }),
@@ -585,7 +726,7 @@ describe("club view", () => {
   });
 
   test("angles can be drawn three times bigger without changing the numbers", () => {
-    renderApp("/?face=2&path=-1");
+    renderWithCloseUp("/?face=2&path=-1");
     expect(posed()).toMatchObject({ faceDegrees: 2, pathDegrees: -1 });
 
     const toggle = region().getByRole("button", {
@@ -607,7 +748,7 @@ describe("club view", () => {
   });
 
   test("the view can be enlarged and shrunk again", () => {
-    renderApp();
+    renderWithCloseUp();
     fireEvent.click(
       region().getByRole("button", { name: "Enlarge club view" }),
     );
