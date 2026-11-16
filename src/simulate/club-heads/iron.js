@@ -1655,6 +1655,17 @@ export function buildIronHead(club) {
   group.add(mesh, shaft);
   group.userData = {
     solePoints: head.solePoints,
+    // The shaft's axis: a point on it, the way it rises, and how far up it
+    // from that point the grip ends.
+    shaft: {
+      point: head.axisFoot,
+      direction: new THREE.Vector3(
+        Math.cos(spec.lie * RADIANS),
+        Math.sin(spec.lie * RADIANS),
+        0,
+      ),
+      length: club.lengthInches * INCH,
+    },
     faceHeight: head.faceHeight,
     faceWidth: head.faceWidth,
     crownTop: head.crownTop,

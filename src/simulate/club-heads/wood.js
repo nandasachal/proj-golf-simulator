@@ -918,7 +918,8 @@ export function buildWoodHead(club) {
   // The number and loft, engraved in the sole behind the leading edge.
   group.add(buildStamp(club, shape));
 
-  group.add(buildShaft(club, shape, shell.bounds.min.y));
+  const shaft = buildShaft(club, shape, shell.bounds.min.y);
+  group.add(shaft);
 
   const loop = shell.faceBox;
   const crownTop = surfacePoint(
@@ -929,6 +930,9 @@ export function buildWoodHead(club) {
   );
   group.userData = {
     solePoints,
+    // The shaft's axis: a point on it, the way it rises, and how far up it
+    // from that point the grip ends.
+    shaft: shaft.userData,
     faceHeight: loop.max.y - loop.min.y,
     faceWidth: loop.max.x - loop.min.x,
     crownTop,
@@ -1129,5 +1133,6 @@ function buildShaft(club, shape, soleHeight) {
     butt - GRIP_LENGTH / 2,
   );
   grip.castShadow = true;
+  parts.userData = { point: base, direction: shaftDirection, length: butt };
   return parts;
 }

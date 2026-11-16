@@ -59,8 +59,10 @@
   Altitude/temperature and slope are lower value.
 - [done] Club selection (2026-11-15) — 22 clubs chosen in Settings with lofts and
   editable stock carries; every club modelled in 3D in the control views.
-- **Club follow-ups**: the golfer on the range still holds the same generic club
-  and makes a driver swing for every club; saved distance profiles; altitude,
+- [done] Detailed golfer (2026-11-15) — skinned, clothed figure with a sculpted
+  head, two-hand grip, and the selected club's own model in the hands.
+- **Club follow-ups**: the golfer makes a driver swing and uses one club length
+  for every club; saved distance profiles; altitude,
   temperature and wind settings for the stock distances; a quicker way to change
   club than opening Settings; a putter.
 - [done] Target challenge (2026-11-15) — Game mode: random target rings, hit/miss

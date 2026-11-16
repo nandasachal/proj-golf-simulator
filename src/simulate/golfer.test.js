@@ -1,10 +1,14 @@
+import { Vector3 } from "three";
 import {
   swingPose,
   clubheadPosition,
+  bodyPose,
+  createGolfer,
   CONTACT_TIME,
   SWING_DURATION,
   CLUBHEAD_ADDRESS,
 } from "./golfer";
+import { BONE, BONE_COUNT, THIGH, SHIN } from "./golfer-body-figure";
 
 describe("swingPose", () => {
   test("starts at address", () => {
@@ -91,5 +95,86 @@ describe("clubheadPosition", () => {
     expect(left.x).toBeCloseTo(-right.x);
     expect(left.y).toBeCloseTo(right.y);
     expect(left.z).toBeCloseTo(right.z);
+  });
+});
+
+describe("bodyPose", () => {
+  const times = [];
+  for (let t = 0; t <= SWING_DURATION + 0.05; t += 1 / 60) times.push(t);
+
+  test("places every bone, with a proper rotation, all through the swing", () => {
+    for (const t of times) {
+      const { bones } = bodyPose(t);
+      expect(bones).toHaveLength(BONE_COUNT);
+      for (const { position, quaternion } of bones) {
+        expect(position.toArray().every(Number.isFinite)).toBe(true);
+        expect(quaternion.length()).toBeCloseTo(1, 6);
+      }
+    }
+  });
+
+  test("both arms reach their hand on the grip throughout", () => {
+    for (const t of times) expect(bodyPose(t).reached).toBe(true);
+  });
+
+  test("the grip is at the hands, which lead the club back to the ball", () => {
+    const { handPoint, mount } = bodyPose(CONTACT_TIME);
+    const shaft = new Vector3(0, -1, 0).applyQuaternion(mount);
+    const clubhead = clubheadPosition(swingPose(CONTACT_TIME));
+    expect(clubhead.clone().sub(handPoint).normalize().dot(shaft)).toBeCloseTo(
+      1,
+      6,
+    );
+  });
+
+  test("the lead foot stays planted and the trail heel comes up in the finish", () => {
+    const address = bodyPose(0).bones;
+    const finish = bodyPose(SWING_DURATION).bones;
+    expect(
+      finish[BONE.leadFoot].position.distanceTo(
+        address[BONE.leadFoot].position,
+      ),
+    ).toBeLessThan(1e-9);
+    expect(finish[BONE.trailFoot].position.y).toBeGreaterThan(
+      address[BONE.trailFoot].position.y + 0.08,
+    );
+    expect(bodyPose(CONTACT_TIME - 0.3).bones[BONE.trailFoot].position.y).toBe(
+      address[BONE.trailFoot].position.y,
+    );
+  });
+
+  test("the legs never have to stretch past straight", () => {
+    for (const t of times) {
+      const { bones } = bodyPose(t);
+      for (const [thigh, foot] of [
+        [BONE.leadThigh, BONE.leadFoot],
+        [BONE.trailThigh, BONE.trailFoot],
+      ]) {
+        expect(
+          bones[thigh].position.distanceTo(bones[foot].position),
+        ).toBeLessThan(THIGH + SHIN);
+      }
+    }
+  });
+});
+
+describe("createGolfer", () => {
+  test("builds a figure that holds the club and swings either way round", () => {
+    const golfer = createGolfer();
+    const mount = golfer.group.children.find(
+      (child) => child.getObjectByName("clubhead") && !child.isBone,
+    );
+    for (const side of ["Right", "Left"]) {
+      golfer.setSide(side);
+      for (const t of [0, 0.9, CONTACT_TIME, SWING_DURATION]) {
+        golfer.setTime(t);
+        golfer.group.updateMatrixWorld(true);
+        const head = mount
+          .getObjectByName("clubhead")
+          .getWorldPosition(new Vector3());
+        const expected = clubheadPosition(swingPose(t), side);
+        expect(head.distanceTo(expected)).toBeLessThan(0.02);
+      }
+    }
   });
 });

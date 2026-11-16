@@ -265,6 +265,7 @@ export function createSimulator(container, callbacks = {}) {
 
   // The driver is hit off a tee; every other club off the mat.
   function setClub(club) {
+    golfer.setClub(club);
     tee.visible = club.teed;
     restPosition.y = MAT_TOP + BALL_RADIUS + (club.teed ? TEE_HEIGHT : 0);
     if (state === ADDRESS) ballToRest();

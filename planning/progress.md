@@ -212,3 +212,16 @@ check: green (259 tests) · evidence: driven in the browser at 1440x860 and
 800x600, driver / lob wedge / 7 iron left-handed extremes · decisions: neutral
 for the word is 0 (stock speed for swing speed); R reset shortcut removed with
 the letters · next: confirm the Command up/down reading with Sachal.
+
+2026-11-15 — detailed golfer — done: golfer rebuilt by three parallel agents
+behind fixed seams (golfer.js skeleton/pose; golfer-body-*.js skinned body,
+hands, clothing; golfer-head.js sculpted head modelled on Sachal's photo, photo
+not in the repo; golfer-club.js the selected club's head model fitted to the
+hands); main.js setClub now reaches the golfer · check: green (278 tests) ·
+evidence: driven in the browser at 800x600, driver at address (body, face,
+clubhead close-ups), top of backswing and finish, ball launched, no console
+errors; agents also checked 6 clubs and left-handed · decisions: clubheadPosition
+changed away from address/impact (hands fold in); one club length for all clubs;
+club carries its own reflection map since the scene has no environment · next:
+face likeness pass (nose, expression, hair silhouette), frame rate measurement,
+per-club length and posture.
