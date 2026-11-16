@@ -98,6 +98,23 @@ const lastLaunch = () => lastHit()[0];
 const lastTurf = () => lastHit()[2];
 const press = (key, options = {}) =>
   fireEvent.keyDown(document.body, { key, ...options });
+// Command-arrow changes the box the keyboard is on (Club face to begin with).
+const command = (key) => press(key, { metaKey: true });
+// Put the keyboard on a box, as clicking it does.
+const selectBox = (name) =>
+  fireEvent.pointerDown(
+    screen.getByRole("button", { name: new RegExp(`^Edit ${name}:`, "i") }),
+  );
+const selectedBox = () =>
+  screen
+    .getAllByRole("button", { name: /^Edit / })
+    .map((button) => button.closest("[data-chip]"))
+    .find((chip) => chip.dataset.selected === "true")?.dataset.chip;
+// The whole value of a box, word and number together.
+const shows = (name, text) =>
+  expect(
+    screen.getByRole("button", { name: `Edit ${name}: ${text}` }),
+  ).toBeInTheDocument();
 const openSettings = () => {
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   return within(screen.getByRole("dialog"));
@@ -162,10 +179,10 @@ describe("shot controls", () => {
     typeValue("Club path", "-2");
     typeValue("Swing speed", "120");
     typeValue("Aim", "-5");
-    expect(screen.getAllByText("4° open").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("2° out-to-in").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("120 mph").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("5° left").length).toBeGreaterThan(0);
+    shows("club face", "4° open");
+    shows("club path", "2° out-to-in");
+    shows("swing speed", "120 mph");
+    shows("aim", "5° left");
 
     hit();
     const launch = lastLaunch();
@@ -205,7 +222,7 @@ describe("shot controls", () => {
     expect(screen.getByText("14.1°")).toBeInTheDocument();
 
     typeValue("Attack angle", "5");
-    expect(screen.getAllByText("5° up").length).toBeGreaterThan(0);
+    shows("attack angle", "5° up");
     hit();
     const up = lastLaunch();
     expect(up.initVerticalAngleDegrees).toBeGreaterThan(
@@ -214,7 +231,7 @@ describe("shot controls", () => {
     expect(up.initBackspinRPM).toBeLessThan(level.initBackspinRPM);
 
     typeValue("Loft", "3");
-    expect(screen.getByText("17.1° (+3)")).toBeInTheDocument();
+    shows("loft", "17.1° (+3)");
     hit();
     expect(lastLaunch().initVerticalAngleDegrees).toBeGreaterThan(
       up.initVerticalAngleDegrees,
@@ -235,7 +252,7 @@ describe("shot controls", () => {
     const centre = lastLaunch();
 
     typeValue("Strike", "0.75");
-    expect(screen.getByText("0.75 in toe")).toBeInTheDocument();
+    shows("strike", "0.75 in toe");
     hit();
     const toe = lastLaunch();
     expect(toe.smashFactor).toBeLessThan(centre.smashFactor);
@@ -243,7 +260,7 @@ describe("shot controls", () => {
     expect(toe.initSpinAngle).toBeGreaterThan(8);
 
     typeValue("Strike", "-0.5");
-    expect(screen.getByText("0.5 in heel")).toBeInTheDocument();
+    shows("strike", "0.5 in heel");
   });
 
   test("strike is read from the URL and clamped", () => {
@@ -282,52 +299,140 @@ describe("shot controls", () => {
   });
 });
 
-describe("keyboard shortcuts", () => {
-  test("each control has a key to nudge it down and one to nudge it up", () => {
+describe("keyboard", () => {
+  test("arrows move between the boxes; the keyboard starts on Club face", () => {
     renderApp();
-    press("e");
-    press("e");
+    expect(selectedBox()).toBe("clubFaceAngle");
+    press("ArrowRight");
+    expect(selectedBox()).toBe("clubPathAngle");
+    press("ArrowDown");
+    expect(selectedBox()).toBe("aim");
+    press("ArrowLeft");
+    expect(selectedBox()).toBe("strike");
+    press("ArrowDown");
+    expect(selectedBox()).toBe("attackAngle");
+    press("ArrowDown");
+    expect(selectedBox()).toBe("swingSpeed");
+    press("ArrowDown");
+    expect(selectedBox()).toBe("swingSpeed");
+    // moving never changes a value
+    for (const name of ["Club face", "Club path", "Strike", "Aim"]) {
+      expect(valueOf(name)).toBe(0);
+    }
+    expect(valueOf("Swing speed")).toBe(95);
+  });
+
+  test("Command with left and right changes the number of the box the keyboard is on", () => {
+    renderApp();
+    command("ArrowRight");
+    command("ArrowRight");
     expect(valueOf("Club face")).toBe(2);
-    press("q");
+    command("ArrowLeft");
     expect(valueOf("Club face")).toBe(1);
 
-    press("a");
+    press("ArrowRight");
+    command("ArrowLeft");
     expect(valueOf("Club path")).toBe(-1);
-    press("D");
-    press("d");
-    expect(valueOf("Club path")).toBe(1);
+    expect(valueOf("Club face")).toBe(1);
 
-    press("w");
-    expect(valueOf("Swing speed")).toBe(96);
-    press("s");
-    press("s");
-    expect(valueOf("Swing speed")).toBe(94);
-
-    press("c");
+    press("ArrowDown");
+    command("ArrowRight");
     expect(valueOf("Aim")).toBe(1);
-    press("z");
-    press("z");
-    expect(valueOf("Aim")).toBe(-1);
 
-    press("t");
-    press("t");
+    press("ArrowLeft");
+    command("ArrowRight");
+    command("ArrowRight");
+    expect(valueOf("Strike")).toBe(0.5);
+
+    press("ArrowDown");
+    command("ArrowRight");
+    command("ArrowRight");
     expect(valueOf("Attack angle")).toBe(2);
-    press("g");
-    expect(valueOf("Attack angle")).toBe(1);
 
-    press("y");
-    expect(valueOf("Loft")).toBe(1);
-    press("h");
-    press("h");
+    press("ArrowRight");
+    command("ArrowLeft");
     expect(valueOf("Loft")).toBe(-1);
 
-    press("n");
-    press("n");
-    expect(valueOf("Strike")).toBe(0.5);
-    press("b");
-    press("b");
-    press("b");
-    expect(valueOf("Strike")).toBe(-0.25);
+    press("ArrowDown");
+    command("ArrowRight");
+    expect(valueOf("Swing speed")).toBe(96);
+    command("ArrowLeft");
+    command("ArrowLeft");
+    expect(valueOf("Swing speed")).toBe(94);
+  });
+
+  test("Ctrl works in place of Command", () => {
+    renderApp();
+    press("ArrowRight", { ctrlKey: true });
+    expect(valueOf("Club face")).toBe(1);
+  });
+
+  test("Command with up and down steps the word: one side, neutral, the other side", () => {
+    renderApp("/?face=4");
+    shows("club face", "4° open");
+    command("ArrowDown");
+    shows("club face", "square");
+    expect(valueOf("Club face")).toBe(0);
+    command("ArrowDown");
+    shows("club face", "1° closed");
+    command("ArrowDown");
+    expect(valueOf("Club face")).toBe(-1);
+    command("ArrowUp");
+    expect(valueOf("Club face")).toBe(0);
+    command("ArrowUp");
+    shows("club face", "1° open");
+
+    selectBox("swing speed");
+    command("ArrowRight");
+    command("ArrowRight");
+    expect(valueOf("Swing speed")).toBe(97);
+    command("ArrowDown");
+    expect(valueOf("Swing speed")).toBe(95);
+  });
+
+  test("each box shows its word and its number as two separate fields", () => {
+    renderApp("/?face=3&path=-2&strike=0.5&aim=-4&attack=2&speed=100");
+    const fields = (control) => {
+      const chip = screen
+        .getAllByRole("button", { name: /^Edit / })
+        .map((button) => button.closest("[data-chip]"))
+        .find((box) => box.dataset.chip === control);
+      return [
+        chip.querySelector('[data-field="word"]').textContent,
+        chip.querySelector('[data-field="number"]').textContent,
+      ];
+    };
+    expect(fields("clubFaceAngle")).toEqual(["open", "3°"]);
+    expect(fields("clubPathAngle")).toEqual(["out-to-in", "2°"]);
+    expect(fields("strike")).toEqual(["toe", "0.5 in"]);
+    expect(fields("aim")).toEqual(["left", "4°"]);
+    expect(fields("attackAngle")).toEqual(["up", "2°"]);
+    expect(fields("loftChange")).toEqual(["stock", "14.5°"]);
+    expect(fields("swingSpeed")).toEqual(["faster", "100 mph"]);
+  });
+
+  test("clicking the word puts the control back to neutral", () => {
+    renderApp("/?face=3&attack=-2");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Club face: open. Set to square" }),
+    );
+    expect(valueOf("Club face")).toBe(0);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Attack angle: down. Set to level",
+      }),
+    );
+    expect(valueOf("Attack angle")).toBe(0);
+  });
+
+  test("clicking a box, or grabbing its handle, puts the keyboard on it", () => {
+    renderApp();
+    selectBox("aim");
+    expect(selectedBox()).toBe("aim");
+    command("ArrowRight");
+    expect(valueOf("Aim")).toBe(1);
+    fireEvent.focus(screen.getByRole("slider", { name: "Strike" }));
+    expect(selectedBox()).toBe("strike");
   });
 
   test("key presses that arrive before the screen redraws all count", () => {
@@ -335,7 +440,11 @@ describe("keyboard shortcuts", () => {
     act(() => {
       for (let i = 0; i < 3; i++) {
         document.body.dispatchEvent(
-          new KeyboardEvent("keydown", { key: "e", bubbles: true }),
+          new KeyboardEvent("keydown", {
+            key: "ArrowRight",
+            metaKey: true,
+            bubbles: true,
+          }),
         );
       }
     });
@@ -344,56 +453,55 @@ describe("keyboard shortcuts", () => {
 
   test("a control stops at the end of its range", () => {
     renderApp("/?face=6&speed=80");
-    press("e");
+    command("ArrowRight");
     expect(valueOf("Club face")).toBe(6);
-    press("s");
+    selectBox("swing speed");
+    command("ArrowLeft");
     expect(valueOf("Swing speed")).toBe(80);
   });
 
-  test("Space hits with the current setup and R resets it", () => {
+  test("Space hits with the current setup", () => {
     renderApp();
-    press("e");
+    command("ArrowRight");
     press(" ");
     expect(simulator.hit).toHaveBeenCalledTimes(1);
     expect(lastLaunch().initHorizontalAngleDegrees).toBeGreaterThan(0);
-
-    press("r");
-    expect(valueOf("Club face")).toBe(0);
   });
 
-  test("shortcuts stand down for modifier combos and while Settings is open", () => {
-    renderApp();
-    press("r", { metaKey: true });
-    press("e", { ctrlKey: true });
-    expect(valueOf("Club face")).toBe(0);
+  test("letters do nothing any more", () => {
+    renderApp("/?face=2");
+    for (const letter of "qeadswzcgthybnrQER") press(letter);
+    expect(valueOf("Club face")).toBe(2);
+    expect(valueOf("Club path")).toBe(0);
+    expect(valueOf("Swing speed")).toBe(95);
+    expect(simulator.hit).not.toHaveBeenCalled();
+  });
 
+  test("the keyboard stands down while Settings is open", () => {
+    renderApp();
     openSettings();
-    press("e");
+    command("ArrowRight");
+    press("ArrowDown");
     press(" ");
     expect(valueOf("Club face")).toBe(0);
     expect(simulator.hit).not.toHaveBeenCalled();
   });
 
-  test("the keys are discoverable from the controls themselves", () => {
+  test("the keys are explained in the panel, with no letters on the boxes", () => {
     renderApp();
-    const hint = (name) =>
+    const pads = screen.getByLabelText("Shot controls");
+    expect(pads).toHaveTextContent(
+      "←↑↓→ move · ⌘←→ number · ⌘↑↓ word · Space hit",
+    );
+    expect(
       screen
-        .getByRole("button", { name: new RegExp(`^Edit ${name}:`, "i") })
-        .getAttribute("data-tooltip-content");
-    expect(hint("club face")).toBe("Click to type a value · keys Q / E");
-    expect(hint("club path")).toBe("Click to type a value · keys A / D");
-    expect(hint("swing speed")).toBe("Click to type a value · keys S / W");
-    expect(hint("aim")).toBe("Click to type a value · keys Z / C");
-    expect(hint("attack angle")).toBe("Click to type a value · keys G / T");
-    expect(hint("loft")).toBe("Click to type a value · keys H / Y");
-    expect(hint("strike")).toBe("Click to type a value · keys B / N");
+        .getByRole("button", { name: /^Edit club face:/i })
+        .getAttribute("data-tooltip-content"),
+    ).toBe("Click to type a value · ⌘ ← → changes it");
+    expect(pads).not.toHaveTextContent(/\bQ E\b|\bA D\b|\bS W\b/);
     expect(screen.getByRole("button", { name: /^hit$/i })).toHaveAttribute(
       "data-tooltip-content",
       "Key: Space",
-    );
-    expect(screen.getByRole("button", { name: /reset/i })).toHaveAttribute(
-      "data-tooltip-content",
-      "Key: R",
     );
   });
 });
@@ -455,8 +563,10 @@ describe("club pads", () => {
     jest.useFakeTimers();
     try {
       renderApp();
-      for (let i = 0; i < 40; i++) press("w");
-      for (let i = 0; i < 5; i++) press("e");
+      selectBox("swing speed");
+      for (let i = 0; i < 40; i++) command("ArrowRight");
+      selectBox("club face");
+      for (let i = 0; i < 5; i++) command("ArrowRight");
       expect(valueOf("Swing speed")).toBe(135);
       expect(valueOf("Club face")).toBe(5);
       expect(address()).toBe("");
@@ -466,7 +576,7 @@ describe("club pads", () => {
       expect(valueOf("Swing speed")).toBe(135);
 
       // a hit in that window still uses what is on screen
-      press("q");
+      command("ArrowLeft");
       press(" ");
       expect(lastLaunch().initSpeedMPH).toBe(135);
       expect(valueOf("Club face")).toBe(4);
@@ -479,8 +589,8 @@ describe("club pads", () => {
     jest.useFakeTimers();
     try {
       renderApp("/?face=2");
-      press("e");
-      press("r");
+      command("ArrowRight");
+      fireEvent.click(screen.getByRole("button", { name: /reset/i }));
       act(() => jest.advanceTimersByTime(300));
       expect(valueOf("Club face")).toBe(0);
       expect(address()).toBe("");
@@ -560,33 +670,50 @@ describe("club pads", () => {
     expect(valueOf("Club face")).toBe(0);
   });
 
-  test("typing in a field does not set off the letter shortcuts or Hit", () => {
+  test("typing in a field does not set off the arrow keys or Hit", () => {
     renderApp();
     const input = startTyping("Club face");
-    fireEvent.keyDown(input, { key: "e" });
+    fireEvent.keyDown(input, { key: "ArrowRight", metaKey: true });
     fireEvent.keyDown(input, { key: " " });
-    fireEvent.keyDown(input, { key: "r" });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
     fireEvent.keyDown(input, { key: "Escape" });
     expect(valueOf("Club face")).toBe(0);
     expect(simulator.hit).not.toHaveBeenCalled();
   });
 
-  test("a focused handle moves with the arrow keys, jumps with Home and End, and resets on double-click", () => {
+  test("a focused handle takes Command-arrows, jumps with Home and End, and resets on double-click", () => {
     renderApp();
-    fireEvent.keyDown(handle("Club face"), { key: "ArrowRight" });
-    fireEvent.keyDown(handle("Club face"), { key: "ArrowRight" });
+    // focusing a handle puts the keyboard on its box
+    fireEvent.focus(handle("Club face"));
+    fireEvent.keyDown(handle("Club face"), {
+      key: "ArrowRight",
+      metaKey: true,
+    });
+    fireEvent.keyDown(handle("Club face"), {
+      key: "ArrowRight",
+      metaKey: true,
+    });
     expect(valueOf("Club face")).toBe(2);
-    fireEvent.keyDown(handle("Club face"), { key: "ArrowLeft" });
+    fireEvent.keyDown(handle("Club face"), { key: "ArrowLeft", metaKey: true });
     expect(valueOf("Club face")).toBe(1);
+    // a plain arrow moves to another box and leaves the value alone
+    fireEvent.keyDown(handle("Club face"), { key: "ArrowRight" });
+    expect(valueOf("Club face")).toBe(1);
+    expect(selectedBox()).toBe("clubPathAngle");
 
     fireEvent.keyDown(handle("Aim"), { key: "End" });
     expect(valueOf("Aim")).toBe(10);
     fireEvent.keyDown(handle("Aim"), { key: "Home" });
     expect(valueOf("Aim")).toBe(-10);
 
-    fireEvent.keyDown(handle("Strike"), { key: "ArrowRight" });
+    fireEvent.focus(handle("Strike"));
+    fireEvent.keyDown(handle("Strike"), { key: "ArrowRight", metaKey: true });
     expect(valueOf("Strike")).toBe(0.25);
-    fireEvent.keyDown(handle("Swing speed"), { key: "ArrowUp" });
+    fireEvent.focus(handle("Swing speed"));
+    fireEvent.keyDown(handle("Swing speed"), {
+      key: "ArrowRight",
+      metaKey: true,
+    });
     expect(valueOf("Swing speed")).toBe(96);
 
     fireEvent.doubleClick(handle("Aim"));
@@ -676,7 +803,7 @@ describe("club pads", () => {
     fireEvent.pointerEnter(handle("Club face"));
     fireEvent.pointerLeave(handle("Club face"));
     expect(clubScenes.above.update.mock.calls.length).toBe(before);
-    press("e");
+    command("ArrowRight");
     expect(clubScenes.above.update.mock.calls.length).toBe(before + 1);
   });
 
@@ -1055,7 +1182,8 @@ describe("club selection", () => {
     const speed = screen.getByRole("slider", { name: "Swing speed" });
     expect(speed).toHaveAttribute("aria-valuemin", "64");
     expect(speed).toHaveAttribute("aria-valuemax", "112");
-    press("s", { repeat: false });
+    selectBox("swing speed");
+    command("ArrowLeft");
     expect(valueOf("Swing speed")).toBe(75);
   });
 

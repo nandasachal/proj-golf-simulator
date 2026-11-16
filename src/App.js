@@ -17,7 +17,14 @@ import { randomTarget } from "./simulate/game";
 import { getClub, swingSpeedRange, DEFAULT_CLUB_ID } from "./simulate/clubs";
 import { standardAttackAngle } from "./simulate/launch-conditions";
 import { carryLimits, speedForCarry } from "./simulate/club-distances";
-import { shortcutFor, shouldIgnoreKey } from "./utils/shortcuts";
+import {
+  FIRST_CONTROL,
+  keyAction,
+  moveSelection,
+  shouldIgnoreKey,
+  stepState,
+} from "./utils/shortcuts";
+import { snap } from "./utils/club-handles";
 import {
   AIM_VALUES,
   ATTACK_ANGLE_VALUES,
@@ -232,7 +239,6 @@ function App() {
   const staleShot = useRef(false);
   const simulator = useRef(null);
   const stage = useRef(null);
-  const panel = useRef(null);
   const [live, setLive] = useState(null);
   const [result, setResult] = useState(null);
   const [target, setTarget] = useState(null);
@@ -274,18 +280,7 @@ function App() {
     });
     simulator.current = sim;
 
-    // On desktop the controls float over the left of the scene, so centre
-    // the view in what's left rather than behind the panel.
-    const desktop = window.matchMedia(DESKTOP_QUERY);
-    const updateInset = () =>
-      sim.setViewInset(
-        desktop.matches ? panel.current.getBoundingClientRect().right : 0,
-      );
-    updateInset();
-    window.addEventListener("resize", updateInset);
-
     return () => {
-      window.removeEventListener("resize", updateInset);
       sim.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -428,30 +423,39 @@ function App() {
     );
   };
 
-  // Keyboard shortcuts for the shot controls. The handler is replaced every
-  // render so it always sees the current values.
+  // The value box the keyboard is on: arrows move it, Command-arrows change
+  // its value.
+  const [selected, setSelected] = useState(FIRST_CONTROL);
+
+  // Keyboard control of the shot. The handler is replaced every render so it
+  // always sees the current values.
   const onShortcut = useRef(null);
   onShortcut.current = (event) => {
     if (shouldIgnoreKey(event)) return;
     // Leave the keyboard alone while the settings dialog is open.
     if (document.querySelector('[role="dialog"]')) return;
-    const shortcut = shortcutFor(event.key);
-    if (!shortcut) return;
+    const pressed = keyAction(event);
+    if (!pressed) return;
     event.preventDefault();
-    if (shortcut.action === "hit") handleHit();
-    else if (shortcut.action === "reset") handleReset();
-    else {
+    if (pressed.action === "hit") handleHit();
+    else if (pressed.action === "move") {
+      // A focused handle or value would otherwise look selected too.
+      document.activeElement?.blur?.();
+      setSelected((previous) => moveSelection(previous, pressed.key));
+    } else {
       // Step from the latest value, not the one this render saw: key
       // repeats can arrive faster than the screen redraws.
-      const { control, direction } = shortcut;
-      const range = ranges[control];
-      setDraft((previous) => ({
-        ...previous,
-        [control]: clamp(
-          (previous[control] ?? saved[control]) + direction * range.STEP,
-          range,
-        ),
-      }));
+      const range = ranges[selected];
+      setDraft((previous) => {
+        const value = previous[selected] ?? saved[selected];
+        return {
+          ...previous,
+          [selected]:
+            pressed.action === "adjust"
+              ? snap(value + pressed.direction * range.STEP, range)
+              : stepState(selected, value, pressed.direction, range),
+        };
+      });
     }
   };
   useEffect(() => {
@@ -513,7 +517,7 @@ function App() {
 
       {/* Left column: the shot controls, then the club-at-impact views. */}
       <div className="z-10 m-3 flex flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-5.5rem)] md:w-[340px] md:overflow-y-auto">
-        <div ref={panel} className="hud-panel p-4 md:p-3">
+        <div className="hud-panel p-4 md:p-3">
           <ClubPads
             values={{
               clubFaceAngle: faceAngle,
@@ -527,6 +531,8 @@ function App() {
             side={side}
             club={club}
             ranges={ranges}
+            selected={selected}
+            onSelect={setSelected}
             preview={preview}
             onChange={handleValueChange}
           />

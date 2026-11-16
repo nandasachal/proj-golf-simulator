@@ -6,7 +6,6 @@ import {
   ShareFill,
 } from "react-bootstrap-icons";
 import toast from "react-hot-toast";
-import { SHORTCUTS, keyLabel } from "../../utils/shortcuts";
 
 const secondary =
   "flex items-center justify-center rounded-lg bg-white/10 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/20 hover:text-white";
@@ -16,9 +15,9 @@ export const HitButton = ({ onClick, className = "" }) => (
     type="button"
     className={`flex items-center justify-center rounded-lg bg-lime-400 text-base font-bold text-slate-900 transition-colors hover:bg-lime-300 active:bg-lime-500 ${className}`}
     onClick={onClick}
-    aria-keyshortcuts={keyLabel(SHORTCUTS.hit)}
+    aria-keyshortcuts="Space"
     data-tooltip-id="main-tooltip"
-    data-tooltip-content={`Key: ${keyLabel(SHORTCUTS.hit)}`}
+    data-tooltip-content="Key: Space"
   >
     <PlayFill size={20} className="mr-1" />
     Hit
@@ -59,9 +58,8 @@ const ButtonRow = ({
           type="button"
           className={secondary}
           onClick={handleReset}
-          aria-keyshortcuts={keyLabel(SHORTCUTS.reset)}
           data-tooltip-id="main-tooltip"
-          data-tooltip-content={`Key: ${keyLabel(SHORTCUTS.reset)}`}
+          data-tooltip-content="Back to the default shot for this club"
         >
           <ArrowCounterclockwise size={14} className="mr-1.5" />
           Reset

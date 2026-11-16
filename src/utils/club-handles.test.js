@@ -306,6 +306,14 @@ describe("handles for clubs played off the turf", () => {
     }
   });
 
+  test("hitting up at a ball on the turf keeps the attack handle in the picture", () => {
+    const angles = shown("lw", { attackAngle: 5 }, 38.5);
+    const tail = sideHandles(angles).attackAngle;
+    expect(tail.y).toBeGreaterThanOrEqual(-3.5 - 1e-9);
+    expect(tail.z).toBeLessThan(-10);
+    expect(fromSide.attackAngle(tail, angles)).toBeCloseTo(5, 6);
+  });
+
   test("the head is grabbed on top of it, lower than a driver's crown", () => {
     const driver = topHandles(shown("driver", {}, 14), 1).strike;
     const iron = topHandles(shown("7i", {}, 20), 1).strike;

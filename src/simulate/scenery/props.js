@@ -1147,10 +1147,13 @@ function buildTeeLine({ random, anisotropy, paint }) {
       otherMats.push(turfTop);
     }
 
-    // A low powder-coated rail between this bay and the next.
+    // A low powder-coated rail between this bay and the next. The player's
+    // bay has none either side: they would stand across the bottom of the
+    // picture, right in front of the camera.
     const railX = x + BAY_SPACING / 2;
     const rail = 0x1d3b2a;
-    for (const z of [-2.9, 0.1]) {
+    const besidePlayer = bay === 0 || bay === -1;
+    for (const z of besidePlayer ? [] : [-2.9, 0.1]) {
       put(
         cylinder(0.035, 0.035, 0.55, 8),
         place(railX, DECK.y + 0.275, z),
@@ -1163,7 +1166,7 @@ function buildTeeLine({ random, anisotropy, paint }) {
       );
       put(box(0.16, 0.012, 0.16), place(railX, DECK.y + 0.006, z), 0x15291d);
     }
-    for (const y of [0.55, 0.28]) {
+    for (const y of besidePlayer ? [] : [0.55, 0.28]) {
       const radius = y > 0.5 ? 0.035 : 0.022;
       tube(
         batch,

@@ -1,103 +1,163 @@
 import {
-  ADJUSTABLE,
-  SHORTCUTS,
-  keyLabel,
-  shortcutFor,
+  FIRST_CONTROL,
+  GRID,
+  keyAction,
+  moveSelection,
+  neutralOf,
   shouldIgnoreKey,
+  stateOf,
+  stepState,
 } from "./shortcuts";
 
-describe("shortcutFor", () => {
-  test("maps each control's two keys to down and up, in either case", () => {
-    expect(shortcutFor("q")).toEqual({
+const key = (name, extra = {}) => ({ key: name, ...extra });
+const ANGLE = { MIN: -6, MAX: 6, DEFAULT: 0, STEP: 1 };
+const STRIKE = { MIN: -1, MAX: 1, DEFAULT: 0, STEP: 0.25 };
+const SPEED = { MIN: 64, MAX: 112, DEFAULT: 76, STEP: 1 };
+const ATTACK = { MIN: -8, MAX: 5, DEFAULT: -4, STEP: 1 };
+
+describe("moveSelection", () => {
+  test("arrows move between the boxes as they are laid out", () => {
+    expect(FIRST_CONTROL).toBe("clubFaceAngle");
+    expect(moveSelection("clubFaceAngle", "ArrowRight")).toBe("clubPathAngle");
+    expect(moveSelection("clubPathAngle", "ArrowLeft")).toBe("clubFaceAngle");
+    expect(moveSelection("clubFaceAngle", "ArrowDown")).toBe("strike");
+    expect(moveSelection("clubPathAngle", "ArrowDown")).toBe("aim");
+    expect(moveSelection("aim", "ArrowDown")).toBe("loftChange");
+    expect(moveSelection("loftChange", "ArrowUp")).toBe("aim");
+    expect(moveSelection("attackAngle", "ArrowDown")).toBe("swingSpeed");
+    expect(moveSelection("loftChange", "ArrowDown")).toBe("swingSpeed");
+  });
+
+  test("it stops at the edges rather than wrapping", () => {
+    expect(moveSelection("clubFaceAngle", "ArrowLeft")).toBe("clubFaceAngle");
+    expect(moveSelection("clubFaceAngle", "ArrowUp")).toBe("clubFaceAngle");
+    expect(moveSelection("clubPathAngle", "ArrowRight")).toBe("clubPathAngle");
+    expect(moveSelection("swingSpeed", "ArrowDown")).toBe("swingSpeed");
+    expect(moveSelection("swingSpeed", "ArrowRight")).toBe("swingSpeed");
+  });
+
+  test("every box can be reached from the first", () => {
+    const reached = new Set([FIRST_CONTROL]);
+    for (let pass = 0; pass < 6; pass++) {
+      for (const control of [...reached]) {
+        for (const arrow of [
+          "ArrowLeft",
+          "ArrowRight",
+          "ArrowUp",
+          "ArrowDown",
+        ]) {
+          reached.add(moveSelection(control, arrow));
+        }
+      }
+    }
+    expect(reached).toEqual(new Set(GRID.flat()));
+  });
+
+  test("an unknown box or key is harmless", () => {
+    expect(moveSelection("nonsense", "ArrowDown")).toBe(FIRST_CONTROL);
+    expect(moveSelection("aim", "x")).toBe("aim");
+  });
+});
+
+describe("keyAction", () => {
+  test("plain arrows move, Command arrows change the selected box", () => {
+    expect(keyAction(key("ArrowDown"))).toEqual({
+      action: "move",
+      key: "ArrowDown",
+    });
+    expect(keyAction(key("ArrowLeft", { metaKey: true }))).toEqual({
       action: "adjust",
-      control: "clubFaceAngle",
       direction: -1,
     });
-    expect(shortcutFor("E")).toEqual({
+    expect(keyAction(key("ArrowRight", { metaKey: true }))).toEqual({
       action: "adjust",
-      control: "clubFaceAngle",
       direction: 1,
     });
-    expect(shortcutFor("a").control).toBe("clubPathAngle");
-    expect(shortcutFor("d").direction).toBe(1);
-    expect(shortcutFor("s")).toMatchObject({
-      control: "swingSpeed",
-      direction: -1,
-    });
-    expect(shortcutFor("w")).toMatchObject({
-      control: "swingSpeed",
+    expect(keyAction(key("ArrowUp", { metaKey: true }))).toEqual({
+      action: "state",
       direction: 1,
     });
-    expect(shortcutFor("z")).toMatchObject({ control: "aim", direction: -1 });
-    expect(shortcutFor("c")).toMatchObject({ control: "aim", direction: 1 });
-    expect(shortcutFor("g")).toMatchObject({
-      control: "attackAngle",
+    expect(keyAction(key("ArrowDown", { metaKey: true }))).toEqual({
+      action: "state",
       direction: -1,
     });
-    expect(shortcutFor("t")).toMatchObject({
-      control: "attackAngle",
-      direction: 1,
-    });
-    expect(shortcutFor("h")).toMatchObject({
-      control: "loftChange",
-      direction: -1,
-    });
-    expect(shortcutFor("y")).toMatchObject({
-      control: "loftChange",
-      direction: 1,
-    });
-    expect(shortcutFor("b")).toMatchObject({
-      control: "strike",
-      direction: -1,
-    });
-    expect(shortcutFor("n")).toMatchObject({ control: "strike", direction: 1 });
   });
 
-  test("space hits and R resets; other keys do nothing", () => {
-    expect(shortcutFor(" ")).toEqual({ action: "hit" });
-    expect(shortcutFor("r")).toEqual({ action: "reset" });
-    expect(shortcutFor("x")).toBeNull();
-    expect(shortcutFor("ArrowLeft")).toBeNull();
-    expect(shortcutFor("Enter")).toBeNull();
+  test("Ctrl stands in for Command", () => {
+    expect(keyAction(key("ArrowRight", { ctrlKey: true }))).toEqual({
+      action: "adjust",
+      direction: 1,
+    });
   });
 
-  test("no key is assigned twice", () => {
-    const keys = [
-      SHORTCUTS.hit,
-      SHORTCUTS.reset,
-      ...ADJUSTABLE.flatMap((control) => [
-        SHORTCUTS[control].down,
-        SHORTCUTS[control].up,
-      ]),
-    ];
-    expect(new Set(keys).size).toBe(keys.length);
+  test("space hits; letters do nothing any more", () => {
+    expect(keyAction(key(" "))).toEqual({ action: "hit" });
+    for (const letter of ["q", "e", "a", "d", "s", "w", "r", "R", "Enter"]) {
+      expect(keyAction(key(letter))).toBeNull();
+    }
+    expect(keyAction(key("ArrowLeft", { altKey: true }))).toBeNull();
+    expect(keyAction(key(" ", { metaKey: true }))).toBeNull();
+  });
+});
+
+describe("the word a value reads as", () => {
+  test("neutral is zero, except swing speed, where it is the club's stock speed", () => {
+    expect(neutralOf("clubFaceAngle", ANGLE)).toBe(0);
+    expect(neutralOf("attackAngle", ATTACK)).toBe(0);
+    expect(neutralOf("swingSpeed", SPEED)).toBe(76);
   });
 
-  test("labels keys for display", () => {
-    expect(keyLabel(" ")).toBe("Space");
-    expect(keyLabel("q")).toBe("Q");
+  test("a value is below, at or above neutral", () => {
+    expect(stateOf("clubFaceAngle", -3, ANGLE)).toBe(-1);
+    expect(stateOf("clubFaceAngle", 0, ANGLE)).toBe(0);
+    expect(stateOf("clubFaceAngle", 2, ANGLE)).toBe(1);
+    expect(stateOf("swingSpeed", 76, SPEED)).toBe(0);
+    expect(stateOf("swingSpeed", 90, SPEED)).toBe(1);
+    expect(stateOf("attackAngle", -4, ATTACK)).toBe(-1);
+  });
+
+  test("stepping the word goes side → neutral → one step into the other side", () => {
+    expect(stepState("clubFaceAngle", 4, -1, ANGLE)).toBe(0);
+    expect(stepState("clubFaceAngle", 0, -1, ANGLE)).toBe(-1);
+    expect(stepState("clubFaceAngle", -5, 1, ANGLE)).toBe(0);
+    expect(stepState("clubFaceAngle", 0, 1, ANGLE)).toBe(1);
+    expect(stepState("strike", 0, 1, STRIKE)).toBe(0.25);
+    expect(stepState("swingSpeed", 100, -1, SPEED)).toBe(76);
+    expect(stepState("swingSpeed", 76, -1, SPEED)).toBe(75);
+    // an iron's "down" steps to level, then to up
+    expect(stepState("attackAngle", -4, 1, ATTACK)).toBe(0);
+    expect(stepState("attackAngle", 0, 1, ATTACK)).toBe(1);
+  });
+
+  test("it does nothing once it is as far as the word goes", () => {
+    expect(stepState("clubFaceAngle", 3, 1, ANGLE)).toBe(3);
+    expect(stepState("clubFaceAngle", -2, -1, ANGLE)).toBe(-2);
   });
 });
 
 describe("shouldIgnoreKey", () => {
-  const press = (key, tagName, extra = {}) => ({
-    key,
+  const press = (name, tagName, extra = {}) => ({
+    key: name,
     target: { tagName, type: extra.type },
     ...extra,
   });
 
-  test("ignores typing in fields and modifier combos", () => {
-    expect(shouldIgnoreKey(press("q", "SELECT"))).toBe(true);
-    expect(shouldIgnoreKey(press("q", "TEXTAREA"))).toBe(true);
-    expect(shouldIgnoreKey(press("q", "INPUT", { type: "text" }))).toBe(true);
-    expect(shouldIgnoreKey(press("r", "BODY", { metaKey: true }))).toBe(true);
-    expect(shouldIgnoreKey(press("s", "BODY", { ctrlKey: true }))).toBe(true);
+  test("ignores typing in fields", () => {
+    expect(shouldIgnoreKey(press("ArrowLeft", "SELECT"))).toBe(true);
+    expect(shouldIgnoreKey(press("ArrowLeft", "TEXTAREA"))).toBe(true);
+    expect(
+      shouldIgnoreKey(press("ArrowLeft", "INPUT", { type: "number" })),
+    ).toBe(true);
   });
 
-  test("still works with a slider focused or nothing focused", () => {
-    expect(shouldIgnoreKey(press("q", "INPUT", { type: "range" }))).toBe(false);
-    expect(shouldIgnoreKey(press("q", "BODY"))).toBe(false);
-    expect(shouldIgnoreKey(press("q", "BUTTON"))).toBe(false);
+  test("works with a slider, a button or nothing focused, with Command held", () => {
+    expect(
+      shouldIgnoreKey(press("ArrowLeft", "INPUT", { type: "range" })),
+    ).toBe(false);
+    expect(shouldIgnoreKey(press("ArrowLeft", "BODY"))).toBe(false);
+    expect(
+      shouldIgnoreKey(press("ArrowLeft", "BUTTON", { metaKey: true })),
+    ).toBe(false);
   });
 
   test("space on a focused button is left to click that button", () => {

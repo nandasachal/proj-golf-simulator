@@ -201,3 +201,14 @@ the Settings table; every family viewed in both pads and at close range ·
 decisions: a typed distance changes the club's swing speed, not the physics;
 speed/attack/loft reset when the club changes; golfer figure untouched · next:
 golfer's club and swing per club; distance profiles; conditions settings.
+
+2026-11-15 — Panel, keyboard and camera — done: top club view taller and side
+view zoomed 1.7x (both scale with window height); letter shortcuts removed for
+arrow navigation between value boxes with Command-arrows to change (left/right
+number, up/down word); each box split into word and number fields; address
+camera straight behind a centred golfer, view inset removed; rails beside the
+player's bay removed; attack handle kept in view when hitting up off turf ·
+check: green (259 tests) · evidence: driven in the browser at 1440x860 and
+800x600, driver / lob wedge / 7 iron left-handed extremes · decisions: neutral
+for the word is 0 (stock speed for swing speed); R reset shortcut removed with
+the letters · next: confirm the Command up/down reading with Sachal.

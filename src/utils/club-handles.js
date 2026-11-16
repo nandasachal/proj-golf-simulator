@@ -147,17 +147,26 @@ export function facePivot(loftDegrees, ballHeight = BALL.height) {
   };
 }
 
+// The lowest the attack handle is drawn, relative to the turf.
+const ATTACK_FLOOR = -3.5;
+
 export function sideHandles(shown) {
   const attack = shown.attackDegrees * DEGREES;
   const lean = shown.loftDegrees * DEGREES;
   const ballHeight = ballHeightOf(shown);
   const pivot = facePivot(shown.loftDegrees, ballHeight);
+  const attackReach =
+    attack > 0
+      ? Math.min(REACH.attack, (ballHeight - ATTACK_FLOOR) / Math.sin(attack))
+      : REACH.attack;
   return {
-    // the tail of the arriving arrow: lower when hitting up
+    // the tail of the arriving arrow: lower when hitting up. Hitting up at a
+    // ball on the turf it would go under the grass and out of the picture,
+    // so it comes in along its line until it is back in view.
     attackAngle: {
       x: 0,
-      y: ballHeight - REACH.attack * Math.sin(attack),
-      z: -REACH.attack * Math.cos(attack),
+      y: ballHeight - attackReach * Math.sin(attack),
+      z: -attackReach * Math.cos(attack),
     },
     // the top of the line up the face: further back with more loft
     loftChange: {

@@ -34,13 +34,19 @@ function horizontalDirection(velocity) {
     : direction.normalize();
 }
 
-// Down the line: behind the ball, a little to the golfer's side, looking
-// down the range.
+// Where the golfer stands, across the target line from the ball.
+const GOLFER_OFFSET = 0.9;
+
+// Down the line: straight behind the golfer, who is in the middle of the
+// picture with the ball beside them, looking parallel to the target line so
+// the range runs square away from the camera. High enough that the horizon
+// (and any target on the centre line) clears the golfer's head, far enough
+// back that their feet and the ball sit above the Hit button.
 export function addressView(side) {
   const s = golferSide(side);
   return {
-    position: new Vector3(0.75 * s, 1.75, -5.6),
-    target: new Vector3(0.1 * s, 1.1, 30),
+    position: new Vector3(GOLFER_OFFSET * s, 2.1, -6),
+    target: new Vector3(GOLFER_OFFSET * s, 1.2, 30),
   };
 }
 
@@ -48,8 +54,8 @@ export function addressView(side) {
 export function swingView(side) {
   const s = golferSide(side);
   return {
-    position: new Vector3(0.65 * s, 1.65, -4.9),
-    target: new Vector3(0.1 * s, 1.1, 30),
+    position: new Vector3(GOLFER_OFFSET * s, 2, -5.4),
+    target: new Vector3(GOLFER_OFFSET * s, 1.2, 30),
   };
 }
 

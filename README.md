@@ -129,11 +129,15 @@ React UI (App.js, components/)          src/simulate/ (no React)
     bar for swing speed. Drag handles are laid over each view at the screen
     position of a point in the scene, and a drag is read back by casting a
     ray from the pointer onto the turf (or the upright plane through the ball
-    and target). Every control can be set three ways: drag its handle, press
-    its keys (`src/utils/shortcuts.js`: Q/E face, A/D path, S/W speed, G/T
-    attack, H/Y loft, B/N strike, Z/C aim, Space hit, R reset), or click its
-    value to type a number. Handles are real `role="slider"` elements (arrow
-    keys, Home/End, double-click to reset) and show their value in a tag while
+    and target). Every control can be set three ways: drag its handle, use
+    the keyboard, or click its number to type one. Each control has a value
+    box showing two fields: a word (closed / square / open) and a number.
+    The keyboard (`src/utils/shortcuts.js`) works on the boxes: the arrow
+    keys move between them, Command (Ctrl) with ←/→ changes the selected
+    box's number by a step, Command with ↑/↓ steps its word (one side,
+    neutral, the other side), and Space hits. There are no letter shortcuts.
+    Clicking the word sets the control back to neutral. Handles are real `role="slider"` elements (Home/End,
+    double-click to reset; arrows belong to the boxes) and show their value in a tag while
     hovered or held. The panel names the shot shape for the current setup with
     a thumbnail of its flight, but gives no distance, so game mode still has
     to be judged.
@@ -172,6 +176,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
   - `props.js` — yardage signs, yard lines, target greens with waving flags, the
     tee line (deck, mats, rails, ball trays, bags) and range furniture. Greenside
     bunkers are visual only.
+- **Address camera** — straight behind the golfer, who is in the middle of the
+  frame with the ball beside them, looking parallel to the target line so the
+  range runs square away from the camera. The scene is centred on the whole
+  window (the control panel overlaps its left edge).
 - **A shot** moves through four states owned by `main.js`: `address` → `swing`
   (the golfer's swing plays; the ball launches on the frame the clubhead returns
   to it, 1.15 s in) → `flight` (ball follows the precomputed trajectory in real

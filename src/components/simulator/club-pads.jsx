@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { classNames } from "../../utils/functions";
-import { SHORTCUTS, keyLabel } from "../../utils/shortcuts";
+import { neutralOf, stateOf } from "../../utils/shortcuts";
 import {
   GAIN,
   fromGround,
@@ -26,61 +26,81 @@ const words = (value, positive, negative, zero, unit = "°") =>
     : `${Math.abs(value)}${unit} ${value > 0 ? positive : negative}`;
 
 // What each control is called, how its value reads, and what a typed number
-// means.
+// means. A value reads as a word and a number, shown as two fields: `words`
+// are the word below, at and above neutral, and `number` is the size.
+const degrees = (v) => `${Math.abs(v)}°`;
 const describe = {
   clubFaceAngle: {
     name: "Club face",
     text: (v) => words(v, "open", "closed", "square"),
+    words: ["closed", "square", "open"],
+    number: degrees,
     typing: "degrees: + open, − closed",
     colour: FACE,
   },
   clubPathAngle: {
     name: "Club path",
     text: (v) => words(v, "in-to-out", "out-to-in", "square"),
+    words: ["out-to-in", "square", "in-to-out"],
+    number: degrees,
     typing: "degrees: + in-to-out, − out-to-in",
     colour: PATH,
   },
   strike: {
     name: "Strike",
     text: (v) => words(v, "toe", "heel", "centre", " in"),
+    words: ["heel", "centre", "toe"],
+    number: (v) => `${Math.abs(v)} in`,
     typing: "inches: + toe, − heel",
     colour: STRIKE,
   },
   aim: {
     name: "Aim",
     text: (v) => words(v, "right", "left", "straight"),
+    words: ["left", "straight", "right"],
+    number: degrees,
     typing: "degrees: + right, − left",
     colour: AIM,
   },
   attackAngle: {
     name: "Attack angle",
     text: (v) => words(v, "up", "down", "level"),
+    words: ["down", "level", "up"],
+    number: degrees,
     typing: "degrees: + up, − down",
     colour: PATH,
   },
   loftChange: {
     name: "Loft",
+    words: ["less", "stock", "more"],
     typing: "degrees added to the standard loft",
     colour: FACE,
   },
   swingSpeed: {
     name: "Swing speed",
     text: (v) => `${Math.round(v * 10) / 10} mph`,
+    words: ["slower", "stock", "faster"],
+    number: (v) => `${Math.round(v * 10) / 10} mph`,
     typing: "mph",
     colour: PATH,
   },
 };
 
-// A value you can click to type over. Enter or clicking away keeps it,
-// Escape puts it back.
+// One value box: the control's name over two fields. The word (square, open,
+// closed) is a button that puts the control back to neutral; the number can
+// be clicked to type over (Enter or clicking away keeps it, Escape puts it
+// back). The box the keyboard is on is outlined.
 const ValueChip = ({
   control,
   range,
   value,
   text,
+  number,
   active,
+  selected,
   onChange,
   onActive,
+  onSelect,
 }) => {
   const [draft, setDraft] = useState(null);
   const button = useRef(null);
@@ -94,7 +114,10 @@ const ValueChip = ({
     }
   }, [draft]);
   const { name, typing, colour } = describe[control];
-  const keys = SHORTCUTS[control];
+  const neutral = neutralOf(control, range);
+  const state = stateOf(control, value, range);
+  const word = describe[control].words[state + 1];
+  const neutralWord = describe[control].words[1];
 
   const commit = () => {
     const typed = Number.parseFloat(draft);
@@ -105,11 +128,16 @@ const ValueChip = ({
   return (
     <div
       className={classNames(
-        "flex h-11 items-center gap-2 rounded-lg px-2.5 transition-colors md:h-10",
+        "flex h-11 items-center gap-2 rounded-lg px-2.5 ring-inset transition-colors md:h-10",
         active ? "bg-white/20" : "bg-white/[0.07]",
+        selected && "ring-2 ring-lime-400",
       )}
+      data-chip={control}
+      data-selected={selected ? "true" : undefined}
       onPointerEnter={() => onActive(control)}
       onPointerLeave={() => onActive(null)}
+      onPointerDown={() => onSelect(control)}
+      onFocus={() => onSelect(control)}
     >
       <span
         aria-hidden="true"
@@ -117,50 +145,64 @@ const ValueChip = ({
         style={{ background: colour }}
       />
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-1 text-[11px] leading-tight text-white/60">
-          <span className="truncate">{name}</span>
-          <span className="shrink-0 font-mono text-[10px] text-white/45">
-            {keyLabel(keys.down)} {keyLabel(keys.up)}
-          </span>
+        <div className="truncate text-[11px] leading-tight text-white/60">
+          {name}
         </div>
-        {draft === null ? (
+        <div className="flex items-baseline gap-1">
           <button
-            ref={button}
             type="button"
-            className="-mx-1 block w-[calc(100%+0.5rem)] truncate rounded px-1 text-left text-sm font-semibold tabular-nums leading-tight hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
-            aria-label={`Edit ${name.toLowerCase()}: ${text}`}
+            className={classNames(
+              "-ml-1 min-w-0 truncate rounded px-1 text-left text-sm font-semibold leading-tight hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
+              state === 0 ? "text-white/70" : "text-white",
+            )}
+            aria-label={`${name}: ${word}. Set to ${neutralWord}`}
+            data-field="word"
             data-tooltip-id="main-tooltip"
-            data-tooltip-content={`Click to type a value · keys ${keyLabel(keys.down)} / ${keyLabel(keys.up)}`}
-            onClick={() => setDraft(String(value))}
+            data-tooltip-content={`Click for ${neutralWord} · ⌘ ↑ ↓ steps ${describe[control].words.join(" / ")}`}
+            onClick={() => onChange(control, neutral)}
           >
-            {text}
+            {word}
           </button>
-        ) : (
-          <input
-            type="number"
-            aria-label={name}
-            title={`${name} in ${typing} (${range.MIN} to ${range.MAX})`}
-            className="-mx-1 block w-[calc(100%+0.5rem)] rounded bg-white px-1 text-sm font-semibold tabular-nums leading-tight text-slate-900 outline-none"
-            min={range.MIN}
-            max={range.MAX}
-            step={range.STEP}
-            value={draft}
-            autoFocus
-            onFocus={(event) => event.target.select()}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={commit}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                returnFocus.current = true;
-                commit();
-              }
-              if (event.key === "Escape") {
-                returnFocus.current = true;
-                setDraft(null);
-              }
-            }}
-          />
-        )}
+          {draft === null ? (
+            <button
+              ref={button}
+              type="button"
+              className="ml-auto shrink-0 rounded bg-white/10 px-1.5 text-right text-sm font-semibold tabular-nums leading-tight hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
+              aria-label={`Edit ${name.toLowerCase()}: ${text}`}
+              data-field="number"
+              data-tooltip-id="main-tooltip"
+              data-tooltip-content="Click to type a value · ⌘ ← → changes it"
+              onClick={() => setDraft(String(value))}
+            >
+              {number}
+            </button>
+          ) : (
+            <input
+              type="number"
+              aria-label={name}
+              title={`${name} in ${typing} (${range.MIN} to ${range.MAX})`}
+              className="ml-auto block w-16 rounded bg-white px-1 text-right text-sm font-semibold tabular-nums leading-tight text-slate-900 outline-none"
+              min={range.MIN}
+              max={range.MAX}
+              step={range.STEP}
+              value={draft}
+              autoFocus
+              onFocus={(event) => event.target.select()}
+              onChange={(event) => setDraft(event.target.value)}
+              onBlur={commit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  returnFocus.current = true;
+                  commit();
+                }
+                if (event.key === "Escape") {
+                  returnFocus.current = true;
+                  setDraft(null);
+                }
+              }}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -182,18 +224,12 @@ const Handle = ({
   drag,
   onChange,
   onActive,
+  onSelect,
 }) => {
+  // Arrow keys belong to the panel (move between boxes; with Command, change
+  // the selected one), so a handle only answers Home and End itself.
   const nudge = (event) => {
-    const step = {
-      ArrowRight: 1,
-      ArrowUp: 1,
-      ArrowLeft: -1,
-      ArrowDown: -1,
-    }[event.key];
-    if (step) {
-      event.preventDefault();
-      onChange(control, snap(value + step * range.STEP, range));
-    } else if (event.key === "Home" || event.key === "End") {
+    if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
       onChange(control, event.key === "Home" ? range.MIN : range.MAX);
     }
@@ -223,7 +259,10 @@ const Handle = ({
       onDoubleClick={() => onChange(control, range.DEFAULT)}
       onPointerEnter={() => onActive(control)}
       onPointerLeave={() => onActive(null)}
-      onFocus={() => onActive(control)}
+      onFocus={() => {
+        onActive(control);
+        onSelect(control);
+      }}
       onBlur={() => onActive(null)}
       {...drag(control)}
     >
@@ -290,9 +329,11 @@ const VIEW_FROM_TOE = {
   groundGuides: false,
   loftLever: true,
   attackRodLength: 9,
-  launchRodLength: 30,
+  launchRodLength: 22,
   turfRadius: 420,
-  camera: { position: [-70, 10.5, 4], lookAt: [0, 10.5, 4], fov: 30 },
+  // Framed tight on what the handles reach: from the attack handle behind
+  // the ball to the end of the launch arrow, turf to the top of the loft line.
+  camera: { position: [-70, 10, -1], lookAt: [0, 10, -1], fov: 25 },
 };
 
 // One live 3D view of the club, with the drag handles laid over it. It is
@@ -405,7 +446,16 @@ const FlightIcon = ({ sketch }) => (
 
 // The club at impact, shown twice in 3D, as the shot controls: drag a
 // handle, use its keys, or click a value to type it.
-const ClubPads = ({ values, side, club, ranges, preview, onChange }) => {
+const ClubPads = ({
+  values,
+  side,
+  club,
+  ranges,
+  selected,
+  onSelect,
+  preview,
+  onChange,
+}) => {
   const mirror = side === "Left" ? -1 : 1;
   const [active, setActive] = useState(null);
   const [dragging, setDragging] = useState(null);
@@ -494,6 +544,17 @@ const ClubPads = ({ values, side, club, ranges, preview, onChange }) => {
     swingSpeed: describe.swingSpeed.text(swingSpeed),
   };
 
+  // The number field of each box.
+  const number = {
+    clubFaceAngle: describe.clubFaceAngle.number(face),
+    clubPathAngle: describe.clubPathAngle.number(path),
+    strike: describe.strike.number(strike),
+    aim: describe.aim.number(aim),
+    attackAngle: describe.attackAngle.number(attack),
+    loftChange: `${launch.dynamicLoftDegrees.toFixed(1)}°`,
+    swingSpeed: describe.swingSpeed.number(swingSpeed),
+  };
+
   // Where each handle is drawn, in pixels within its view.
   const onSide = (control) =>
     control === "attackAngle" || control === "loftChange";
@@ -558,6 +619,7 @@ const ClubPads = ({ values, side, club, ranges, preview, onChange }) => {
         pad.querySelector(`[data-control="${picked}"]`) || event.currentTarget
       ).focus?.();
       setDragging(picked);
+      onSelect(picked);
       if (picked === "swingSpeed") moveTo(picked, event);
     },
   });
@@ -598,6 +660,7 @@ const ClubPads = ({ values, side, club, ranges, preview, onChange }) => {
         drag={drag}
         onChange={onChange}
         onActive={setActive}
+        onSelect={onSelect}
       />
     );
   };
@@ -607,9 +670,12 @@ const ClubPads = ({ values, side, club, ranges, preview, onChange }) => {
     range: ranges[control],
     value: values[control],
     text: text[control],
+    number: number[control],
     active: active === control || dragging === control,
+    selected: selected === control,
     onChange,
     onActive: setActive,
+    onSelect,
   });
 
   const speedFraction =
@@ -643,7 +709,7 @@ const ClubPads = ({ values, side, club, ranges, preview, onChange }) => {
         <p
           className="shrink-0 text-[11px] text-white/55"
           data-tooltip-id="main-tooltip"
-          data-tooltip-content="Drag a handle, use its keys, or click a value to type it. Angles are drawn several times their real size (the × in each view's corner) so a one-degree change is easy to see and grab. The numbers are the true values."
+          data-tooltip-content="Drag a handle, or click a number to type it. Arrow keys move between the boxes; hold Command (Ctrl on Windows) and press ← → to change the selected box's number, or ↑ ↓ to step its word (closed, square, open). Angles are drawn several times their real size (the × in each view's corner) so a one-degree change is easy to see and grab. The numbers are the true values."
         >
           Drag · or click a value
         </p>
@@ -655,7 +721,7 @@ const ClubPads = ({ values, side, club, ranges, preview, onChange }) => {
         caption={`Above ×${GAIN.face}`}
         options={topOptions}
         setup={topSetup}
-        className="aspect-[308/206]"
+        className="h-[clamp(200px,31dvh,280px)]"
         onScene={onTopScene}
       >
         {inOrder(["strike", "clubPathAngle", "clubFaceAngle", "aim"]).map(
@@ -676,7 +742,7 @@ const ClubPads = ({ values, side, club, ranges, preview, onChange }) => {
         caption={`Toe ×${GAIN.attack}`}
         options={sideOptions}
         setup={sideSetup}
-        className="aspect-[308/112]"
+        className="h-[clamp(120px,19dvh,164px)]"
         note={`launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
           launch.backspinRPM,
         )} rpm`}
@@ -710,24 +776,10 @@ const ClubPads = ({ values, side, club, ranges, preview, onChange }) => {
           aria-valuetext={text.swingSpeed}
           className="club-handle relative h-11 flex-1 cursor-pointer overflow-hidden rounded-lg bg-white/[0.07] md:h-10"
           style={{ touchAction: "none" }}
-          onKeyDown={(event) => {
-            const step = {
-              ArrowRight: 1,
-              ArrowUp: 1,
-              ArrowLeft: -1,
-              ArrowDown: -1,
-            }[event.key];
-            if (step) {
-              event.preventDefault();
-              onChange(
-                "swingSpeed",
-                snap(swingSpeed + step, ranges.swingSpeed),
-              );
-            }
-          }}
           onDoubleClick={() =>
             onChange("swingSpeed", ranges.swingSpeed.DEFAULT)
           }
+          onFocus={() => onSelect("swingSpeed")}
           onPointerEnter={() => setActive("swingSpeed")}
           onPointerLeave={() => setActive(null)}
           {...drag("swingSpeed")}
@@ -742,6 +794,12 @@ const ClubPads = ({ values, side, club, ranges, preview, onChange }) => {
           </div>
         </div>
       </div>
+      <p
+        className="text-center text-[10px] leading-tight text-white/45"
+        data-key-hint
+      >
+        ←↑↓→ move · ⌘←→ number · ⌘↑↓ word · Space hit
+      </p>
     </div>
   );
 };
