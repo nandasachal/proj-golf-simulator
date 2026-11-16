@@ -450,6 +450,9 @@ export function createSimulator(container, callbacks = {}) {
       // The swing keeps running into its follow-through after the ball has gone.
       swingSeconds = Math.min(swingSeconds + dt, SWING_DURATION);
       golfer.setTime(swingSeconds);
+    } else {
+      // Standing over the ball, the golfer breathes and settles.
+      golfer.setIdle(scenerySeconds);
     }
 
     if (state === SWING) {

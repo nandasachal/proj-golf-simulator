@@ -37,6 +37,9 @@ describe("skinned surfaces", () => {
     expectSound(buildTorso(binds, 0.62));
     for (const mirror of [false, true]) {
       expectSound(buildSleeve(binds, BONE.leadUpperArm, mirror));
+      expectSound(
+        buildSleeve(binds, BONE.leadUpperArm, mirror, BONE.leadClavicle),
+      );
       expectSound(buildArm(binds, BONE.leadUpperArm, BONE.leadForearm, mirror));
       expectSound(
         buildTrouserLeg(
@@ -78,6 +81,10 @@ describe("rigid kit", () => {
         glove: { tab: material, trim: material },
       }),
       buildShoe({ upper: material, sole: material, lace: material }),
+      ...buildShoe(
+        { upper: material, sole: material, lace: material },
+        { binds, foot: BONE.leadFoot, toe: BONE.leadToe },
+      ).userData.skins.map(([geometry]) => new THREE.Mesh(geometry, material)),
       buildCollar(material),
     ];
     for (const part of parts) {

@@ -12,7 +12,7 @@ import { skinMaterial } from "./golfer-body-shading";
 // front of it. The colour and normal maps are computed texel by texel from the
 // same functions, so paint and sculpt cannot drift apart.
 
-export const SKIN_COLOR = 0xa9795d;
+export const SKIN_COLOR = 0x9d7862;
 
 // The stump the skin ends in below the jaw, for the body's neck to run up
 // into: half depth, half width, and how far behind the middle of the skull
@@ -206,11 +206,11 @@ const EYE_HALF_WIDTH = 0.0136;
 const EYE_UPPER = 0.0041; // lid edges above and below the pupil: smiling eyes
 const EYE_LOWER = 0.0031;
 
-const MOUTH_HALF = 0.031;
-const MOUTH_CORNER_Y = -0.064;
-const mouthTop = (z) => -0.067 + 0.003 * (z / MOUTH_HALF) ** 2;
+const MOUTH_HALF = 0.028;
+const MOUTH_CORNER_Y = -0.0655;
+const mouthTop = (z) => -0.0672 + 0.0017 * (z / MOUTH_HALF) ** 2;
 const mouthBottom = (z) =>
-  MOUTH_CORNER_Y - 0.0085 * (1 - (z / MOUTH_HALF) ** 2) ** 0.75;
+  MOUTH_CORNER_Y - 0.0042 * (1 - (z / MOUTH_HALF) ** 2) ** 0.75;
 // Negative inside the open smile.
 function mouthDistance(y, z) {
   if (z >= MOUTH_HALF) return Math.hypot(z - MOUTH_HALF, y - MOUTH_CORNER_Y);
@@ -257,7 +257,7 @@ function faceOffset(y, z) {
   let d = 0;
   // Brow ridge and glabella.
   d +=
-    0.0042 *
+    0.0028 *
     gauss(y - 0.0135, 0.0075) *
     smooth(0.004, 0.02, z) *
     smooth(0.07, 0.045, z);
@@ -266,7 +266,7 @@ function faceOffset(y, z) {
   const ez = z - EYE_Z;
   const ey = y - EYE_Y;
   d -=
-    0.0115 *
+    0.0092 *
     Math.exp(-(ez * ez) / (ez < 0 ? 0.00045 : 0.0003) - (ey * ey) / 0.0001);
   // Nose: ridge, wings, nostrils.
   if (y < 0.02 && y > -0.056) {
@@ -275,11 +275,11 @@ function faceOffset(y, z) {
     d -= 0.003 * gauss(z - 0.0075, 0.004) * gauss(y + 0.0465, 0.0025);
   }
   // Cheeks lifted by the smile, and the fold they make.
-  d += 0.0045 * gauss(z - 0.043, 0.017) * gauss(y + 0.03, 0.015);
-  d -= 0.0022 * gauss(foldDistance(y, z), 0.0035);
+  d += 0.003 * gauss(z - 0.043, 0.017) * gauss(y + 0.03, 0.015);
+  d -= 0.0012 * gauss(foldDistance(y, z), 0.0035);
   // Muzzle, mouth and lips.
   d += 0.003 * gauss(z, 0.026) * gauss(y + 0.058, 0.011);
-  d -= 0.012 * smooth(0.0006, -0.0018, mouthDistance(y, z));
+  d -= 0.004 * smooth(0.0006, -0.0018, mouthDistance(y, z));
   if (z < MOUTH_HALF) {
     const edge = 1 - (z / MOUTH_HALF) ** 4;
     const above = y - mouthTop(z);
@@ -648,23 +648,6 @@ function buildLashGeometry() {
   );
 }
 
-// A tooth: a sphere squared off toward a rounded tile.
-function buildToothGeometry() {
-  const geometry = new THREE.SphereGeometry(1, 8, 6);
-  const position = geometry.attributes.position;
-  const square = (v) => Math.sign(v) * Math.abs(v) ** 0.45;
-  for (let i = 0; i < position.count; i++) {
-    position.setXYZ(
-      i,
-      square(position.getX(i)),
-      square(position.getY(i)),
-      square(position.getZ(i)),
-    );
-  }
-  geometry.computeVertexNormals();
-  return geometry;
-}
-
 // ------------------------------------------------------------- textures ----
 
 function dataTexture(data, width, tall, colorSpace) {
@@ -800,8 +783,8 @@ function buildSkinTextures(size) {
         // Deeper tone round the eyes, under the nose and in the smile folds.
         const ez = z - EYE_Z;
         const ey = y - EYE_Y;
-        tone *= 1 - 0.2 * Math.exp(-(ez * ez) / 0.0003 - (ey * ey) / 0.00012);
-        tone *= 1 - 0.16 * gauss(foldDistance(y, z), 0.004);
+        tone *= 1 - 0.1 * Math.exp(-(ez * ez) / 0.0003 - (ey * ey) / 0.00012);
+        tone *= 1 - 0.07 * gauss(foldDistance(y, z), 0.004);
         tone *= 1 - 0.13 * gauss(z - 0.0115, 0.004) * gauss(y + 0.025, 0.02);
         tone *= 1 + 0.07 * gauss(z, 0.0045) * gauss(y + 0.03, 0.016);
         const wing = Math.abs(Math.hypot(z - 0.0145, y + 0.0425) - 0.0072);
@@ -1081,7 +1064,7 @@ function buildCardGeometry(grid) {
     at.copy(out).multiplyScalar(radius(out.x, out.y, out.z) + lift);
   };
 
-  for (let n = 0; n < 1000; n++) {
+  for (let n = 0; n < 1150; n++) {
     const a = (random() * 2 - 1) * PI;
     const col = skullColumn(a);
     const share = Math.sqrt(random());
@@ -1095,8 +1078,9 @@ function buildCardGeometry(grid) {
     if (top < 0.25 && random() > 0.55) continue;
     const length =
       mix(0.02 + 0.016 * random(), 0.05 + 0.03 * random(), top) *
-      (1 + 0.25 * front);
-    const width = mix(0.008, 0.013, top) * (0.75 + 0.5 * random());
+      (1 + 0.25 * front) *
+      (0.65 + 0.7 * random());
+    const width = mix(0.007, 0.012, top) * (0.5 + 1.1 * random());
     const stand = mix(0.0015, 0.004 + 0.009 * random(), top);
     const flick = top * (random() < 0.3 ? 0.006 + 0.008 * random() : 0.002);
     const sweep = 0.28 + 0.3 * (random() - 0.5);
@@ -1180,11 +1164,13 @@ function buildCardTexture(size) {
       const fine = hash(i, j);
       const shade = clamp01(strand * 1.2 - 0.1) ** 1.5;
       // A band of sheen across the lock, a third of the way along.
-      const sheen = 9 * gauss(along - 0.38 - 0.1 * lock, 0.16);
+      const sheen = 20 * gauss(along - 0.42 - 0.12 * lock, 0.2);
+      // The root of a lock lies under the tips of the ones above it.
+      const depth = 0.5 + 0.5 * smooth(0, 0.4, along);
       const o = (j * size + i) * 4;
-      data[o] = 20 + 52 * shade + sheen + 6 * fine;
-      data[o + 1] = 17 + 44 * shade + sheen * 0.92 + 5 * fine;
-      data[o + 2] = 16 + 40 * shade + sheen * 0.88 + 5 * fine;
+      data[o] = (20 + 52 * shade + sheen + 6 * fine) * depth;
+      data[o + 1] = (17 + 44 * shade + sheen * 0.92 + 5 * fine) * depth;
+      data[o + 2] = (16 + 40 * shade + sheen * 0.88 + 5 * fine) * depth;
       data[o + 3] = along < reach && edge > 0.12 ? 255 : 0;
     }
   }
@@ -1273,32 +1259,6 @@ export function buildGolferHead() {
       [lashes, lash],
     ]) {
       add(geometry, material).position.set(-eyeDepth, EYE_Y, sideZ * EYE_Z);
-    }
-  }
-
-  // Upper teeth, set along the arch just behind the lips.
-  const enamel = new THREE.MeshStandardMaterial({
-    color: 0xece4d2,
-    roughness: 0.28,
-  });
-  const tooth = buildToothGeometry();
-  const archDepth = (z) => surfaceDepth(-0.071, Math.abs(z), true) - 0.0032;
-  let edge = 0;
-  for (const [width, tall] of [
-    [0.0086, 0.0104],
-    [0.0068, 0.0092],
-    [0.0074, 0.0094],
-    [0.0066, 0.0078],
-  ]) {
-    const centre = edge + width / 2;
-    edge += width;
-    for (const sideZ of [-1, 1]) {
-      const z = sideZ * centre;
-      const slope = (archDepth(z + 0.001) - archDepth(z - 0.001)) / 0.002;
-      const mesh = add(tooth, enamel);
-      mesh.scale.set(0.0019, tall / 2, width / 2 + 0.0002);
-      mesh.position.set(-archDepth(z), mouthTop(centre) + 0.002 - tall / 2, z);
-      mesh.rotation.y = -Math.atan(slope);
     }
   }
 

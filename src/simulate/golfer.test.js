@@ -8,7 +8,9 @@ import {
   SWING_DURATION,
   CLUBHEAD_ADDRESS,
 } from "./golfer";
-import { TOP_TIME } from "./swing-keys";
+import { TOP_TIME, createSwing, setupFor } from "./swing-keys";
+import { solveRig } from "./swing-rig";
+import { CLUBS, getClub } from "./clubs";
 import {
   BONE,
   BONE_COUNT,
@@ -16,6 +18,8 @@ import {
   SHIN,
   UPPER_ARM,
   FOREARM,
+  SHOULDER_JOINT,
+  CLAVICLE_JOINT,
 } from "./golfer-body-figure";
 
 const up = (bone) => new Vector3(0, 1, 0).applyQuaternion(bone.quaternion);
@@ -162,7 +166,7 @@ describe("bodyPose", () => {
           .sub(now[i])
           .sub(now[i].clone().sub(before[i]))
           .length();
-        expect(kink).toBeLessThan(clubhead ? 0.05 : 0.012);
+        expect(kink).toBeLessThan(clubhead ? 0.05 : 0.02);
       });
       before = now;
       now = next;
@@ -180,15 +184,14 @@ describe("bodyPose", () => {
       expect(knee).toBeGreaterThan(15);
       expect(knee).toBeLessThan(30);
     }
-    // knees over the feet, ahead of the ankles; hips over the heels
+    // knees ahead of the ankles; hips hinged back behind them
     expect(bones[BONE.leadShin].position.x).toBeLessThan(
-      bones[BONE.leadFoot].position.x - 0.05,
+      bones[BONE.leadFoot].position.x - 0.02,
     );
-    expect(
-      Math.abs(
-        bones[BONE.leadThigh].position.x - bones[BONE.leadFoot].position.x,
-      ),
-    ).toBeLessThan(0.1);
+    const hinge =
+      bones[BONE.leadThigh].position.x - bones[BONE.leadFoot].position.x;
+    expect(hinge).toBeGreaterThan(0.03);
+    expect(hinge).toBeLessThan(0.16);
     // spine tipped toward the ball from the hips, and a little away from the
     // target, which sets the lead shoulder above the trail one
     const tip = degrees(up(bones[BONE.chest]).angleTo(new Vector3(0, 1, 0)));
@@ -328,7 +331,177 @@ describe("bodyPose", () => {
   });
 });
 
+describe("collar bones and toes", () => {
+  test("a collar bone runs from the breastbone to its shoulder joint", () => {
+    for (const t of [0, TOP_TIME, CONTACT_TIME, SWING_DURATION]) {
+      const { bones } = bodyPose(t);
+      for (const [clavicle, arm, side] of [
+        [BONE.leadClavicle, BONE.leadUpperArm, 1],
+        [BONE.trailClavicle, BONE.trailUpperArm, -1],
+      ]) {
+        const rest = new Vector3(
+          -CLAVICLE_JOINT.x,
+          SHOULDER_JOINT.y - CLAVICLE_JOINT.y,
+          side * (SHOULDER_JOINT.z - CLAVICLE_JOINT.z),
+        );
+        const reach = rest.length();
+        const along = rest
+          .normalize()
+          .applyQuaternion(bones[clavicle].quaternion);
+        const toShoulder = bones[arm].position
+          .clone()
+          .sub(bones[clavicle].position);
+        expect(toShoulder.clone().normalize().dot(along)).toBeCloseTo(1, 5);
+        // the shoulder blade lets the joint slide a little, no more
+        expect(Math.abs(toShoulder.length() - reach)).toBeLessThan(0.1);
+      }
+    }
+  });
+
+  test("the toes stay down as the trail heel comes up, then break", () => {
+    const flat = (bone) => up(bone).y;
+    const address = bodyPose(0).bones;
+    expect(flat(address[BONE.trailToe])).toBeCloseTo(1, 6);
+    expect(
+      address[BONE.trailToe].quaternion.angleTo(
+        address[BONE.trailFoot].quaternion,
+      ),
+    ).toBeCloseTo(0, 6);
+    const impact = bodyPose(CONTACT_TIME).bones;
+    expect(flat(impact[BONE.trailFoot])).toBeLessThan(0.95);
+    expect(flat(impact[BONE.trailToe])).toBeGreaterThan(0.995);
+    // the toes of both feet stay on the mat
+    const finish = bodyPose(SWING_DURATION).bones;
+    for (const body of [address, impact, finish]) {
+      expect(body[BONE.trailToe].position.y).toBeCloseTo(
+        address[BONE.trailToe].position.y,
+        6,
+      );
+    }
+    expect(flat(finish[BONE.trailToe])).toBeGreaterThan(
+      flat(finish[BONE.trailFoot]),
+    );
+  });
+});
+
+describe("club setups", () => {
+  const attackDegrees = (swing) => {
+    const before = solveRig(swing.pose(CONTACT_TIME - 0.002)).clubhead.clone();
+    const after = solveRig(swing.pose(CONTACT_TIME + 0.002)).clubhead;
+    return degrees(Math.atan2(after.y - before.y, after.z - before.z));
+  };
+
+  test("every club starts at the ball and is back there at impact", () => {
+    for (const club of CLUBS) {
+      const swing = createSwing(setupFor(club));
+      for (const t of [0, CONTACT_TIME]) {
+        expect(
+          solveRig(swing.pose(t)).clubhead.distanceTo(CLUBHEAD_ADDRESS),
+        ).toBeLessThan(1e-6);
+      }
+    }
+  });
+
+  test("every club can be swung: arms reach, legs are long enough", () => {
+    for (const club of CLUBS) {
+      const swing = createSwing(setupFor(club));
+      for (let t = 0; t <= SWING_DURATION; t += 1 / 60) {
+        const { bones, reached } = solveRig(swing.pose(t));
+        expect(reached).toBe(true);
+        for (const [thigh, foot] of [
+          [BONE.leadThigh, BONE.leadFoot],
+          [BONE.trailThigh, BONE.trailFoot],
+        ]) {
+          expect(
+            bones[thigh].position.distanceTo(bones[foot].position),
+          ).toBeLessThan(THIGH + SHIN);
+        }
+      }
+    }
+  });
+
+  test("the driver sweeps the ball away; shorter clubs hit down more", () => {
+    const attack = (id) => attackDegrees(createSwing(setupFor(getClub(id))));
+    expect(attack("driver")).toBeGreaterThan(0);
+    expect(attack("driver")).toBeLessThan(4);
+    expect(attack("3w")).toBeLessThan(0);
+    expect(attack("7i")).toBeLessThan(attack("3w") - 1);
+    expect(attack("sw")).toBeLessThan(attack("7i") - 1);
+    expect(attack("sw")).toBeGreaterThan(-8);
+  });
+
+  test("shorter clubs: narrower stance, ball further back, hands ahead, less tilt", () => {
+    const at = (id) => {
+      const swing = createSwing(setupFor(getClub(id)));
+      const { bones, handPoint } = solveRig(swing.pose(0));
+      const up = new Vector3(0, 1, 0).applyQuaternion(
+        bones[BONE.chest].quaternion,
+      );
+      return {
+        width:
+          bones[BONE.leadFoot].position.z - bones[BONE.trailFoot].position.z,
+        middle:
+          (bones[BONE.leadFoot].position.z + bones[BONE.trailFoot].position.z) /
+          2,
+        hands: handPoint,
+        feet: bones[BONE.leadFoot].position.x,
+        tilt: -up.z,
+      };
+    };
+    const [driver, iron, wedge] = ["driver", "7i", "sw"].map(at);
+    expect(driver.width).toBeGreaterThan(iron.width + 0.05);
+    expect(iron.width).toBeGreaterThan(wedge.width + 0.03);
+    // the ball is at z = 0: forward of the driver's stance, middle of a wedge's
+    expect(driver.middle).toBeLessThan(iron.middle - 0.03);
+    expect(Math.abs(wedge.middle)).toBeLessThan(0.02);
+    expect(driver.hands.z).toBeLessThan(CLUBHEAD_ADDRESS.z);
+    expect(wedge.hands.z).toBeGreaterThan(0);
+    // and the golfer stands closer to it
+    expect(wedge.feet).toBeLessThan(iron.feet);
+    expect(iron.feet).toBeLessThan(driver.feet - 0.05);
+    expect(driver.tilt).toBeGreaterThan(iron.tilt);
+    expect(iron.tilt).toBeGreaterThan(wedge.tilt);
+  });
+});
+
 describe("createGolfer", () => {
+  const clubheadOf = (golfer) => {
+    golfer.group.updateMatrixWorld(true);
+    return golfer.group
+      .getObjectByName("clubhead")
+      .getWorldPosition(new Vector3());
+  };
+
+  test("takes up each club and brings it back to the ball", () => {
+    const golfer = createGolfer();
+    for (const id of ["driver", "5w", "4h", "7i", "sw"]) {
+      golfer.setClub(getClub(id));
+      for (const t of [0, CONTACT_TIME]) {
+        golfer.setTime(t);
+        expect(clubheadOf(golfer).distanceTo(CLUBHEAD_ADDRESS)).toBeLessThan(
+          0.02,
+        );
+      }
+    }
+  });
+
+  test("is never quite still at address, but the club does not move", () => {
+    const golfer = createGolfer();
+    const chest = () =>
+      golfer.group.children.filter((c) => c.isBone)[BONE.chest];
+    golfer.setIdle(0);
+    const before = chest().position.clone();
+    golfer.setIdle(1.7);
+    expect(chest().position.distanceTo(before)).toBeGreaterThan(1e-4);
+    expect(chest().position.distanceTo(before)).toBeLessThan(0.02);
+    expect(clubheadOf(golfer).distanceTo(CLUBHEAD_ADDRESS)).toBeLessThan(0.02);
+    // and none of it is left once the swing is under way
+    golfer.setTime(0.5);
+    expect(
+      chest().position.distanceTo(bodyPose(0.5).bones[BONE.chest].position),
+    ).toBeLessThan(1e-9);
+  });
+
   test("builds a figure that holds the club and swings either way round", () => {
     const golfer = createGolfer();
     const mount = golfer.group.children.find(

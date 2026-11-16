@@ -1,4 +1,11 @@
-import { buildTube, smoothstep, gauss, band, table } from "./golfer-body-tube";
+import {
+  buildTube,
+  ringOffset,
+  smoothstep,
+  gauss,
+  band,
+  table,
+} from "./golfer-body-tube";
 import { WAIST } from "./golfer-body-kit";
 
 // The golfer's skinned surfaces - polo, bare arms, trousers - as tubes of
@@ -20,8 +27,14 @@ export const BONE = {
   trailThigh: 10,
   trailShin: 11,
   trailFoot: 12,
+  // collar bones, from the breastbone out to each shoulder joint
+  leadClavicle: 13,
+  trailClavicle: 14,
+  // the front of each foot, from the ball forward
+  leadToe: 15,
+  trailToe: 16,
 };
-export const BONE_COUNT = 13;
+export const BONE_COUNT = 17;
 
 export const UPPER_ARM = 0.33;
 export const FOREARM = 0.3;
@@ -31,6 +44,14 @@ export const SHIN = 0.445;
 // (z is for the lead side).
 export const HIP_JOINT = { y: -0.06, z: 0.105 };
 export const SHOULDER_JOINT = { y: -0.04, z: 0.192 };
+// The breastbone end of a collar bone, in the chest's frame: the clavicle
+// bones sit there, in the chest's own frame while the shoulder is at rest,
+// and swing about it as the shoulder joint is raised or drawn forward.
+export const CLAVICLE_JOINT = { x: -0.06, y: 0.01, z: 0.02 };
+// Where a foot breaks, at the ball, in the foot bone's frame (origin at the
+// ankle, toes toward -x): the toe bones sit there, in the foot's own frame
+// while the foot is flat.
+export const TOE_JOINT = { x: -0.165, y: -0.085 };
 // How far up the spine (from the hips) the middle spine bone sits.
 export const SPINE_JOINT = 0.19;
 
@@ -138,8 +159,23 @@ export function buildTorso(binds, spineLength) {
       };
       const pelvis = 1 - smoothstep(0.06, 0.3, h);
       const chest = smoothstep(0.2, L - 0.16, h);
+      // The shoulders ride on the collar bones: the further out from the
+      // neck, the more they go where the shoulder joint goes.
+      const girdle = smoothstep(L - 0.19, L - 0.07, h);
       return {
         v: (h - SHIRT_FROM) / (top - SHIRT_FROM),
+        also:
+          girdle > 0 && pelvis === 0
+            ? (theta) => {
+                const z = ringOffset(shape, theta)[1];
+                return [
+                  {
+                    bone: z > 0 ? BONE.leadClavicle : BONE.trailClavicle,
+                    weight: 0.9 * girdle * smoothstep(0.07, 0.2, Math.abs(z)),
+                  },
+                ];
+              }
+            : undefined,
         parts: [
           { bone: BONE.pelvis, weight: pelvis, y: h, shape },
           {
@@ -174,7 +210,7 @@ const sleeve = table([
   [SLEEVE_HEM, 0.065, 0.064, 0.06, 0],
 ]);
 
-export function buildSleeve(binds, bone, mirror) {
+export function buildSleeve(binds, bone, mirror, clavicle) {
   const ys = spans(
     [0.05, 0.006, 6],
     [0.006, -0.15, 12],
@@ -186,6 +222,26 @@ export function buildSleeve(binds, bone, mirror) {
     const [back, front, rz, cz] = sleeve(y);
     return {
       v: (y - SLEEVE_HEM) / (0.05 - SLEEVE_HEM),
+      // The cap of the sleeve belongs to the shoulder, not the arm: it stays
+      // with the collar bone, most of all on top and toward the body, so
+      // the arm lifts out of it instead of carrying a lump up with it.
+      also:
+        clavicle === undefined
+          ? undefined
+          : (theta) => {
+              const cap = smoothstep(-0.035, 0.035, y);
+              return [
+                {
+                  bone: clavicle,
+                  weight:
+                    cap * (0.55 + 0.4 * inner(theta)) +
+                    (1 - cap) *
+                      0.22 *
+                      inner(theta) *
+                      smoothstep(-0.1, -0.03, y),
+                },
+              ];
+            },
       lift: (theta) => -0.016 * inner(theta) * smoothstep(-0.1, SLEEVE_HEM, y),
       parts: [
         {
@@ -322,28 +378,28 @@ const hipsAt = table([
   [-0.13, 0.176, 0.128, 0.119],
   [-0.08, 0.185, 0.137, 0.118],
   [-0.03, 0.193, 0.143, 0.116],
-  [0.02, 0.197, 0.144, 0.113],
-  [0.06, 0.196, 0.139, 0.11],
-  [0.1, 0.192, 0.128, 0.106],
-  [0.14, 0.19, 0.12, 0.105],
+  [0.02, 0.2, 0.144, 0.113],
+  [0.06, 0.203, 0.139, 0.11],
+  [0.1, 0.206, 0.128, 0.106],
+  [0.14, 0.208, 0.12, 0.105],
 ]);
 // d, half width, half depth behind and in front - one leg
 const legAt = table([
-  [-0.03, 0.1, 0.102, 0.098],
-  [0.06, 0.101, 0.103, 0.098],
-  [0.1, 0.101, 0.101, 0.099],
-  [0.14, 0.1, 0.1, 0.1],
-  [0.22, 0.095, 0.096, 0.099],
-  [0.32, 0.086, 0.088, 0.092],
-  [0.4, 0.077, 0.078, 0.082],
-  [THIGH, 0.071, 0.07, 0.076],
-  [THIGH + 0.05, 0.068, 0.072, 0.07],
-  [THIGH + 0.25 * SHIN, 0.067, 0.078, 0.064],
-  [THIGH + 0.43 * SHIN, 0.064, 0.074, 0.06],
-  [THIGH + 0.63 * SHIN, 0.06, 0.064, 0.058],
-  [THIGH + 0.81 * SHIN, 0.06, 0.062, 0.06],
-  [THIGH + 0.94 * SHIN, 0.062, 0.064, 0.064],
-  [HEM_D, 0.064, 0.066, 0.067],
+  [-0.03, 0.104, 0.104, 0.102],
+  [0.06, 0.106, 0.106, 0.103],
+  [0.1, 0.107, 0.105, 0.104],
+  [0.14, 0.107, 0.104, 0.106],
+  [0.22, 0.104, 0.101, 0.107],
+  [0.32, 0.097, 0.094, 0.101],
+  [0.4, 0.09, 0.086, 0.093],
+  [THIGH, 0.084, 0.08, 0.088],
+  [THIGH + 0.05, 0.081, 0.081, 0.083],
+  [THIGH + 0.25 * SHIN, 0.079, 0.086, 0.076],
+  [THIGH + 0.43 * SHIN, 0.077, 0.083, 0.073],
+  [THIGH + 0.63 * SHIN, 0.075, 0.077, 0.072],
+  [THIGH + 0.81 * SHIN, 0.074, 0.075, 0.073],
+  [THIGH + 0.94 * SHIN, 0.074, 0.075, 0.076],
+  [HEM_D, 0.075, 0.076, 0.078],
 ]);
 
 // What the cloth does over that: the seat, the knee, and the hem breaking

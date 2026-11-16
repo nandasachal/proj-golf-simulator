@@ -6,6 +6,8 @@ import {
   trouserMaps,
   shoeMaps,
   leatherNormals,
+  armMaps,
+  handMaps,
   surroundings,
 } from "./golfer-body-textures";
 import { clothMaterial, skinMaterial } from "./golfer-body-shading";
@@ -31,8 +33,10 @@ export function golferLook(skinColor) {
     });
   return {
     skin: skinMaterial({ color: skinColor }),
+    arm: skinMaterial(paint ? armMaps(skinColor) : { color: skinColor }),
+    hand: skinMaterial(paint ? handMaps(skinColor) : { color: skinColor }),
     nail: skinMaterial({
-      color: new THREE.Color(skinColor).lerp(new THREE.Color(0xf2c9bd), 0.45),
+      color: new THREE.Color(skinColor).lerp(new THREE.Color(0xf2c9bd), 0.3),
       roughness: 0.3,
     }),
     shirt: clothMaterial({ ...shirt, roughness: 0.9 }),
@@ -59,12 +63,11 @@ export function golferLook(skinColor) {
     }),
     buckle: metal(0xdfe3e8, 0.22),
     gold: metal(0xf0c14a, 0.3),
-    glove: softLeather({
-      color: 0xf8f7f2,
-      roughness: 0.5,
-      normalMap: leather,
-      normalScale: new THREE.Vector2(0.5, 0.5),
-    }),
+    glove: softLeather(
+      paint
+        ? { ...handMaps(), roughness: 0.5 }
+        : { color: 0xf8f7f2, roughness: 0.5 },
+    ),
     gloveTab: plain(0xe4e4df, 0.75),
     gloveTrim: plain(0xa9adb3, 0.7),
   };

@@ -22,9 +22,9 @@ import {
   CONTACT_TIME,
   SWING_DURATION,
   CLUBHEAD_ADDRESS,
-  CLUB_LENGTH,
-  SHAFT_DEGREES,
   swingPose,
+  setupFor,
+  createSwing,
 } from "./swing-keys";
 import {
   LEAD_HAND,
@@ -96,30 +96,44 @@ export function createGolfer() {
   );
   skinned(buildTorso(binds, spineLength), look.shirt);
   const limbs = [
-    [false, BONE.leadUpperArm, BONE.leadForearm, BONE.leadThigh, BONE.leadShin],
+    [
+      false,
+      BONE.leadUpperArm,
+      BONE.leadForearm,
+      BONE.leadThigh,
+      BONE.leadShin,
+      BONE.leadClavicle,
+    ],
     [
       true,
       BONE.trailUpperArm,
       BONE.trailForearm,
       BONE.trailThigh,
       BONE.trailShin,
+      BONE.trailClavicle,
     ],
   ];
-  for (const [mirror, upperArm, forearm, thigh, shin] of limbs) {
-    skinned(buildSleeve(binds, upperArm, mirror), look.sleeve);
-    skinned(buildArm(binds, upperArm, forearm, mirror), look.skin);
+  for (const [mirror, upperArm, forearm, thigh, shin, clavicle] of limbs) {
+    skinned(buildSleeve(binds, upperArm, mirror, clavicle), look.sleeve);
+    skinned(buildArm(binds, upperArm, forearm, mirror), look.arm);
     skinned(buildTrouserLeg(binds, { thigh, shin }, mirror), look.trousers);
     skinned(buildSock(binds, shin), look.sock);
   }
-  for (const foot of [BONE.leadFoot, BONE.trailFoot]) {
-    bones[foot].add(
-      buildShoe({
-        upper: look.shoe,
-        sole: look.sole,
-        lace: look.lace,
-        tread: look.tread,
-      }),
+  for (const [foot, toe] of [
+    [BONE.leadFoot, BONE.leadToe],
+    [BONE.trailFoot, BONE.trailToe],
+  ]) {
+    // The shoe bends at the ball of the foot: its upper and sole are skinned
+    // between the foot and the toes.
+    const shoe = buildShoe(
+      { upper: look.shoe, sole: look.sole, lace: look.lace, tread: look.tread },
+      { binds, foot, toe },
     );
+    bones[foot].add(shoe);
+    bones[toe].add(shoe.userData.toes);
+    for (const [geometry, material] of shoe.userData.skins) {
+      skinned(geometry, material);
+    }
   }
   bones[BONE.pelvis].add(
     buildBelt({ leather: look.belt, metal: look.buckle, cloth: look.trousers }),
@@ -138,7 +152,7 @@ export function createGolfer() {
   });
   leadHand.position.y = LEAD_HAND;
   leadHand.scale.setScalar(HAND_SCALE);
-  const trailHand = buildHand(look.skin, { overlap: true, nail: look.nail });
+  const trailHand = buildHand(look.hand, { overlap: true, nail: look.nail });
   trailHand.position.y = TRAIL_HAND;
   trailHand.scale.set(HAND_SCALE, HAND_SCALE, -HAND_SCALE);
   grip.add(leadHand, trailHand);
@@ -151,17 +165,40 @@ export function createGolfer() {
 
   function setClub(club) {
     clubMount.clear();
+    // Each club is stood to in its own way, and swung on its own plane.
+    swing = createSwing(setupFor(club));
     clubMount.add(
-      buildSwingClub(club, CLUB_LENGTH, { shaftDegrees: SHAFT_DEGREES }),
+      buildSwingClub(club, swing.setup.length, {
+        shaftDegrees: swing.setup.shaftDegrees,
+      }),
     );
+    setTime(time);
   }
 
+  let swing = createSwing();
   const pose = {};
+  // At address the golfer is never quite still: breathing, and the weight
+  // settling from foot to foot. It dies away as the swing starts.
+  let idleSeconds = 0;
+  function idle(keyed, t) {
+    const fade = 1 - Math.min(1, t / 0.15);
+    if (fade <= 0) return keyed;
+    const breath = Math.sin(idleSeconds * 1.6) * fade;
+    const settle = Math.sin(idleSeconds * 0.9 + 1) * fade;
+    keyed.chestBend -= 0.5 * breath;
+    keyed.pelvisUp += 0.0015 * breath;
+    keyed.pelvisToward += 0.006 * settle;
+    keyed.pelvisLean += 0.5 * settle;
+    keyed.chestLean -= 0.3 * settle;
+    keyed.headPitch += 0.6 * Math.sin(idleSeconds * 0.5) * fade;
+    return keyed;
+  }
+
   const rig = createRig();
 
   function setTime(t) {
     time = t;
-    solveRig(swingPose(t, pose), rig);
+    solveRig(idle(swing.pose(t, pose), t), rig);
     for (let i = 0; i < bones.length; i++) {
       bones[i].position.copy(rig.bones[i].position);
       bones[i].quaternion.copy(rig.bones[i].quaternion);
@@ -186,9 +223,14 @@ export function createGolfer() {
     group.rotation.y = (-degreesRight * Math.PI) / 180;
   }
 
+  // Called with the wall clock while the golfer stands at address.
+  function setIdle(seconds) {
+    idleSeconds = seconds;
+    setTime(0);
+  }
+
   setClub(getClub(DEFAULT_CLUB_ID));
-  setTime(time);
   // For posing the figure by hand when checking it in the browser.
   group.userData.setTime = setTime;
-  return { group, setTime, setSide, setAim, setClub };
+  return { group, setTime, setSide, setAim, setClub, setIdle };
 }

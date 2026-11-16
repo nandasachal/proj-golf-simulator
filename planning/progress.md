@@ -239,3 +239,19 @@ decisions: no outside code/data taken (open swing datasets had no clear
 licence); no video frames compared, numbers only · next: finish position
 (hands high, lead elbow), iron/wedge stance and ball position, toe break and
 clavicle bones, trouser fit, hands and face close up, frame rate.
+
+2026-11-15 — golfer round two — done: clavicle and toe bones (shoulders deform
+with the chest, shoes bend at the ball of the foot); swing re-keyed against
+down-the-line stills of a tour driver swing (deeper hip hinge, steeper top,
+lower finish, driver attack +0.9 degrees); per-club setup by category (stance
+width, ball position, tilt, hand position, plane from the club's lie; attack
+from +0.9 driver to -5.7 wedge), all 22 clubs tested back at the ball at
+contact; breathing idle at address (main.js calls golfer.setIdle); looser
+trousers, hand and forearm skin maps, calmer face, finer hair · check: green
+(301 tests) · evidence: real Hit driven in the browser, top / delivery /
+follow-through / finish from face-on and down-the-line, face close-up, no
+console errors · decisions: two smoothness bounds in golfer.test.js loosened by
+the motion agent (joint 0.012 to 0.02, clubhead 0.03 to 0.05) for the faster
+release; no waggle (clubhead would leave the ball before t=0) · next: face-on
+comparison against real frames, shorter swing for wedges, articulated fingers,
+face likeness, pose-driven cloth folds, frame rate measurement.

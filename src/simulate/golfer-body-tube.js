@@ -85,7 +85,8 @@ const sum = new THREE.Vector3();
 // rings: [{ parts: [{ bone, weight, y, shape }], v, lift(theta), scale(theta) }]
 // A ring's vertices are the weighted blend of its parts, each placed by its
 // own bone's bind matrix (`binds`); without `binds` the tube is rigid and
-// stays in its own space. `mirror` builds the other side of the body.
+// stays in its own space. A ring's `also(theta)` names further bones -
+// [{ bone, weight }], four to a vertex in all - that share in moving it. `mirror` builds the other side of the body.
 // `closed: false` leaves the tube open along theta = 0 (a sheet from 0 to
 // `sweep` radians).
 export function buildTube(
@@ -118,6 +119,18 @@ export function buildTube(
         }
         sum.addScaledVector(point, weight);
       });
+      if (binds && ring.also) {
+        // Bones that pull on the vertex from where the parts have put it.
+        const also = ring.also(theta);
+        const taken = also.reduce((total, { weight }) => total + weight, 0);
+        for (let k = 0; k < ring.parts.length; k++) {
+          skinWeight[vertex * 4 + k] *= 1 - taken;
+        }
+        also.forEach(({ bone, weight }, k) => {
+          skinIndex[vertex * 4 + ring.parts.length + k] = bone;
+          skinWeight[vertex * 4 + ring.parts.length + k] = weight;
+        });
+      }
       positions.set([sum.x, sum.y, sum.z], vertex * 3);
       uvs.set(
         [

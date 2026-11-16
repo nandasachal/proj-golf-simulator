@@ -179,7 +179,18 @@ export function buildHand(
   FINGERS.forEach((finger, i) => {
     add(buildFinger(finger, overlap && i === 3));
     const r = finger.radius;
-    ball(finger.knuckle, [r * 1.25, r * 1.15, r * 1.0]);
+    ball(finger.knuckle, [r * 1.3, r * 1.18, r * 1.05]);
+    if (!glove && !(overlap && i === 3)) {
+      // fingernail, on the outside of the last joint
+      const angle = finger.end + 0.3;
+      const out = GRIP_RADIUS + r * 1.78;
+      const fingerNail = ball(
+        V(out * Math.cos(angle), finger.y, out * Math.sin(angle)),
+        [0.0016, r * 0.6, r * 0.66],
+        nail,
+      );
+      fingerNail.rotation.y = -angle;
+    }
   });
   add(buildPalm());
   add(buildThumb());
@@ -237,14 +248,49 @@ const lastAt = table(LAST);
 // The sole turns up toward the toe, as a shoe's does so it can roll.
 const toeSpring = (s) => 0.014 * smoothstep(0.19, SHOE_LENGTH, s) ** 1.5;
 
-export function buildShoe({ upper, sole, lace, tread = sole }) {
+// How far from the heel the shoe breaks, and over what length it bends.
+const BALL = 0.24;
+const BEND = 0.035;
+
+// With `bend` - { binds, foot, toe } - the upper and sole are skinned to the
+// foot and toe bones instead of being fixed to the foot: they come back as
+// shoe.userData.skins ([geometry, material] pairs, in the skeleton's space)
+// and the spikes under the toes as shoe.userData.toes, for the toe bone.
+export function buildShoe({ upper, sole, lace, tread = sole }, bend = null) {
   const shoe = new THREE.Group();
+  const toes = new THREE.Group();
+  const skins = [];
+  shoe.userData.toes = toes;
+  shoe.userData.skins = skins;
   // The tubes run heel to toe along their own y, with x up.
+  const placing = new THREE.Matrix4()
+    .makeRotationZ(Math.PI / 2)
+    .setPosition(HEEL_X, SOLE - ANKLE_HEIGHT, 0);
   const lay = (geometry, material) => {
-    const mesh = shadowed(new THREE.Mesh(geometry, material));
-    mesh.rotation.z = Math.PI / 2;
-    mesh.position.set(HEEL_X, SOLE - ANKLE_HEIGHT, 0);
-    shoe.add(mesh);
+    if (!bend) {
+      const mesh = shadowed(new THREE.Mesh(geometry, material));
+      mesh.applyMatrix4(placing);
+      shoe.add(mesh);
+      return;
+    }
+    const { count } = geometry.attributes.position;
+    const index = new Uint16Array(count * 4);
+    const weight = new Float32Array(count * 4);
+    for (let i = 0; i < count; i++) {
+      const w = smoothstep(
+        BALL - BEND,
+        BALL + BEND,
+        geometry.attributes.position.getY(i),
+      );
+      index.set([bend.foot, bend.toe], i * 4);
+      weight.set([1 - w, w], i * 4);
+    }
+    geometry.setAttribute("skinIndex", new THREE.BufferAttribute(index, 4));
+    geometry.setAttribute("skinWeight", new THREE.BufferAttribute(weight, 4));
+    geometry.applyMatrix4(
+      new THREE.Matrix4().multiplyMatrices(bend.binds[bend.foot], placing),
+    );
+    skins.push([geometry, material]);
   };
   const fine = [];
   for (let s = 0; s <= SHOE_LENGTH; s += SHOE_LENGTH / 28) fine.push(s);
@@ -325,7 +371,15 @@ export function buildShoe({ upper, sole, lace, tread = sole }) {
       tread,
     );
     spike.position.set(HEEL_X - s, -ANKLE_HEIGHT + 0.002 + toeSpring(s), z);
-    shoe.add(spike);
+    if (bend && s > BALL) {
+      spike.applyMatrix4(
+        new THREE.Matrix4()
+          .copy(bend.binds[bend.toe])
+          .invert()
+          .multiply(bend.binds[bend.foot]),
+      );
+      toes.add(spike);
+    } else shoe.add(spike);
   }
   [0.092, 0.112, 0.132, 0.152, 0.172].forEach((s, i) => {
     const bar = shadowed(

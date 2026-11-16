@@ -344,12 +344,12 @@ export function trouserMaps() {
     size,
     (x, y, noise) => {
       const shade = (noise - 0.5) * 12 + Math.sin((x + y) * 1.2566) * 0.8;
-      return [27 + shade, 36 + shade, 62 + shade];
+      return [33 + shade, 43 + shade, 72 + shade];
     },
     (x, y) => 128 + 16 * Math.sin((x + y) * 1.2566),
     37,
   );
-  const stitch = "rgba(74,88,124,0.75)";
+  const stitch = "rgba(64,78,112,0.4)";
   const crotch = 0.2 * size;
 
   // pressed creases, front and back, from the hip down
@@ -360,7 +360,7 @@ export function trouserMaps() {
         [u * size, crotch + 40],
         [u * size, size],
       ]),
-      { colour: "rgba(120,134,170,0.22)", level: 235, width: 5 },
+      { colour: "rgba(120,134,170,0.09)", level: 190, width: 6 },
     );
   }
   // outside and inside leg seams
@@ -440,19 +440,23 @@ export function trouserMaps() {
     // v: 0.2 the crotch, 0.59 the knee, 1 the hem
     folds(size, [
       // whiskers out of the crotch, across the front of the hip and thigh
-      [0.6, 0.24, 0.13, 0.07, 1.1, 58, 5, 0.3],
-      [0.42, 0.27, 0.1, 0.08, 1.95, 66, 4, 2],
+      [0.6, 0.24, 0.13, 0.07, 1.1, 58, 7.5, 0.3],
+      [0.42, 0.27, 0.1, 0.08, 1.95, 66, 6.0, 2],
       // under the seat
-      [0.06, 0.3, 0.12, 0.035, 1.5, 44, 5, 1],
-      [0.94, 0.3, 0.12, 0.035, 1.64, 44, 5, 3],
+      [0.06, 0.3, 0.12, 0.035, 1.5, 44, 7.5, 1],
+      [0.94, 0.3, 0.12, 0.035, 1.64, 44, 7.5, 3],
       // behind the knee, and the cloth bagging over the front of it
-      [0, 0.6, 0.2, 0.045, 1.52, 40, 6, 0.6],
-      [0.5, 0.55, 0.14, 0.05, 1.4, 60, 3.4, 4],
-      [0.5, 0.66, 0.14, 0.04, 1.75, 56, 3, 1.3],
+      [0, 0.6, 0.2, 0.045, 1.52, 40, 9.0, 0.6],
+      [0.5, 0.55, 0.14, 0.05, 1.4, 60, 5.1, 4],
+      [0.5, 0.66, 0.14, 0.04, 1.75, 56, 4.5, 1.3],
       // down the shin
-      [0.4, 0.8, 0.2, 0.1, 0.5, 90, 2.4, 2.2],
+      [0.4, 0.8, 0.2, 0.1, 0.5, 90, 3.6, 2.2],
       // stacked on the shoe
-      [0.5, 0.95, 0.5, 0.045, 1.5, 34, 6, 0.9],
+      [0.5, 0.95, 0.5, 0.045, 1.5, 34, 9.0, 0.9],
+      // dragging from the knee up the thigh, and round the calf
+      [0.3, 0.42, 0.14, 0.1, 0.9, 80, 5, 3.3],
+      [0.7, 0.44, 0.12, 0.1, 2.2, 74, 5, 0.2],
+      [0.1, 0.78, 0.14, 0.08, 1.2, 70, 4.5, 1.9],
     ]),
   );
 }
@@ -542,4 +546,168 @@ export function surroundings() {
   texture.mapping = THREE.EquirectangularReflectionMapping;
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
+}
+
+function valueNoise(seed) {
+  const cell = (x, y) => {
+    let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + seed;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  };
+  return (x, y) => {
+    const xi = Math.floor(x);
+    const yi = Math.floor(y);
+    const u = (x - xi) * (x - xi) * (3 - 2 * (x - xi));
+    const v = (y - yi) * (y - yi) * (3 - 2 * (y - yi));
+    const top = cell(xi, yi) + (cell(xi + 1, yi) - cell(xi, yi)) * u;
+    const low =
+      cell(xi, yi + 1) + (cell(xi + 1, yi + 1) - cell(xi, yi + 1)) * u;
+    return top + (low - top) * v;
+  };
+}
+
+const channels = (hex) => [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
+
+// An arm's skin: the top edge is the shoulder, the bottom the wrist; u = 0 is
+// the back of the arm (the elbow), 0.5 the inside. Uneven tone, pores, the
+// darker and rougher elbow, veins and hair on the forearm.
+export function armMaps(skinColor) {
+  const size = 512;
+  const skin = channels(skinColor);
+  const cloud = valueNoise(91);
+  const painted = weave(
+    size,
+    (x, y, noise) => {
+      const u = x / size;
+      const v = y / size;
+      const outside = 0.5 + 0.5 * Math.cos(u * 2 * Math.PI);
+      const elbow = Math.exp(-(((v - 0.42) / 0.05) ** 2)) * outside ** 3;
+      const tone =
+        0.95 +
+        0.09 * cloud(x / 70, y / 90) +
+        0.04 * cloud(x / 9, y / 9) +
+        0.025 * (noise - 0.5) +
+        0.05 * (1 - outside) -
+        0.12 * elbow;
+      // a little more red where the sun gets at the forearm
+      const sun = 0.03 * outside * Math.min(1, Math.max(0, (v - 0.4) / 0.3));
+      return [
+        skin[0] * (tone + sun),
+        skin[1] * (tone - sun * 0.4),
+        skin[2] * (tone - sun * 0.6),
+      ];
+    },
+    (x, y) =>
+      128 +
+      26 * (cloud(x / 2.2, y / 2.2) - 0.5) +
+      12 * (cloud(x / 14, y / 5) - 0.5),
+    93,
+  );
+  // veins down the outside of the forearm
+  for (const [u, sway, from] of [
+    [0.2, 14, 0.52],
+    [0.31, -11, 0.58],
+    [0.74, 12, 0.6],
+  ]) {
+    seam(
+      painted,
+      (ctx) => {
+        for (let v = from; v <= 0.97; v += 0.02) {
+          const x = u * size + sway * Math.sin(v * 19 + u * 40);
+          if (v === from) ctx.moveTo(x, v * size);
+          else ctx.lineTo(x, v * size);
+        }
+      },
+      { colour: "rgba(60,74,96,0.07)", level: 168, width: 4 },
+    );
+  }
+  // hair on the forearm, lying down toward the wrist
+  const { colourCtx } = painted;
+  const next = random(97);
+  colourCtx.strokeStyle = "rgba(24,16,12,0.16)";
+  colourCtx.lineWidth = 0.8;
+  for (let i = 0; i < 2600; i++) {
+    const u = (next() * 0.62 + 0.69) % 1;
+    const v = 0.5 + 0.47 * next();
+    const lean = (next() - 0.5) * 5;
+    colourCtx.beginPath();
+    colourCtx.moveTo(u * size, v * size);
+    colourCtx.lineTo(u * size + lean, v * size + 5 + 4 * next());
+    colourCtx.stroke();
+  }
+  return finish(painted, 1.4);
+}
+
+// A finger, the thumb or the slab of the hand, all painted the same way: v
+// runs along it, with a crease across at each joint. A bare hand is skin,
+// darker in the creases and redder over the knuckles; a gloved one is white
+// cabretta with a stitched seam down each side and rows of perforations.
+export function handMaps(skinColor) {
+  const size = 256;
+  const base = skinColor === undefined ? [248, 247, 242] : channels(skinColor);
+  const gloved = skinColor === undefined;
+  const cloud = valueNoise(gloved ? 101 : 103);
+  const joints = [0.28, 0.6];
+  const crease = (y) =>
+    joints.reduce(
+      (most, joint) =>
+        Math.max(most, Math.exp(-(((y / size - joint) / 0.018) ** 2))),
+      0,
+    );
+  const painted = weave(
+    size,
+    (x, y, noise) => {
+      const fold = crease(y);
+      const tone =
+        0.96 +
+        0.07 * cloud(x / 30, y / 30) +
+        0.03 * (noise - 0.5) -
+        0.16 * fold;
+      const knuckle = gloved
+        ? 0
+        : 0.05 * Math.exp(-(((y / size - 0.62) / 0.07) ** 2));
+      return [
+        base[0] * (tone + knuckle),
+        base[1] * (tone - knuckle * 0.5),
+        base[2] * (tone - knuckle * 0.5),
+      ];
+    },
+    (x, y) =>
+      128 +
+      (gloved ? 34 : 20) * (cloud(x / 2, y / 2) - 0.5) +
+      // fine wrinkles across, deeper at the joints
+      (10 + 50 * crease(y)) * (cloud(x / 26, y / 2.4) - 0.5) -
+      60 * crease(y),
+    107,
+  );
+  if (gloved) {
+    for (const u of [0.25, 0.75]) {
+      seam(
+        painted,
+        (ctx) => {
+          ctx.setLineDash([5, 4]);
+          ctx.moveTo(u * size, 0);
+          ctx.lineTo(u * size, size);
+        },
+        { colour: "rgba(150,152,158,0.9)", level: 60, width: 1.6 },
+      );
+    }
+    const { colourCtx, heightCtx } = painted;
+    for (let row = 0; row < 5; row++) {
+      for (let k = 0; k < 4; k++) {
+        const x = (0.42 + 0.055 * k) * size;
+        const y = (0.36 + 0.045 * row) * size;
+        for (const [ctx, fill] of [
+          [colourCtx, "rgba(70,70,76,0.85)"],
+          [heightCtx, "#202020"],
+        ]) {
+          ctx.fillStyle = fill;
+          ctx.beginPath();
+          ctx.arc(x, y, 1.7, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  }
+  return finish(painted, gloved ? 1.5 : 1.8);
 }
