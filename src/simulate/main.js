@@ -63,9 +63,10 @@ export function createSimulator(container, callbacks = {}) {
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(FOG.color, FOG.near, FOG.far);
-  scene.add(
-    buildRange({ anisotropy: renderer.capabilities.getMaxAnisotropy() }),
-  );
+  const range = buildRange({
+    anisotropy: renderer.capabilities.getMaxAnisotropy(),
+  });
+  scene.add(range);
 
   const camera = new THREE.PerspectiveCamera(48, 1, 0.5, 2600);
 
@@ -433,7 +434,10 @@ export function createSimulator(container, callbacks = {}) {
     }
   }
 
+  let scenerySeconds = 0;
   function update(dt) {
+    scenerySeconds += dt;
+    range.userData.update(scenerySeconds, camera);
     if (state !== ADDRESS) {
       // The swing keeps running into its follow-through after the ball has gone.
       swingSeconds = Math.min(swingSeconds + dt, SWING_DURATION);
@@ -510,9 +514,14 @@ export function createSimulator(container, callbacks = {}) {
 
   const clock = new THREE.Clock();
   let frameId = null;
+  let inspectionView = null;
   function frame() {
     frameId = requestAnimationFrame(frame);
     update(Math.min(clock.getDelta(), MAX_FRAME_SECONDS));
+    if (inspectionView) {
+      camera.position.fromArray(inspectionView.position);
+      camera.lookAt(new THREE.Vector3().fromArray(inspectionView.target));
+    }
     renderer.render(scene, camera);
   }
   ballToRest();
@@ -545,6 +554,10 @@ export function createSimulator(container, callbacks = {}) {
     advance(seconds, step = 1 / 60) {
       for (let t = 0; t < seconds; t += step) update(step);
       renderer.render(scene, camera);
+    },
+    // Hold the camera at a fixed spot to look at scenery; view(null) releases it.
+    view(position, target) {
+      inspectionView = position ? { position, target } : null;
     },
     inspect() {
       return {

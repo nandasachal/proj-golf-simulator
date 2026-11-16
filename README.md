@@ -90,7 +90,7 @@ React UI (App.js, components/)          src/simulate/ (no React)
   ⋯ settings modal (mode), score      game.js                random target, hit or miss
   shot readout  ◄── callbacks ──────  shot-analysis.js       trajectory → carry, total, shape…
   URL query state (hooks/use-query)   main.js                scene, render loop, shot states
-                                        ├─ range.js          turf, markers, trees, sky, lights
+                                        ├─ range.js          assembles scenery/ (below)
                                         ├─ golfer.js         procedural figure + swing keyframes
                                         └─ camera-director.js address → swing → flight → landed
 ```
@@ -129,6 +129,24 @@ React UI (App.js, components/)          src/simulate/ (no React)
   `shot.js`, `ground.js`, `game.js`, `shot-analysis.js`, `camera-director.js`, and the pose math in
   `golfer.js` are pure and unit-tested; `main.js` and `range.js` need WebGL and are
   verified in the browser.
+- **Scenery** (`src/simulate/scenery/`) — everything but the golfer, generated in
+  code (no downloaded assets). `range.js` assembles five parts, each returning
+  `{ object, update(seconds, camera) }`; `main.js` calls the update every frame
+  (clouds drift, trees sway, flags wave).
+  - `shared.js` — the contract the parts agree on: the sun direction and colour,
+    the horizon/fog colour, `terrainHeight(x, z)` and the `FLAT` rectangle where
+    the ground must stay at y = 0 because the ball physics assumes level ground.
+  - `sky.js` — sky dome shader (atmosphere gradient, sun, two cloud layers lit by
+    the sun), the lights, the golfer's shadow map and `FOG`.
+  - `terrain.js` — one ground mesh with a single turf material (fairway stripes,
+    first cut, rough, meadow, all computed from world position) and four rings of
+    mountains with their own haze.
+  - `trees.js` — about 2,800 instanced trees in four species with alpha-tested
+    foliage cards, wind, baked ground shade (the shadow map only covers the tee),
+    shrubs and grass tufts.
+  - `props.js` — yardage signs, yard lines, target greens with waving flags, the
+    tee line (deck, mats, rails, ball trays, bags) and range furniture. Greenside
+    bunkers are visual only.
 - **A shot** moves through four states owned by `main.js`: `address` → `swing`
   (the golfer's swing plays; the ball launches on the frame the clubhead returns
   to it, 1.15 s in) → `flight` (ball follows the precomputed trajectory in real
@@ -163,8 +181,9 @@ React UI (App.js, components/)          src/simulate/ (no React)
   true})`).
 - **Three.js** is the npm `three` package, imported as ES modules.
 - **Verifying the scene** — in development `main.js` exposes `window.__golfSim`
-  with `advance(seconds)` (step the simulation without waiting on real time) and
-  `inspect()` (current state, ball, camera, clubhead). Use it when a background
+  with `advance(seconds)` (step the simulation without waiting on real time),
+  `inspect()` (current state, ball, camera, clubhead) and `view(position, target)`
+  (hold the camera somewhere to look at scenery; `view(null)` releases it). Use it when a background
   tab is throttling animation frames.
 
 ### Hosting

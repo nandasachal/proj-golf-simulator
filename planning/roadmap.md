@@ -13,9 +13,13 @@
 
 - [done] Regression tests for `src/simulate/shot.js` — shipped with Phase 0 of the
   driving range redesign, then extended with tour launch-monitor benchmarks.
-- **Visual fidelity pass** (Phase 4 of the driving range plan) — closer to the PGA
-  Tour PS5 bar: a properly modelled golfer, postprocessing, better turf/ball/club
-  materials. Deliberately unscoped until Phases 0–3 are judged live.
+- [done] **Scenery upgrade** (2026-11-15) — procedural sky and clouds, mountains,
+  striped turf, woodland, and a rebuilt tee line and markers
+  (`src/simulate/scenery/`).
+- **Visual fidelity pass, remainder** (Phase 4 of the driving range plan) — a
+  properly modelled golfer, postprocessing (bloom, depth of field), ball/club
+  materials. Scenery follow-ups: finer foliage on trees seen up close, real
+  shadows beyond the tee, a frame-rate check on an integrated GPU and a phone.
 - **Move golfswingsimulator.com to Render** — the domain still serves the
   pre-redesign GitHub Pages build; needs a DNS change and a custom domain on the
   Render static site.

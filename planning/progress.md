@@ -178,3 +178,13 @@ touch-style drag · decisions: two fixed views rather than one tabbed view, so n
 control needs a camera change to reach; angles exaggerated per control (×5, ×2.5,
 ×4, ×2) and disclosed in each view's corner · next: real-hand trial; consider an
 expand/free-look on a view.
+
+2026-11-15 — Scenery upgrade — done: range scenery rebuilt as five procedural
+modules in `src/simulate/scenery/` (sky/clouds/lights, terrain/mountains, trees,
+props) behind a shared contract (`shared.js`), built in parallel by four subagents
+and assembled in `range.js`; `__golfSim.view()` added for inspecting scenery ·
+check: green · evidence: driven in the browser from the tee, mid-flight, landed and
+at the tree line, no console errors, ~16 ms/frame at 2048x1536 on this Mac ·
+decisions: boundary netting built but switched off (it cut across the trees);
+ground stays flat inside `FLAT`; trees get baked shade, not shadow maps · next:
+measure on an integrated GPU and a phone; finer near-tree foliage; golfer model.
