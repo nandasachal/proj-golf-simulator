@@ -34,6 +34,28 @@ const clamp = (value, range) =>
     ? Math.min(range.MAX, Math.max(range.MIN, value))
     : range.DEFAULT;
 
+// Shot controls and the query param each is saved under.
+const SHOT_PARAMS = {
+  clubFaceAngle: "face",
+  clubPathAngle: "path",
+  swingSpeed: "speed",
+  aim: "aim",
+  attackAngle: "attack",
+  loftChange: "loft",
+  strike: "strike",
+};
+const SHOT_RANGES = {
+  clubFaceAngle: CLUB_FACE_ANGLE_VALUES,
+  clubPathAngle: CLUB_PATH_ANGLE_VALUES,
+  swingSpeed: SWING_SPEED_VALUES,
+  aim: AIM_VALUES,
+  attackAngle: ATTACK_ANGLE_VALUES,
+  loftChange: LOFT_CHANGE_VALUES,
+  strike: STRIKE_VALUES,
+};
+// How long the shot controls must be still before the URL is updated.
+const URL_SETTLE_MS = 250;
+
 // Turf fields and the query params that carry a custom value for each.
 const TURF_PARAMS = {
   mowHeightInches: "cut",
@@ -68,44 +90,24 @@ const matchingPreset = (conditions) =>
 
 function App() {
   const [rawSide, setSide] = useQueryState("side", "Right", false);
-  const [rawFace, setFaceAngle] = useQueryState(
-    "face",
-    CLUB_FACE_ANGLE_VALUES.DEFAULT,
-    true,
-  );
-  const [rawPath, setPathAngle] = useQueryState(
-    "path",
-    CLUB_PATH_ANGLE_VALUES.DEFAULT,
-    true,
-  );
-  const [rawSpeed, setSwingSpeed] = useQueryState(
-    "speed",
-    SWING_SPEED_VALUES.DEFAULT,
-    true,
-  );
+  const [rawFace] = useQueryState("face", CLUB_FACE_ANGLE_VALUES.DEFAULT, true);
+  const [rawPath] = useQueryState("path", CLUB_PATH_ANGLE_VALUES.DEFAULT, true);
+  const [rawSpeed] = useQueryState("speed", SWING_SPEED_VALUES.DEFAULT, true);
 
-  const [rawAim, setAim] = useQueryState("aim", AIM_VALUES.DEFAULT, true);
-  const [rawAttack, setAttackAngle] = useQueryState(
+  const [rawAim] = useQueryState("aim", AIM_VALUES.DEFAULT, true);
+  const [rawAttack] = useQueryState(
     "attack",
     ATTACK_ANGLE_VALUES.DEFAULT,
     true,
   );
-  const [rawLoft, setLoftChange] = useQueryState(
-    "loft",
-    LOFT_CHANGE_VALUES.DEFAULT,
-    true,
-  );
+  const [rawLoft] = useQueryState("loft", LOFT_CHANGE_VALUES.DEFAULT, true);
 
   const [rawTurf] = useQueryState("turf", "normal", false);
   const [cut] = useQueryState("cut", null, false);
   const [firm] = useQueryState("firm", null, false);
   const [wet] = useQueryState("wet", null, false);
   const [grass] = useQueryState("grass", null, false);
-  const [rawStrike, setStrike] = useQueryState(
-    "strike",
-    STRIKE_VALUES.DEFAULT,
-    false,
-  );
+  const [rawStrike] = useQueryState("strike", STRIKE_VALUES.DEFAULT, false);
   const [rawMode] = useQueryState("mode", "game", false);
   const setQueries = useSetQueries();
 
@@ -119,13 +121,47 @@ function App() {
   // Game mode unless the URL says practice.
   const mode = rawMode === "practice" ? "practice" : "game";
   const side = rawSide === "Left" ? "Left" : "Right";
-  const faceAngle = clamp(rawFace, CLUB_FACE_ANGLE_VALUES);
-  const pathAngle = clamp(rawPath, CLUB_PATH_ANGLE_VALUES);
-  const swingSpeed = clamp(rawSpeed, SWING_SPEED_VALUES);
-  const aim = clamp(rawAim, AIM_VALUES);
-  const attackAngle = clamp(rawAttack, ATTACK_ANGLE_VALUES);
-  const loftChange = clamp(rawLoft, LOFT_CHANGE_VALUES);
-  const strike = clamp(Number.parseFloat(rawStrike), STRIKE_VALUES);
+  // Shot controls change many times a second while a handle is dragged or a
+  // key is held. Those changes live here first and are written to the URL
+  // once they settle: browsers cap how often the URL may be rewritten
+  // (Safari: 100 times in 30 seconds) and throw past that.
+  const [draft, setDraft] = useState({});
+  const saved = {
+    clubFaceAngle: clamp(rawFace, CLUB_FACE_ANGLE_VALUES),
+    clubPathAngle: clamp(rawPath, CLUB_PATH_ANGLE_VALUES),
+    swingSpeed: clamp(rawSpeed, SWING_SPEED_VALUES),
+    aim: clamp(rawAim, AIM_VALUES),
+    attackAngle: clamp(rawAttack, ATTACK_ANGLE_VALUES),
+    loftChange: clamp(rawLoft, LOFT_CHANGE_VALUES),
+    strike: clamp(Number.parseFloat(rawStrike), STRIKE_VALUES),
+  };
+  const shot = { ...saved, ...draft };
+  const {
+    clubFaceAngle: faceAngle,
+    clubPathAngle: pathAngle,
+    swingSpeed,
+    aim,
+    attackAngle,
+    loftChange,
+    strike,
+  } = shot;
+
+  useEffect(() => {
+    if (Object.keys(draft).length === 0) return undefined;
+    const timer = setTimeout(() => {
+      setQueries(
+        Object.fromEntries(
+          Object.entries(draft).map(([control, value]) => [
+            SHOT_PARAMS[control],
+            value,
+          ]),
+        ),
+      );
+      setDraft({});
+    }, URL_SETTLE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
 
   // Laptop and up: Hit sits beside the result bar. Phones: with the controls.
   const [isDesktop, setIsDesktop] = useState(
@@ -139,6 +175,17 @@ function App() {
   }, []);
 
   const [showCloseUp, setShowCloseUp] = useState(false);
+  // On a short screen the close-up opens below the fold of the left column:
+  // bring it into view instead of leaving only its tab strip showing.
+  const closeUpToggle = useRef(null);
+  useEffect(() => {
+    if (showCloseUp) {
+      closeUpToggle.current.nextElementSibling?.scrollIntoView?.({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    }
+  }, [showCloseUp]);
 
   // What this setup will do, shown while it is being adjusted.
   const preview = useMemo(
@@ -264,20 +311,16 @@ function App() {
 
   const handleValueChange = (type, newValue) => {
     if (type === "side") setSide(newValue);
-    else if (type === "clubFaceAngle") setFaceAngle(newValue);
-    else if (type === "clubPathAngle") setPathAngle(newValue);
-    else if (type === "swingSpeed") setSwingSpeed(newValue);
-    else if (type === "aim") setAim(newValue);
-    else if (type === "attackAngle") setAttackAngle(newValue);
-    else if (type === "loftChange") setLoftChange(newValue);
-    else if (type === "strike") setStrike(newValue);
+    else if (SHOT_PARAMS[type])
+      setDraft((previous) => ({ ...previous, [type]: newValue }));
     else if (type === "turf") handleTurfPreset(newValue);
     else if (type === "mode")
       setQueries({ mode: newValue === "practice" ? "practice" : null });
   };
 
   // Back to the default shot. Settings (mode, side, turf) stay as they are.
-  const handleReset = () =>
+  const handleReset = () => {
+    setDraft({});
     setQueries({
       face: null,
       path: null,
@@ -287,6 +330,16 @@ function App() {
       loft: null,
       strike: null,
     });
+  };
+
+  // The link for Share: the address bar plus anything not yet written to it.
+  const shareUrl = () => {
+    const url = new URL(window.location.href);
+    for (const [control, value] of Object.entries(draft)) {
+      url.searchParams.set(SHOT_PARAMS[control], value);
+    }
+    return url.toString();
+  };
 
   const handleHit = () => {
     setResult(null);
@@ -321,17 +374,17 @@ function App() {
     if (shortcut.action === "hit") handleHit();
     else if (shortcut.action === "reset") handleReset();
     else {
-      const [value, range] = {
-        clubFaceAngle: [faceAngle, CLUB_FACE_ANGLE_VALUES],
-        clubPathAngle: [pathAngle, CLUB_PATH_ANGLE_VALUES],
-        swingSpeed: [swingSpeed, SWING_SPEED_VALUES],
-        aim: [aim, AIM_VALUES],
-        attackAngle: [attackAngle, ATTACK_ANGLE_VALUES],
-        loftChange: [loftChange, LOFT_CHANGE_VALUES],
-        strike: [strike, STRIKE_VALUES],
-      }[shortcut.control];
-      const next = clamp(value + shortcut.direction * range.STEP, range);
-      if (next !== value) handleValueChange(shortcut.control, next);
+      // Step from the latest value, not the one this render saw: key
+      // repeats can arrive faster than the screen redraws.
+      const { control, direction } = shortcut;
+      const range = SHOT_RANGES[control];
+      setDraft((previous) => ({
+        ...previous,
+        [control]: clamp(
+          (previous[control] ?? saved[control]) + direction * range.STEP,
+          range,
+        ),
+      }));
     }
   };
   useEffect(() => {
@@ -404,6 +457,7 @@ function App() {
             onChange={handleValueChange}
           />
           <ButtonRow
+            getShareUrl={shareUrl}
             handleReset={handleReset}
             simulate={handleHit}
             showHit={!isDesktop}
@@ -412,6 +466,7 @@ function App() {
         <button
           type="button"
           className="hud-panel flex h-9 items-center justify-between px-3 text-xs font-semibold text-white/80 hover:text-white"
+          ref={closeUpToggle}
           aria-expanded={showCloseUp}
           onClick={() => setShowCloseUp((shown) => !shown)}
         >

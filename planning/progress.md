@@ -147,3 +147,19 @@ verified, fits 1280x720 and phone width · decisions: 2D pads rather than draggi
 the 3D model (reliable hit targets, testable geometry); 5x angle exaggeration for
 grab comfort · next: real-hand play-test by Sachal; touch dragging on a real phone
 is untested.
+
+2026-11-16 — club pads: deeper verification and fixes — done: probed the live build
+with pointer events routed the way a real pointer routes them, in left-handed mode
+with aim offset, and found and fixed five defects. (1) Pressing the face handle
+often grabbed Aim: the grab areas overlapped and the top-most won; a press now goes
+to the nearest handle. (2) One speed-bar sweep rewrote the URL 123 times (Safari
+throws past 100 in 30 s); shot values now sit in memory and the URL is written once
+they settle (1 write per sweep, 1 per 50 key repeats). (3) Focus was dropped after
+typing a value; it returns to the value. (4) A refused pointer capture threw and
+killed the drag; drags now track the pointer at window level with no capture. (5)
+Key presses arriving faster than a redraw were lost; steps now build on the latest
+value. Also: the 3D close-up scrolls into view when opened. check: green (210
+tests) · still open: on phones the pads and the 3D scene don't fit on screen
+together, so you adjust, then scroll up to watch; handle grab areas are 41 px on a
+phone (44 is the usual minimum); tab order visits Hit and Settings before the
+controls; real trackpad/touch still untried by hand.

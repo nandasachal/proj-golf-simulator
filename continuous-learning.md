@@ -68,3 +68,13 @@ pointerup) from page JS instead.
 2026-11-16 — preference — Sachal finds sliders clunky on a laptop: shot controls
 should be direct manipulation on the club picture, with every number also typeable
 and keyboard-adjustable. Don't add a new control as a plain slider.
+2026-11-16 — mistake — First verification of the drag handles dispatched every
+pointer event straight at the handle with a valid pointer id, which hid two real
+bugs (overlapping grab areas, reliance on pointer capture). When simulating a drag,
+send pointerdown to `document.elementFromPoint(x, y)` and the moves to `window`,
+and try an unknown pointer id, so the test routes events the way a real pointer
+does.
+2026-11-16 — note — Never write to the URL on every step of a continuous control.
+Safari throws a SecurityError after 100 `history.replaceState` calls in 30 seconds.
+Shot values live in a draft in `App.js` and are written to the URL 250 ms after
+they stop changing.

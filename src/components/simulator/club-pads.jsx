@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { classNames } from "../../utils/functions";
 import {
   AIM_VALUES,
@@ -111,6 +111,16 @@ const describe = {
 // Escape puts it back.
 const ValueChip = ({ control, value, text, active, onChange, onActive }) => {
   const [draft, setDraft] = useState(null);
+  const button = useRef(null);
+  // After finishing with the keyboard, put focus back on the value that was
+  // typed into. Not after clicking away: the click chose where focus goes.
+  const returnFocus = useRef(false);
+  useEffect(() => {
+    if (draft === null && returnFocus.current) {
+      returnFocus.current = false;
+      button.current?.focus();
+    }
+  }, [draft]);
   const range = RANGES[control];
   const { name, typing, colour } = describe[control];
   const keys = SHORTCUTS[control];
@@ -144,6 +154,7 @@ const ValueChip = ({ control, value, text, active, onChange, onActive }) => {
         </div>
         {draft === null ? (
           <button
+            ref={button}
             type="button"
             className="-mx-1 block w-[calc(100%+0.5rem)] truncate rounded px-1 text-left text-sm font-semibold tabular-nums leading-tight hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
             aria-label={`Edit ${name.toLowerCase()}: ${text}`}
@@ -168,8 +179,14 @@ const ValueChip = ({ control, value, text, active, onChange, onActive }) => {
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commit}
             onKeyDown={(event) => {
-              if (event.key === "Enter") commit();
-              if (event.key === "Escape") setDraft(null);
+              if (event.key === "Enter") {
+                returnFocus.current = true;
+                commit();
+              }
+              if (event.key === "Escape") {
+                returnFocus.current = true;
+                setDraft(null);
+              }
             }}
           />
         )}
@@ -213,6 +230,7 @@ const Handle = ({
     <g
       role="slider"
       tabIndex={0}
+      data-control={control}
       aria-label={describe[control].name}
       aria-valuemin={range.MIN}
       aria-valuemax={range.MAX}
@@ -227,7 +245,7 @@ const Handle = ({
       {...drag(control)}
     >
       {/* generous invisible target so the handle is easy to grab */}
-      <circle cx={point.x} cy={point.y} r="22" fill="transparent" />
+      <circle cx={point.x} cy={point.y} r="20" fill="transparent" />
       {lit && (
         <circle cx={point.x} cy={point.y} r="17" fill={colour} opacity="0.25" />
       )}
@@ -321,25 +339,82 @@ const ClubPads = ({ values, side, preview, onChange }) => {
       ? [sidePad, SIDE]
       : [topPad, TOP];
 
+  const speedBar = useRef(null);
+  const speedFrom = (event) => {
+    const rect = speedBar.current.getBoundingClientRect();
+    const fraction = (event.clientX - rect.left) / rect.width;
+    return (
+      SWING_SPEED_VALUES.MIN +
+      fraction * (SWING_SPEED_VALUES.MAX - SWING_SPEED_VALUES.MIN)
+    );
+  };
   const moveTo = (control, event) => {
-    const [ref, pad] = padOf(control);
-    const point = toPadPoint(event, ref.current.getBoundingClientRect(), pad);
-    const next = snap(fromPointer[control](point), RANGES[control]);
+    let raw;
+    if (control === "swingSpeed") {
+      raw = speedFrom(event);
+    } else {
+      const [ref, pad] = padOf(control);
+      raw = fromPointer[control](
+        toPadPoint(event, ref.current.getBoundingClientRect(), pad),
+      );
+    }
+    const next = snap(raw, RANGES[control]);
     if (next !== values[control]) onChange(control, next);
   };
+
+  // The aim, face and path handles can sit close together, so a press goes
+  // to whichever of them is nearest the pointer, not whichever is on top.
+  const nearestHandle = (control, event) => {
+    if (!["aim", "clubFaceAngle", "clubPathAngle"].includes(control)) {
+      return control;
+    }
+    const point = toPadPoint(
+      event,
+      topPad.current.getBoundingClientRect(),
+      TOP,
+    );
+    const centres = {
+      aim: aimHandle(aim),
+      clubFaceAngle: faceHandle(setup),
+      clubPathAngle: pathHandle(setup),
+    };
+    const distance = (name) =>
+      Math.hypot(point.x - centres[name].x, point.y - centres[name].y);
+    return Object.keys(centres).reduce((best, name) =>
+      distance(name) < distance(best) ? name : best,
+    );
+  };
+
   const drag = (control) => ({
     onPointerDown: (event) => {
       event.preventDefault();
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-      event.currentTarget.focus?.();
-      setDragging(control);
+      const picked = nearestHandle(control, event);
+      const pad = event.currentTarget.closest("svg") || document;
+      (
+        pad.querySelector(`[data-control="${picked}"]`) || event.currentTarget
+      ).focus?.();
+      setDragging(picked);
+      if (picked === "swingSpeed") moveTo(picked, event);
     },
-    onPointerMove: (event) => {
-      if (dragging === control) moveTo(control, event);
-    },
-    onPointerUp: () => setDragging(null),
-    onPointerCancel: () => setDragging(null),
   });
+
+  // While a handle is held, follow the pointer wherever it goes on the page,
+  // so the drag survives leaving the handle or the pad.
+  const follow = useRef(null);
+  follow.current = moveTo;
+  useEffect(() => {
+    if (!dragging) return undefined;
+    const move = (event) => follow.current(dragging, event);
+    const end = () => setDragging(null);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+  }, [dragging]);
 
   const handleProps = (control) => ({
     control,
@@ -369,19 +444,6 @@ const ClubPads = ({ values, side, preview, onChange }) => {
   const speedFraction =
     (swingSpeed - SWING_SPEED_VALUES.MIN) /
     (SWING_SPEED_VALUES.MAX - SWING_SPEED_VALUES.MIN);
-
-  const setSpeedFrom = (event) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const fraction = (event.clientX - rect.left) / rect.width;
-    onChange(
-      "swingSpeed",
-      snap(
-        SWING_SPEED_VALUES.MIN +
-          fraction * (SWING_SPEED_VALUES.MAX - SWING_SPEED_VALUES.MIN),
-        SWING_SPEED_VALUES,
-      ),
-    );
-  };
 
   return (
     <div className="flex flex-col gap-1.5" aria-label="Shot controls">
@@ -489,6 +551,7 @@ const ClubPads = ({ values, side, preview, onChange }) => {
             }}
             role="slider"
             tabIndex={0}
+            data-control="strike"
             aria-label={describe.strike.name}
             aria-valuemin={STRIKE_VALUES.MIN}
             aria-valuemax={STRIKE_VALUES.MAX}
@@ -699,16 +762,9 @@ const ClubPads = ({ values, side, preview, onChange }) => {
           }
           onPointerEnter={() => setActive("swingSpeed")}
           onPointerLeave={() => setActive(null)}
-          onPointerDown={(event) => {
-            event.currentTarget.setPointerCapture?.(event.pointerId);
-            setDragging("swingSpeed");
-            setSpeedFrom(event);
-          }}
-          onPointerMove={(event) => {
-            if (dragging === "swingSpeed") setSpeedFrom(event);
-          }}
-          onPointerUp={() => setDragging(null)}
-          onPointerCancel={() => setDragging(null)}
+          ref={speedBar}
+          data-control="swingSpeed"
+          {...drag("swingSpeed")}
         >
           <div
             className="absolute inset-y-0 left-0 bg-lime-400/80"

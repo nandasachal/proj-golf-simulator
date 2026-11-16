@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import App from "./App";
 import { createSimulator } from "./simulate/main";
 import { createClubScene } from "./simulate/club-scene";
@@ -41,10 +41,17 @@ beforeEach(() => {
   });
 });
 
+// Shows what the address bar's query string would be.
+const Address = () => (
+  <output data-testid="address">{useLocation().search}</output>
+);
+const address = () => screen.getByTestId("address").textContent;
+
 const renderApp = (url = "/") =>
   render(
     <MemoryRouter initialEntries={[url]}>
       <App />
+      <Address />
     </MemoryRouter>,
   );
 
@@ -287,6 +294,18 @@ describe("keyboard shortcuts", () => {
     expect(valueOf("Strike")).toBe(-0.25);
   });
 
+  test("key presses that arrive before the screen redraws all count", () => {
+    renderApp("/?face=1");
+    act(() => {
+      for (let i = 0; i < 3; i++) {
+        document.body.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "e", bubbles: true }),
+        );
+      }
+    });
+    expect(valueOf("Club face")).toBe(4);
+  });
+
   test("a control stops at the end of its range", () => {
     renderApp("/?face=6&speed=80");
     press("e");
@@ -345,6 +364,130 @@ describe("keyboard shortcuts", () => {
 
 describe("club pads", () => {
   const handle = (name) => screen.getByRole("slider", { name });
+
+  // jsdom lays nothing out, so give the pad its real size: one screen pixel
+  // per pad unit, with the pad's corner at the page's corner.
+  const layOutPads = () => {
+    for (const [name, width, height] of [
+      ["Club from above", 308, 206],
+      ["Club from the side", 308, 100],
+    ]) {
+      screen.getByRole("group", { name }).getBoundingClientRect = () => ({
+        left: 0,
+        top: 0,
+        width,
+        height,
+      });
+    }
+  };
+  const pointer = (type, target, x, y) =>
+    fireEvent(
+      target,
+      new MouseEvent(type, { bubbles: true, clientX: x, clientY: y }),
+    );
+  const centreOf = (name) => {
+    const dot = handle(name).querySelector("circle");
+    return [Number(dot.getAttribute("cx")), Number(dot.getAttribute("cy"))];
+  };
+
+  test("dragging a handle follows the pointer, even off the handle and off the pad", () => {
+    renderApp();
+    layOutPads();
+    const [x, y] = centreOf("Club face");
+    pointer("pointerdown", handle("Club face"), x, y);
+    // the pointer is now over the page, not the handle
+    pointer("pointermove", window, x + 12, y);
+    expect(valueOf("Club face")).toBeGreaterThan(0);
+    pointer("pointermove", window, x + 400, y + 300);
+    expect(valueOf("Club face")).toBe(6);
+
+    pointer("pointerup", window, x + 400, y + 300);
+    pointer("pointermove", window, x - 400, y);
+    expect(valueOf("Club face")).toBe(6);
+  });
+
+  test("a press between two handles goes to the nearer one, not the one drawn on top", () => {
+    renderApp();
+    layOutPads();
+    const [fx, fy] = centreOf("Club face");
+    const [, ay] = centreOf("Aim");
+    // inside the Aim handle's grab area, but closer to the face handle
+    const y = fy + (ay - fy) * 0.3;
+    pointer("pointerdown", handle("Aim"), fx, y);
+    pointer("pointermove", window, fx + 14, y);
+    expect(valueOf("Club face")).toBeGreaterThan(0);
+    expect(valueOf("Aim")).toBe(0);
+    pointer("pointerup", window, fx + 14, y);
+
+    // and the other way: nearer Aim, pressed on the face handle
+    const [fx2, fy2] = centreOf("Club face");
+    const [ax2, ay2] = centreOf("Aim");
+    pointer(
+      "pointerdown",
+      handle("Club face"),
+      fx2 + (ax2 - fx2) * 0.8,
+      fy2 + (ay2 - fy2) * 0.8,
+    );
+    pointer("pointermove", window, ax2 + 30, ay2);
+    expect(valueOf("Aim")).toBeGreaterThan(0);
+  });
+
+  test("the address is not rewritten on every step, only once the control settles", () => {
+    jest.useFakeTimers();
+    try {
+      renderApp();
+      for (let i = 0; i < 40; i++) press("w");
+      for (let i = 0; i < 5; i++) press("e");
+      expect(valueOf("Swing speed")).toBe(135);
+      expect(valueOf("Club face")).toBe(5);
+      expect(address()).toBe("");
+
+      act(() => jest.advanceTimersByTime(300));
+      expect(address()).toBe("?speed=135&face=5");
+      expect(valueOf("Swing speed")).toBe(135);
+
+      // a hit in that window still uses what is on screen
+      press("q");
+      press(" ");
+      expect(lastLaunch().initSpeedMPH).toBe(135);
+      expect(valueOf("Club face")).toBe(4);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("Reset straight after a change does not let the change come back", () => {
+    jest.useFakeTimers();
+    try {
+      renderApp("/?face=2");
+      press("e");
+      press("r");
+      act(() => jest.advanceTimersByTime(300));
+      expect(valueOf("Club face")).toBe(0);
+      expect(address()).toBe("");
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("after typing with the keyboard, focus goes back to the value; clicking away leaves focus where the click put it", () => {
+    renderApp();
+    typeValue("Club face", "2");
+    expect(
+      screen.getByRole("button", { name: "Edit club face: 2° open" }),
+    ).toHaveFocus();
+    typeValue("Aim", "3", "Escape");
+    expect(
+      screen.getByRole("button", { name: "Edit aim: straight" }),
+    ).toHaveFocus();
+
+    const speed = startTyping("Swing speed");
+    const other = screen.getByRole("button", { name: /^Edit club path:/ });
+    other.focus();
+    fireEvent.blur(speed);
+    expect(valueOf("Swing speed")).toBe(95);
+    expect(other).toHaveFocus();
+  });
 
   test("every control is a handle that says its value in words", () => {
     renderApp("/?face=2&path=-3&speed=105&attack=1&loft=2&strike=-0.5&aim=4");

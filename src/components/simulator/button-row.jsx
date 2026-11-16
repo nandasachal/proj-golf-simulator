@@ -27,10 +27,15 @@ export const HitButton = ({ onClick, className = "" }) => (
 
 // Share and Reset, with Hit above them when it isn't shown beside the result
 // bar (phones).
-const ButtonRow = ({ handleReset, simulate, showHit = true }) => {
+const ButtonRow = ({
+  handleReset,
+  simulate,
+  showHit = true,
+  getShareUrl = () => window.location.href,
+}) => {
   const [isCopied, setIsCopied] = useState(false);
   const handleCopyURL = () => {
-    navigator.clipboard.writeText(window.location.href);
+    navigator.clipboard.writeText(getShareUrl());
     setIsCopied(true);
     toast.success("Share link copied");
     setTimeout(() => setIsCopied(false), 1500);
