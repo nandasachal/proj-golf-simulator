@@ -11,14 +11,24 @@ const GROUND_CONTACT_YARDS = 0.06;
 // Farther targets are bigger: 13 yd radius at 140 yd, about 20 at 330.
 const radiusAt = (z) => 8 + 0.035 * z;
 
-// `random` returns [0, 1). Pass the previous target to avoid a near repeat.
-export function randomTarget(random = Math.random, previous = null) {
+// `random` returns [0, 1). Pass the previous target to avoid a near repeat,
+// and `reach` ({ nearest, farthest } in yards) for a club other than the
+// driver, so its targets are ones it can get to.
+export function randomTarget(
+  random = Math.random,
+  previous = null,
+  { nearest = NEAREST, farthest = FARTHEST } = {},
+) {
   let z = 0;
   let x = 0;
+  // A new target should be a real change, but short clubs have little room.
+  const apart = Math.min(35, (farthest - nearest) / 3);
   for (let attempt = 0; attempt < 6; attempt++) {
-    z = NEAREST + random() * (FARTHEST - NEAREST);
-    x = (random() * 2 - 1) * MAX_OFFLINE;
-    if (!previous || Math.hypot(z - previous.z, x - previous.x) > 35) break;
+    z = nearest + random() * (farthest - nearest);
+    // Targets nearer than the driver's sit nearer the centre line: 40 yd
+    // offline at 70 yd out would be half the shot.
+    x = (random() * 2 - 1) * Math.min(MAX_OFFLINE, (z * MAX_OFFLINE) / NEAREST);
+    if (!previous || Math.hypot(z - previous.z, x - previous.x) > apart) break;
   }
   return {
     x,

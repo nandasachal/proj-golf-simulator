@@ -1,18 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { classNames } from "../../utils/functions";
-import {
-  AIM_VALUES,
-  ATTACK_ANGLE_VALUES,
-  CLUB_FACE_ANGLE_VALUES,
-  CLUB_PATH_ANGLE_VALUES,
-  LOFT_CHANGE_VALUES,
-  STRIKE_VALUES,
-  SWING_SPEED_VALUES,
-} from "../../utils/constant";
 import { SHORTCUTS, keyLabel } from "../../utils/shortcuts";
 import {
   GAIN,
-  REACH,
   fromGround,
   fromSide,
   shownAngles,
@@ -20,32 +10,15 @@ import {
   snap,
   topHandles,
 } from "../../utils/club-handles";
-import {
-  clubSetup,
-  DRIVER_STATIC_LOFT_DEGREES,
-} from "../../simulate/club-setup";
+import { clubSetup } from "../../simulate/club-setup";
 import { createClubScene } from "../../simulate/club-scene";
-import {
-  driverLaunch,
-  FACE_START_WEIGHT,
-  STRIKE_START_DEGREES_PER_INCH,
-} from "../../simulate/launch-conditions";
+import { clubLaunch } from "../../simulate/launch-conditions";
 
 const FACE = "#ffffff";
 const PATH = "#a3e635";
 const START = "#fb923c";
 const STRIKE = "#fbbf24";
 const AIM = "#7dd3fc";
-
-const RANGES = {
-  clubFaceAngle: CLUB_FACE_ANGLE_VALUES,
-  clubPathAngle: CLUB_PATH_ANGLE_VALUES,
-  swingSpeed: SWING_SPEED_VALUES,
-  aim: AIM_VALUES,
-  attackAngle: ATTACK_ANGLE_VALUES,
-  loftChange: LOFT_CHANGE_VALUES,
-  strike: STRIKE_VALUES,
-};
 
 const words = (value, positive, negative, zero, unit = "°") =>
   value === 0
@@ -92,7 +65,7 @@ const describe = {
   },
   swingSpeed: {
     name: "Swing speed",
-    text: (v) => `${v} mph`,
+    text: (v) => `${Math.round(v * 10) / 10} mph`,
     typing: "mph",
     colour: PATH,
   },
@@ -100,7 +73,15 @@ const describe = {
 
 // A value you can click to type over. Enter or clicking away keeps it,
 // Escape puts it back.
-const ValueChip = ({ control, value, text, active, onChange, onActive }) => {
+const ValueChip = ({
+  control,
+  range,
+  value,
+  text,
+  active,
+  onChange,
+  onActive,
+}) => {
   const [draft, setDraft] = useState(null);
   const button = useRef(null);
   // After finishing with the keyboard, put focus back on the value that was
@@ -112,7 +93,6 @@ const ValueChip = ({ control, value, text, active, onChange, onActive }) => {
       button.current?.focus();
     }
   }, [draft]);
-  const range = RANGES[control];
   const { name, typing, colour } = describe[control];
   const keys = SHORTCUTS[control];
 
@@ -191,6 +171,7 @@ const ValueChip = ({ control, value, text, active, onChange, onActive }) => {
 // While it is hovered or held, a tag beside it says the value.
 const Handle = ({
   control,
+  range,
   value,
   text,
   point,
@@ -202,7 +183,6 @@ const Handle = ({
   onChange,
   onActive,
 }) => {
-  const range = RANGES[control];
   const nudge = (event) => {
     const step = {
       ArrowRight: 1,
@@ -315,7 +295,8 @@ const VIEW_FROM_TOE = {
   camera: { position: [-70, 10.5, 4], lookAt: [0, 10.5, 4], fov: 30 },
 };
 
-// One live 3D view of the driver, with the drag handles laid over it.
+// One live 3D view of the club, with the drag handles laid over it. It is
+// keyed by club, so choosing another club builds a new scene.
 const Pad3D = ({
   name,
   caption,
@@ -424,7 +405,7 @@ const FlightIcon = ({ sketch }) => (
 
 // The club at impact, shown twice in 3D, as the shot controls: drag a
 // handle, use its keys, or click a value to type it.
-const ClubPads = ({ values, side, preview, onChange }) => {
+const ClubPads = ({ values, side, club, ranges, preview, onChange }) => {
   const mirror = side === "Left" ? -1 : 1;
   const [active, setActive] = useState(null);
   const [dragging, setDragging] = useState(null);
@@ -457,13 +438,16 @@ const ClubPads = ({ values, side, preview, onChange }) => {
     loftChange,
     strike,
   } = values;
-  const launch = driverLaunch(swingSpeed, { attackAngle: attack, loftChange });
+  const launch = clubLaunch(club, swingSpeed, {
+    attackAngle: attack,
+    loftChange,
+  });
   const standardLoft = launch.dynamicLoftDegrees - loftChange;
   const start =
-    FACE_START_WEIGHT * face +
-    (1 - FACE_START_WEIGHT) * path +
-    STRIKE_START_DEGREES_PER_INCH * strike;
-  const shown = shownAngles(values, mirror, { standardLoft, start });
+    club.faceStartWeight * face +
+    (1 - club.faceStartWeight) * path +
+    club.strike.start * strike;
+  const shown = shownAngles(values, mirror, { standardLoft, start, club });
 
   // What each 3D view is posed with. Above: the horizontal story, drawn
   // large. From the toe: attack and loft only, square to the camera.
@@ -476,6 +460,7 @@ const ClubPads = ({ values, side, preview, onChange }) => {
     loftChange,
     strike,
     side,
+    club: club.id,
   });
   const topSetup = {
     ...base,
@@ -493,7 +478,7 @@ const ClubPads = ({ values, side, preview, onChange }) => {
     pathDegrees: 0,
     startDegrees: 0,
     attackDegrees: shown.attackDegrees,
-    loftTiltDegrees: shown.loftDegrees - DRIVER_STATIC_LOFT_DEGREES,
+    loftTiltDegrees: shown.loftDegrees - club.loftDegrees,
     strikeCm: 0,
   };
 
@@ -524,25 +509,25 @@ const ClubPads = ({ values, side, preview, onChange }) => {
     if (control === "swingSpeed") {
       const rect = speedBar.current.getBoundingClientRect();
       raw =
-        SWING_SPEED_VALUES.MIN +
+        ranges.swingSpeed.MIN +
         ((event.clientX - rect.left) / rect.width) *
-          (SWING_SPEED_VALUES.MAX - SWING_SPEED_VALUES.MIN);
+          (ranges.swingSpeed.MAX - ranges.swingSpeed.MIN);
     } else if (onSide(control)) {
       const point = scenes.current.side.pick(event.clientX, event.clientY, {
         plane: "side",
       });
       if (!point) return;
-      raw = fromSide[control](point, { standardLoft });
+      raw = fromSide[control](point, { ...shown, standardLoft });
     } else {
       // The head is grabbed by its crown, the rest on the turf.
       const point = scenes.current.top.pick(event.clientX, event.clientY, {
         plane: "ground",
-        height: control === "strike" ? REACH.headHeight : 0,
+        height: control === "strike" ? shown.grab.height : 0,
       });
       if (!point) return;
       raw = fromGround[control](point, shown, mirror);
     }
-    const next = snap(raw, RANGES[control]);
+    const next = snap(raw, ranges[control]);
     if (next !== values[control]) onChange(control, next);
   };
 
@@ -602,6 +587,7 @@ const ClubPads = ({ values, side, preview, onChange }) => {
       <Handle
         key={control}
         control={control}
+        range={ranges[control]}
         value={values[control]}
         text={text[control]}
         point={point}
@@ -618,6 +604,7 @@ const ClubPads = ({ values, side, preview, onChange }) => {
   const boundsOf = (scene) => (scene ? scene.size() : { width: 308 });
   const chipProps = (control) => ({
     control,
+    range: ranges[control],
     value: values[control],
     text: text[control],
     active: active === control || dragging === control,
@@ -626,8 +613,11 @@ const ClubPads = ({ values, side, preview, onChange }) => {
   });
 
   const speedFraction =
-    (swingSpeed - SWING_SPEED_VALUES.MIN) /
-    (SWING_SPEED_VALUES.MAX - SWING_SPEED_VALUES.MIN);
+    (swingSpeed - ranges.swingSpeed.MIN) /
+    (ranges.swingSpeed.MAX - ranges.swingSpeed.MIN);
+  // Each view is built for one club.
+  const topOptions = useMemo(() => ({ ...VIEW_FROM_ABOVE, club }), [club]);
+  const sideOptions = useMemo(() => ({ ...VIEW_FROM_TOE, club }), [club]);
   // Draw the held handle last so its tag is never under a neighbour.
   const inOrder = (controls) =>
     [...controls].sort(
@@ -641,20 +631,29 @@ const ClubPads = ({ values, side, preview, onChange }) => {
         <p className="flex items-center gap-1.5 text-sm font-bold">
           {preview && <FlightIcon sketch={preview.sketch} />}
           {preview ? preview.shape : "Club at impact"}
+          <span
+            className="whitespace-nowrap rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold text-white/80"
+            data-club
+            data-tooltip-id="main-tooltip"
+            data-tooltip-content="The club in hand. Change it in Settings (the gear, bottom left)."
+          >
+            {club.name} · {club.loftDegrees}°
+          </span>
         </p>
         <p
-          className="text-[11px] text-white/55"
+          className="shrink-0 text-[11px] text-white/55"
           data-tooltip-id="main-tooltip"
-          data-tooltip-content="Angles are drawn several times their real size (the × in each view's corner) so a one-degree change is easy to see and grab. The numbers are the true values."
+          data-tooltip-content="Drag a handle, use its keys, or click a value to type it. Angles are drawn several times their real size (the × in each view's corner) so a one-degree change is easy to see and grab. The numbers are the true values."
         >
-          Drag a handle · click a value to type
+          Drag · or click a value
         </p>
       </div>
 
       <Pad3D
         name="Club from above"
+        key={`top-${club.id}`}
         caption={`Above ×${GAIN.face}`}
-        options={VIEW_FROM_ABOVE}
+        options={topOptions}
         setup={topSetup}
         className="aspect-[308/206]"
         onScene={onTopScene}
@@ -673,8 +672,9 @@ const ClubPads = ({ values, side, preview, onChange }) => {
 
       <Pad3D
         name="Club from the side"
+        key={`side-${club.id}`}
         caption={`Toe ×${GAIN.attack}`}
-        options={VIEW_FROM_TOE}
+        options={sideOptions}
         setup={sideSetup}
         className="aspect-[308/112]"
         note={`launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
@@ -704,8 +704,8 @@ const ClubPads = ({ values, side, preview, onChange }) => {
           tabIndex={0}
           data-control="swingSpeed"
           aria-label={describe.swingSpeed.name}
-          aria-valuemin={SWING_SPEED_VALUES.MIN}
-          aria-valuemax={SWING_SPEED_VALUES.MAX}
+          aria-valuemin={ranges.swingSpeed.MIN}
+          aria-valuemax={ranges.swingSpeed.MAX}
           aria-valuenow={swingSpeed}
           aria-valuetext={text.swingSpeed}
           className="club-handle relative h-11 flex-1 cursor-pointer overflow-hidden rounded-lg bg-white/[0.07] md:h-10"
@@ -721,12 +721,12 @@ const ClubPads = ({ values, side, preview, onChange }) => {
               event.preventDefault();
               onChange(
                 "swingSpeed",
-                snap(swingSpeed + step, SWING_SPEED_VALUES),
+                snap(swingSpeed + step, ranges.swingSpeed),
               );
             }
           }}
           onDoubleClick={() =>
-            onChange("swingSpeed", SWING_SPEED_VALUES.DEFAULT)
+            onChange("swingSpeed", ranges.swingSpeed.DEFAULT)
           }
           onPointerEnter={() => setActive("swingSpeed")}
           onPointerLeave={() => setActive(null)}
@@ -737,8 +737,8 @@ const ClubPads = ({ values, side, preview, onChange }) => {
             style={{ width: `${speedFraction * 100}%` }}
           />
           <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2 text-[10px] font-semibold text-white/70">
-            <span>{SWING_SPEED_VALUES.MIN}</span>
-            <span>{SWING_SPEED_VALUES.MAX}</span>
+            <span>{ranges.swingSpeed.MIN}</span>
+            <span>{ranges.swingSpeed.MAX}</span>
           </div>
         </div>
       </div>

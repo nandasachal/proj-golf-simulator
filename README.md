@@ -20,7 +20,8 @@ than abstract.
   loft: about 4.5° of axis tilt per degree, in line with TrackMan's published
   driver examples.
 - **Game mode** (`src/simulate/game.js`) — a random target ring appears 140–330 yd
-  out and up to 40 yd either side, bigger the farther it is (13–20 yd radius). It is
+  out with the driver (between a soft and a full swing's carry with any other
+  club) and up to 40 yd either side, bigger the farther it is (13–20 yd radius). It is
   the default mode (`?mode=practice` turns it off). A shot scores if the ball
   touches the ground inside the ring at any point:
   landing, bouncing, rolling through or stopping. A hit brings a new target; a
@@ -39,10 +40,33 @@ than abstract.
 - **Sign convention** — for a right-hander, positive is right of target (open face,
   in-to-out path). A left-hander is the mirror image, so "open" and "in-to-out"
   mean the same thing to both. `src/simulate/launch-conditions.js` owns this.
-- **Club** — every shot is a solidly struck driver. The standard delivery moves
-  with swing speed (`driverLaunch`): 80 mph is 13.8° launch / 3075 rpm / 1.445
-  smash, 140 mph is 9.6° / 2295 rpm / 1.50, passing close to PGA Tour averages
-  at 113 mph.
+- **Clubs** (`src/simulate/clubs.js`) — the bag is 22 clubs: driver (10.5°), 3/5/7/9
+  wood (15–24°), 2–6 hybrid (17–28°), 2–9 iron (18–42°) and pitching, gap, sand and
+  lob wedge (46–60°), each with its loft, lie, length and a tour reference delivery
+  (club speed, attack angle, launch, spin, smash). The references are TrackMan's
+  PGA Tour averages where published (driver, 3 and 5 wood, hybrid, 3 iron to
+  pitching wedge) and interpolated by loft for the rest. The club is chosen in
+  Settings; the driver is the default and the only club played off a tee.
+  - The driver's standard delivery moves with swing speed (`driverLaunch`): 80 mph
+    is 13.8° launch / 3075 rpm / 1.445 smash, 140 mph is 9.6° / 2295 rpm / 1.50,
+    passing close to PGA Tour averages at 113 mph.
+  - Every other club uses its tour launch numbers at its tour attack angle, with
+    backspin in proportion to swing speed and launch 0.03° higher per mph slower
+    (`clubLaunch`). At tour speeds the carries land within 4% of TrackMan's
+    (regression-tested in `clubs.test.js`).
+  - The swing-speed control covers the same golfer for every club: the driver's
+    80–140 mph (95 default) scaled by the tour's speed for that club, so a 7 iron
+    is 64–112 mph, 76 by default.
+  - Face-to-path curves the ball less the more spin loft a club has, the ball
+    starts 85% toward the face with woods and 75% with irons, and off-centre
+    strikes matter far more with woods (bulge and gear effect) than irons. The
+    per-family strike rates are estimates.
+- **Stock distances** (`src/simulate/club-distances.js`) — Settings shows each
+  club's carry for a solid, straight strike at its default swing speed, in the
+  air Shot always flies in: sea level, 68°F, no wind. Typing a distance sets
+  that club's swing speed (to 0.1 mph) for the session; it is held in memory
+  only, so a reload returns to the stock numbers. Saved profiles are a later
+  feature.
 - **Attack angle and loft** — attack angle is how far up (+) or down (-) the head
   is travelling at impact (±5°); loft at impact (dynamic loft) is the standard
   loft for the swing speed plus or minus up to 4°. Spin loft is loft minus attack
@@ -86,6 +110,7 @@ than abstract.
 React UI (App.js, components/)          src/simulate/ (no React)
   sliders + side toggle  ──────────►  launch-conditions.js   face/path/speed → launch
   Hit button                          shot.js                launch → trajectory points
+  ⋯ settings modal (club)             clubs.js               the bag: loft, lie, tour delivery
   ⋯ settings modal (turf)             ground.js              touchdown → bounces + roll
   ⋯ settings modal (mode), score      game.js                random target, hit or miss
   shot readout  ◄── callbacks ──────  shot-analysis.js       trajectory → carry, total, shape…
@@ -98,7 +123,7 @@ React UI (App.js, components/)          src/simulate/ (no React)
 - **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
   viewport with a HUD over it (stacked under the scene on phones).
   - **Shot controls are the club itself** (`components/simulator/club-pads.jsx`).
-    The left panel shows the driver at impact in two live 3D views, built from
+    The left panel shows the club in hand at impact in two live 3D views, built from
     the same scene as the old close-up (`club-scene.js`, below): from above
     (aim, face, path, strike) and from the toe (attack angle, loft), plus one
     bar for swing speed. Drag handles are laid over each view at the screen
@@ -117,10 +142,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
     ×4, strike ×2 (the × is shown in each view's corner; the numbers are
     always true). The handle geometry is pure and tested in
     `src/utils/club-handles.js`, in the scene's own centimetres.
-  - Session settings (game mode, dominant side, turf) and the feedback link are
+  - Session settings (club, game mode, dominant side, turf) and the feedback link are
     in a modal behind the gear button, bottom left. On laptops Hit sits to the
     right of the result bar.
-  - Shot setup, turf (`turf` preset plus `cut`/`firm`/`wet`/`grass` overrides)
+  - Shot setup, the club (`club`), turf (`turf` preset plus `cut`/`firm`/`wet`/`grass` overrides)
     and `mode` live in the query string (`hooks/use-query.js`), so a setup is
     shareable via URL; the game score and current target are not.
   - The UI talks to the scene only through `createSimulator(container,
@@ -156,17 +181,26 @@ React UI (App.js, components/)          src/simulate/ (no React)
 - **Golfer** is built from primitives and animated by hand-written keyframes
   rather than an imported rigged model: nothing to license or download, and the
   contact frame is exact by construction.
-- **Club scene** — the 3D driver used by the two control views. `createClubScene`
-  takes options for a fixed camera, which guides to draw, and exposes `project`
+- **Club scene** — the 3D club used by the two control views. `createClubScene`
+  takes the club, options for a fixed camera, which guides to draw, and exposes `project`
   (scene point to screen pixels) and `pick` (screen position to scene point) for
   the drag handles. The named camera angles, orbiting and value tags from the
   earlier free-look close-up are still in the scene but no longer mounted.
   `club-setup.js` (pure, tested) turns the controls into the pose: absolute face,
-  path and start directions, loft tilt, strike offset, launch. `club-scene.js`
-  (WebGL) sculpts a driver head in code: `headPoint` maps a unit sphere onto the
-  head (rounded-triangle plan, domed crown over a rim set below mid-face, shallow
-  sole, blunt tail, cut flat at a face with 10.5° of built-in loft plus bulge and
-  roll), finished with a woven-carbon crown under clear coat, brushed-metal sole,
+  path and start directions, loft tilt, strike offset, launch. The scene puts the
+  face where it is tangent to the ball for the loft delivered (lower on the ball
+  the more loft) and, for clubs off the turf, slides the head along its face
+  until its sole rests on the grass, so irons show their forward shaft lean.
+  The heads are sculpted in code in `src/simulate/club-heads/`, all to one
+  contract (centimetres, right-handed, origin at the middle of the face leaning
+  back by the club's loft, `userData.solePoints` for resting it on the turf):
+  `wood.js` builds the driver, fairway woods (pear-shaped, shallow face, railed
+  sole) and hybrids (compact, iron-like face, keeled sole); `iron.js` builds
+  forged cavity-back irons in satin chrome with stamped numbers and steel
+  shafts, and dark teardrop specialty wedges with full-face grooves. The driver
+  head: `headPoint` maps a unit sphere onto the head (rounded-triangle plan,
+  domed crown over a rim set below mid-face, shallow sole, blunt tail, cut flat
+  at a face with 10.5° of built-in loft plus bulge and roll), finished with a woven-carbon crown under clear coat, brushed-metal sole,
   weight port and a necked hosel, plus shaft, dimpled ball, tee and a patch of
   turf, and draws the guides at true angles: a wide lime ribbon with chevrons for club
   path, white for where the face points plus a white line along the face itself,

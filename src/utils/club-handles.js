@@ -20,7 +20,26 @@ export const GAIN = {
   strike: 2,
 };
 
+// `height` is the centre of a ball on a tee; off the turf it is the radius.
 export const BALL = { height: 4.6, radius: 2.135 };
+
+// Where the ball sits and where the head is grabbed, by the kind of club.
+// `behind` and `height` place the grab point on top of the head: behind the
+// face, and above the turf.
+const HEAD_GRAB = {
+  driver: { behind: 5.5, height: 6.5 },
+  wood: { behind: 4.2, height: 4.4 },
+  hybrid: { behind: 3.2, height: 4.4 },
+  iron: { behind: 1.2, height: 5 },
+  wedge: { behind: 1.2, height: 5.4 },
+};
+export function clubGeometry(club) {
+  return {
+    ballHeight: club && !club.teed ? BALL.radius : BALL.height,
+    grab: HEAD_GRAB[club ? club.category : "driver"],
+  };
+}
+const DRIVER_GEOMETRY = clubGeometry(null);
 
 // How far from the ball each handle sits.
 export const REACH = {
@@ -29,9 +48,6 @@ export const REACH = {
   path: 19,
   attack: 26,
   loft: 20,
-  // the grab point on the club head: behind the face, on top of the crown
-  headBehind: 5.5,
-  headHeight: 6.5,
 };
 
 // Unit vector along the ground, `degrees` right of the centre line.
@@ -47,10 +63,11 @@ const bearing = (x, z) => Math.atan2(-x, z) / DEGREES;
 export function shownAngles(
   { clubFaceAngle, clubPathAngle, aim, attackAngle, loftChange, strike },
   mirror,
-  { standardLoft = 0, start = 0 } = {},
+  { standardLoft = 0, start = 0, club = null } = {},
 ) {
   const aimDegrees = aim * GAIN.aim;
   return {
+    ...clubGeometry(club),
     aimDegrees,
     faceDegrees: aimDegrees + mirror * clubFaceAngle * GAIN.face,
     pathDegrees: aimDegrees + mirror * clubPathAngle * GAIN.path,
@@ -77,6 +94,9 @@ const heelAxis = (faceDegrees) => ({
   z: Math.sin(faceDegrees * DEGREES),
 });
 
+const grabOf = (shown) => shown.grab || DRIVER_GEOMETRY.grab;
+const ballHeightOf = (shown) => shown?.ballHeight ?? BALL.height;
+
 export function topHandles(shown, mirror) {
   const aim = along(shown.aimDegrees);
   const face = along(shown.faceDegrees);
@@ -91,9 +111,9 @@ export function topHandles(shown, mirror) {
     // the tail of the path line, behind the ball
     clubPathAngle: { x: -path.x * REACH.path, y: 0.3, z: -path.z * REACH.path },
     strike: {
-      x: contact.x + heel.x * slide - face.x * REACH.headBehind,
-      y: REACH.headHeight,
-      z: contact.z + heel.z * slide - face.z * REACH.headBehind,
+      x: contact.x + heel.x * slide - face.x * grabOf(shown).behind,
+      y: grabOf(shown).height,
+      z: contact.z + heel.z * slide - face.z * grabOf(shown).behind,
     },
   };
 }
@@ -117,32 +137,48 @@ export const fromGround = {
 // --- the view from the toe: attack angle and loft, on the upright plane
 // through the ball and the target ---
 
-const facePivot = { y: BALL.height, z: -BALL.radius };
+// Where a face leaning back `loftDegrees` touches the ball: the point the
+// loft line rises from. Lower and further round the ball the more loft.
+export function facePivot(loftDegrees, ballHeight = BALL.height) {
+  const lean = loftDegrees * DEGREES;
+  return {
+    y: ballHeight - BALL.radius * Math.sin(lean),
+    z: -BALL.radius * Math.cos(lean),
+  };
+}
 
 export function sideHandles(shown) {
   const attack = shown.attackDegrees * DEGREES;
   const lean = shown.loftDegrees * DEGREES;
+  const ballHeight = ballHeightOf(shown);
+  const pivot = facePivot(shown.loftDegrees, ballHeight);
   return {
     // the tail of the arriving arrow: lower when hitting up
     attackAngle: {
       x: 0,
-      y: BALL.height - REACH.attack * Math.sin(attack),
+      y: ballHeight - REACH.attack * Math.sin(attack),
       z: -REACH.attack * Math.cos(attack),
     },
     // the top of the line up the face: further back with more loft
     loftChange: {
       x: 0,
-      y: facePivot.y + REACH.loft * Math.cos(lean),
-      z: facePivot.z - REACH.loft * Math.sin(lean),
+      y: pivot.y + REACH.loft * Math.cos(lean),
+      z: pivot.z - REACH.loft * Math.sin(lean),
     },
   };
 }
 
+// The loft line's top is REACH.loft from a pivot that itself moves round the
+// ball with loft, so the lean is read from the ball's centre instead: the
+// top sits at (REACH.loft, -radius) in the face's own frame.
+const LEVER_OFFSET = Math.atan2(BALL.radius, REACH.loft) / DEGREES;
+
 export const fromSide = {
-  attackAngle: (point) =>
-    Math.atan2(BALL.height - point.y, -point.z) / DEGREES / GAIN.attack,
-  loftChange: (point, { standardLoft }) =>
-    (Math.atan2(facePivot.z - point.z, point.y - facePivot.y) / DEGREES -
+  attackAngle: (point, shown) =>
+    Math.atan2(ballHeightOf(shown) - point.y, -point.z) / DEGREES / GAIN.attack,
+  loftChange: (point, { standardLoft, ballHeight = BALL.height }) =>
+    (Math.atan2(-point.z, point.y - ballHeight) / DEGREES -
+      LEVER_OFFSET -
       standardLoft) /
     GAIN.loft,
 };

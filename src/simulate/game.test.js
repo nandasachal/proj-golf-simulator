@@ -18,6 +18,16 @@ describe("randomTarget", () => {
     }
   });
 
+  test("a club's reach moves the targets in, and nearer the centre line", () => {
+    const reach = { nearest: 62, farthest: 114 };
+    for (let i = 0; i < 300; i++) {
+      const target = randomTarget(Math.random, null, reach);
+      expect(target.z).toBeGreaterThanOrEqual(62);
+      expect(target.z).toBeLessThanOrEqual(114);
+      expect(Math.abs(target.x)).toBeLessThanOrEqual((target.z * 40) / 140);
+    }
+  });
+
   test("farther targets are bigger", () => {
     const near = randomTarget(sequence(0, 0.5));
     const far = randomTarget(sequence(0.999, 0.5));

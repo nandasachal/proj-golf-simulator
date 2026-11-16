@@ -14,6 +14,9 @@ import { launchConditions } from "./simulate/launch-conditions";
 import { previewShot } from "./simulate/shot-preview";
 import { GRASSES, TURF_LIMITS, TURF_PRESETS } from "./simulate/ground";
 import { randomTarget } from "./simulate/game";
+import { getClub, swingSpeedRange, DEFAULT_CLUB_ID } from "./simulate/clubs";
+import { standardAttackAngle } from "./simulate/launch-conditions";
+import { carryLimits, speedForCarry } from "./simulate/club-distances";
 import { shortcutFor, shouldIgnoreKey } from "./utils/shortcuts";
 import {
   AIM_VALUES,
@@ -22,7 +25,6 @@ import {
   STRIKE_VALUES,
   CLUB_FACE_ANGLE_VALUES,
   CLUB_PATH_ANGLE_VALUES,
-  SWING_SPEED_VALUES,
 } from "./utils/constant";
 
 const DESKTOP_QUERY = "(min-width: 768px)";
@@ -46,11 +48,15 @@ const SHOT_PARAMS = {
 const SHOT_RANGES = {
   clubFaceAngle: CLUB_FACE_ANGLE_VALUES,
   clubPathAngle: CLUB_PATH_ANGLE_VALUES,
-  swingSpeed: SWING_SPEED_VALUES,
   aim: AIM_VALUES,
-  attackAngle: ATTACK_ANGLE_VALUES,
   loftChange: LOFT_CHANGE_VALUES,
   strike: STRIKE_VALUES,
+};
+// Game targets a club can reach: from a soft swing's carry to a full one's.
+const targetReach = (clubId) => {
+  if (clubId === DEFAULT_CLUB_ID) return undefined;
+  const { min, max } = carryLimits(clubId);
+  return { nearest: min, farthest: max };
 };
 // How long the shot controls must be still before the URL is updated.
 const URL_SETTLE_MS = 250;
@@ -91,14 +97,33 @@ function App() {
   const [rawSide, setSide] = useQueryState("side", "Right", false);
   const [rawFace] = useQueryState("face", CLUB_FACE_ANGLE_VALUES.DEFAULT, true);
   const [rawPath] = useQueryState("path", CLUB_PATH_ANGLE_VALUES.DEFAULT, true);
-  const [rawSpeed] = useQueryState("speed", SWING_SPEED_VALUES.DEFAULT, true);
+  const [rawClub] = useQueryState("club", DEFAULT_CLUB_ID, false);
+  const club = getClub(rawClub);
+  // Swing speeds set for this session by editing a club's distance in
+  // Settings. Not saved anywhere: a reload goes back to the stock distances.
+  const [clubSpeeds, setClubSpeeds] = useState({});
+  // Swing speed and attack angle depend on the club in hand: a 7 iron is
+  // swung slower than a driver and hit down on.
+  const speedRange = useMemo(() => {
+    const range = swingSpeedRange(club);
+    return { ...range, DEFAULT: clubSpeeds[club.id] ?? range.DEFAULT };
+  }, [club, clubSpeeds]);
+  const attackRange = useMemo(
+    () => ({ ...ATTACK_ANGLE_VALUES, DEFAULT: standardAttackAngle(club) }),
+    [club],
+  );
+  const ranges = useMemo(
+    () => ({
+      ...SHOT_RANGES,
+      swingSpeed: speedRange,
+      attackAngle: attackRange,
+    }),
+    [speedRange, attackRange],
+  );
+  const [rawSpeed] = useQueryState("speed", null, false);
 
   const [rawAim] = useQueryState("aim", AIM_VALUES.DEFAULT, true);
-  const [rawAttack] = useQueryState(
-    "attack",
-    ATTACK_ANGLE_VALUES.DEFAULT,
-    true,
-  );
+  const [rawAttack] = useQueryState("attack", null, false);
   const [rawLoft] = useQueryState("loft", LOFT_CHANGE_VALUES.DEFAULT, true);
 
   const [rawTurf] = useQueryState("turf", "normal", false);
@@ -128,9 +153,9 @@ function App() {
   const saved = {
     clubFaceAngle: clamp(rawFace, CLUB_FACE_ANGLE_VALUES),
     clubPathAngle: clamp(rawPath, CLUB_PATH_ANGLE_VALUES),
-    swingSpeed: clamp(rawSpeed, SWING_SPEED_VALUES),
+    swingSpeed: clamp(Number.parseFloat(rawSpeed), speedRange),
     aim: clamp(rawAim, AIM_VALUES),
-    attackAngle: clamp(rawAttack, ATTACK_ANGLE_VALUES),
+    attackAngle: clamp(Number.parseFloat(rawAttack), attackRange),
     loftChange: clamp(rawLoft, LOFT_CHANGE_VALUES),
     strike: clamp(Number.parseFloat(rawStrike), STRIKE_VALUES),
   };
@@ -185,8 +210,10 @@ function App() {
         strikeInches: strike,
         aim,
         side,
+        club: club.id,
       }),
     [
+      club,
       faceAngle,
       pathAngle,
       swingSpeed,
@@ -198,6 +225,11 @@ function App() {
     ],
   );
 
+  // The simulator's callbacks are created once, so they read the reach here.
+  const reachNow = useRef(undefined);
+  // Set when the club (and so the target) changes, until the next hit: a
+  // ball already in the air was not aimed at the new target.
+  const staleShot = useRef(false);
   const simulator = useRef(null);
   const stage = useRef(null);
   const panel = useRef(null);
@@ -217,7 +249,9 @@ function App() {
       onResult: (shotResult) => {
         setResult(shotResult);
         setLive(null);
-        if (shotResult.target) {
+        // A shot only counts against the target it was hit at: changing club
+        // mid-flight puts up a new one.
+        if (shotResult.target && !staleShot.current) {
           const { hit } = shotResult.target;
           setOutcome(shotResult.target);
           targetHit.current = hit;
@@ -232,7 +266,9 @@ function App() {
         if (state === "address" && targetHit.current) {
           targetHit.current = false;
           setOutcome(null);
-          setTarget((previous) => randomTarget(Math.random, previous));
+          setTarget((previous) =>
+            randomTarget(Math.random, previous, reachNow.current),
+          );
         }
       },
     });
@@ -263,13 +299,20 @@ function App() {
     simulator.current.setAim(aim);
   }, [aim]);
 
+  useEffect(() => {
+    simulator.current.setClub(club);
+  }, [club]);
+
   // Entering game mode puts up a first target; leaving it clears the range.
+  // A change of club starts again too, with targets that club can reach.
+  const reach = useMemo(() => targetReach(club.id), [club]);
+  reachNow.current = reach;
   useEffect(() => {
     targetHit.current = false;
     setScore(NO_SCORE);
     setOutcome(null);
-    setTarget(mode === "game" ? randomTarget() : null);
-  }, [mode]);
+    setTarget(mode === "game" ? randomTarget(Math.random, null, reach) : null);
+  }, [mode, reach]);
 
   useEffect(() => {
     simulator.current.setTarget(target);
@@ -278,7 +321,7 @@ function App() {
   const handleNewTarget = () => {
     targetHit.current = false;
     setOutcome(null);
-    setTarget((previous) => randomTarget(Math.random, previous));
+    setTarget((previous) => randomTarget(Math.random, previous, reach));
   };
 
   const handleTurfPreset = (key) =>
@@ -294,6 +337,42 @@ function App() {
       [TURF_PARAMS.grass]: turf.grass,
       [TURF_PARAMS[field]]: value,
     });
+
+  // Swing speed, attack angle and loft belong to the club, so a new club
+  // starts from its own.
+  const handleClub = (id) => {
+    if (id !== club.id) staleShot.current = true;
+    setDraft(
+      ({
+        swingSpeed: _speed,
+        attackAngle: _attack,
+        loftChange: _loft,
+        ...rest
+      }) => rest,
+    );
+    setQueries({
+      club: id === DEFAULT_CLUB_ID ? null : id,
+      speed: null,
+      attack: null,
+      loft: null,
+    });
+  };
+
+  // A club's stock carry, set for this session: it becomes the swing speed
+  // that carries that far, and the club's default from then on.
+  const handleClubCarry = (id, yards) => {
+    setClubSpeeds((previous) => ({
+      ...previous,
+      [id]: speedForCarry(id, yards),
+    }));
+    if (id === club.id) {
+      setDraft(({ swingSpeed: _speed, ...rest }) => rest);
+      setQueries({ speed: null });
+    }
+  };
+  const handleResetCarries = () => {
+    setClubSpeeds({});
+  };
 
   const handleValueChange = (type, newValue) => {
     if (type === "side") setSide(newValue);
@@ -331,6 +410,7 @@ function App() {
     setResult(null);
     setLive(null);
     setOutcome(null);
+    staleShot.current = false;
     simulator.current.hit(
       launchConditions({
         faceAngle,
@@ -340,6 +420,7 @@ function App() {
         attackAngle,
         loftChange,
         strikeInches: strike,
+        club: club.id,
       }),
       side,
       turf,
@@ -363,7 +444,7 @@ function App() {
       // Step from the latest value, not the one this render saw: key
       // repeats can arrive faster than the screen redraws.
       const { control, direction } = shortcut;
-      const range = SHOT_RANGES[control];
+      const range = ranges[control];
       setDraft((previous) => ({
         ...previous,
         [control]: clamp(
@@ -421,6 +502,11 @@ function App() {
             onSide={(value) => handleValueChange("side", value)}
             onTurfPreset={handleTurfPreset}
             onTurfField={handleTurfField}
+            club={club}
+            clubSpeeds={clubSpeeds}
+            onClub={handleClub}
+            onClubCarry={handleClubCarry}
+            onResetCarries={handleResetCarries}
           />
         </div>
       </div>
@@ -439,6 +525,8 @@ function App() {
               strike,
             }}
             side={side}
+            club={club}
+            ranges={ranges}
             preview={preview}
             onChange={handleValueChange}
           />

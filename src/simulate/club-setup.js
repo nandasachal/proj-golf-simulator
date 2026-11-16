@@ -1,18 +1,15 @@
-import {
-  driverLaunch,
-  FACE_START_WEIGHT,
-  STRIKE_START_DEGREES_PER_INCH,
-} from "./launch-conditions";
+import { clubLaunch, standardAttackAngle } from "./launch-conditions";
+import { getClub } from "./clubs";
 
-// Everything the close-up club view needs to pose the driver and draw its
+// Everything the close-up club view needs to pose the club and draw its
 // guide lines, worked out from the shot controls. Horizontal angles here are
 // absolute: degrees right (+) or left (-) of the range's centre line, looking
 // at the target, whichever hand the golfer plays. All at true size.
 
 const CM_PER_INCH = 2.54;
 // Loft built into the driver head; the rest of the delivered loft comes from
-// how the shaft presents it.
-export const DRIVER_STATIC_LOFT_DEGREES = 10.5;
+// how the shaft presents it. Every club's is in clubs.js.
+export const DRIVER_STATIC_LOFT_DEGREES = getClub("driver").loftDegrees;
 
 const round = (value) => Math.round(value * 10) / 10;
 
@@ -28,18 +25,21 @@ export function clubSetup({
   pathAngle,
   swingSpeed,
   aim = 0,
-  attackAngle = 0,
+  attackAngle,
   loftChange = 0,
   strike = 0,
   side = "Right",
+  club: clubId = "driver",
 }) {
+  const club = getClub(clubId);
   // A left-hander's "open" and "in-to-out" point left.
   const mirror = side === "Left" ? -1 : 1;
-  const launch = driverLaunch(swingSpeed, { attackAngle, loftChange });
+  const launch = clubLaunch(club, swingSpeed, { attackAngle, loftChange });
+  const attack = attackAngle ?? standardAttackAngle(club);
   const start =
-    FACE_START_WEIGHT * faceAngle +
-    (1 - FACE_START_WEIGHT) * pathAngle +
-    STRIKE_START_DEGREES_PER_INCH * strike;
+    club.faceStartWeight * faceAngle +
+    (1 - club.faceStartWeight) * pathAngle +
+    club.strike.start * strike;
 
   return {
     mirror,
@@ -47,11 +47,12 @@ export function clubSetup({
     faceDegrees: aim + mirror * faceAngle,
     pathDegrees: aim + mirror * pathAngle,
     startDegrees: aim + mirror * start,
-    attackDegrees: attackAngle,
+    attackDegrees: attack,
     launchDegrees: launch.launchAngleDegrees,
     dynamicLoftDegrees: launch.dynamicLoftDegrees,
     // how far the head is tipped back from its built-in loft
-    loftTiltDegrees: launch.dynamicLoftDegrees - DRIVER_STATIC_LOFT_DEGREES,
+    // (negative when the shaft leans toward the target, as with an iron)
+    loftTiltDegrees: launch.dynamicLoftDegrees - club.loftDegrees,
     backspinRPM: launch.backspinRPM,
     // toward the toe (+) or heel (-)
     strikeCm: strike * CM_PER_INCH,
@@ -61,7 +62,7 @@ export function clubSetup({
       path: describe(pathAngle, "in-to-out", "out-to-in", "square"),
       start: describe(aim + mirror * start, "right", "left", "straight"),
       aim: describe(aim, "right", "left", "straight"),
-      attack: describe(attackAngle, "up", "down", "level"),
+      attack: describe(attack, "up", "down", "level"),
       loft: `${round(launch.dynamicLoftDegrees)}°`,
       launch: `${round(launch.launchAngleDegrees)}°`,
       spin: `${Math.round(launch.backspinRPM)} rpm`,

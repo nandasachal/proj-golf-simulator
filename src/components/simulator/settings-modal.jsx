@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Dialog } from "@headlessui/react";
 import { ChatDots, GearFill, X } from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
@@ -8,6 +8,12 @@ import {
   TURF_PRESETS,
   stimpFeet,
 } from "../../simulate/ground";
+import { CATEGORIES, CLUBS, swingSpeedRange } from "../../simulate/clubs";
+import {
+  STOCK_CONDITIONS,
+  carryLimits,
+  stockCarryYards,
+} from "../../simulate/club-distances";
 
 const FEEDBACK_URL =
   "https://docs.google.com/forms/d/e/1FAIpQLSfR6vP8GLaPvjIRF9qY8NDl5em_JxNO10pJcJrR03tU-B0YIw/viewform";
@@ -76,8 +82,151 @@ const Field = ({ id, label, display, limits, value, onChange }) => (
   </div>
 );
 
-// Everything about the session rather than the swing: game mode, which side
-// the golfer plays from, and the turf the ball lands on.
+// One club: pick it by its name, see its loft, and type over its carry.
+const ClubRow = ({ club, selected, carry, custom, onSelect, onCarry }) => {
+  const [draft, setDraft] = useState(null);
+  const commit = () => {
+    const typed = Number.parseFloat(draft);
+    if (Number.isFinite(typed) && Math.round(typed) !== carry) {
+      const { min, max } = carryLimits(club.id);
+      onCarry(club.id, Math.min(max, Math.max(min, Math.round(typed))));
+    }
+    setDraft(null);
+  };
+  return (
+    <li
+      className={classNames(
+        "flex items-center gap-2 rounded-md pr-1.5",
+        selected ? "bg-white/15" : "hover:bg-white/[0.07]",
+      )}
+      data-club-row={club.id}
+    >
+      <button
+        type="button"
+        aria-pressed={selected}
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1.5 pl-2 text-left text-sm"
+        onClick={() => onSelect(club.id)}
+      >
+        <span
+          aria-hidden="true"
+          className={classNames(
+            "h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-inset",
+            selected ? "bg-lime-400 ring-lime-400" : "ring-white/40",
+          )}
+        />
+        <span
+          className={classNames(
+            "truncate",
+            selected ? "font-semibold text-white" : "text-white/85",
+          )}
+        >
+          {club.name}
+        </span>
+        <span className="ml-auto shrink-0 text-xs tabular-nums text-white/55">
+          {club.loftDegrees}°
+        </span>
+      </button>
+      <label className="flex shrink-0 items-center gap-1 text-xs text-white/55">
+        <input
+          type="number"
+          aria-label={`${club.name} carry in yards`}
+          inputMode="numeric"
+          className={classNames(
+            "w-14 rounded bg-white/10 px-1.5 py-1 text-right text-sm font-semibold tabular-nums outline-none focus:bg-white focus:text-slate-900",
+            custom ? "text-lime-300" : "text-white",
+          )}
+          value={draft ?? carry}
+          onFocus={(event) => event.target.select()}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.target.blur();
+            if (event.key === "Escape" && draft !== null) {
+              // Put the number back without closing Settings.
+              event.preventDefault();
+              event.stopPropagation();
+              setDraft(null);
+            }
+          }}
+        />
+        yd
+      </label>
+    </li>
+  );
+};
+
+// The bag, grouped by kind of club. `speeds` are this session's swing speeds
+// for clubs whose distance has been changed.
+const ClubPicker = ({ club, speeds, onClub, onCarry, onReset }) => {
+  const carries = useMemo(
+    () =>
+      Object.fromEntries(
+        CLUBS.map((entry) => [
+          entry.id,
+          Math.round(
+            stockCarryYards(
+              entry.id,
+              speeds[entry.id] ?? swingSpeedRange(entry).DEFAULT,
+            ),
+          ),
+        ]),
+      ),
+    [speeds],
+  );
+  const changed = Object.keys(speeds).length > 0;
+  return (
+    <>
+      <div className="flex items-baseline justify-between text-[11px] uppercase tracking-wider text-white/45">
+        <span>Club · loft</span>
+        <span>Carry</span>
+      </div>
+      {Object.entries(CATEGORIES).map(([category, label]) => (
+        <div key={category} className="mt-2" role="group" aria-label={label}>
+          {category !== "driver" && (
+            <p className="mb-0.5 text-xs font-semibold text-white/60">
+              {label}
+            </p>
+          )}
+          <ul className="flex flex-col gap-0.5">
+            {CLUBS.filter((entry) => entry.category === category).map(
+              (entry) => (
+                <ClubRow
+                  key={entry.id}
+                  club={entry}
+                  selected={entry.id === club.id}
+                  carry={carries[entry.id]}
+                  custom={speeds[entry.id] != null}
+                  onSelect={onClub}
+                  onCarry={onCarry}
+                />
+              ),
+            )}
+          </ul>
+        </div>
+      ))}
+      <p className="mt-3 text-xs text-white/60">
+        Carry with a solid, straight strike at {STOCK_CONDITIONS}. Type over a
+        distance to set your own: it changes that club's swing speed for this
+        session only.
+        {changed && (
+          <>
+            {" "}
+            <button
+              type="button"
+              className="font-semibold text-lime-300 underline-offset-2 hover:underline"
+              onClick={onReset}
+            >
+              Reset distances
+            </button>
+          </>
+        )}
+      </p>
+    </>
+  );
+};
+
+// Everything about the session rather than the swing: the club in hand, game
+// mode, which side the golfer plays from, and the turf the ball lands on.
 const SettingsModal = ({
   mode,
   side,
@@ -87,6 +236,11 @@ const SettingsModal = ({
   onSide,
   onTurfPreset,
   onTurfField,
+  club,
+  clubSpeeds,
+  onClub,
+  onClubCarry,
+  onResetCarries,
 }) => {
   const [open, setOpen] = useState(false);
   return (
@@ -98,7 +252,7 @@ const SettingsModal = ({
         className="hud-panel flex h-10 w-10 items-center justify-center !rounded-full text-white/90 transition-colors hover:text-white"
         onClick={() => setOpen(true)}
         data-tooltip-id="main-tooltip"
-        data-tooltip-content="Settings: game mode, handedness, turf, feedback"
+        data-tooltip-content="Settings: club, game mode, handedness, turf, feedback"
       >
         <GearFill size={18} />
       </button>
@@ -126,6 +280,19 @@ const SettingsModal = ({
             </div>
 
             <div className="mt-4">
+              <Section
+                title="Club"
+                hint="Every shot is hit with this club. The driver is teed up; the rest are played off the turf."
+              >
+                <ClubPicker
+                  club={club}
+                  speeds={clubSpeeds}
+                  onClub={onClub}
+                  onCarry={onClubCarry}
+                  onReset={onResetCarries}
+                />
+              </Section>
+
               <Section
                 title="Mode"
                 hint="Game mode puts a target on the range and keeps score."

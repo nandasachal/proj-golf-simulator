@@ -188,3 +188,16 @@ at the tree line, no console errors, ~16 ms/frame at 2048x1536 on this Mac ·
 decisions: boundary netting built but switched off (it cut across the trees);
 ground stays flat inside `FLAT`; trees get baked shade, not shadow maps · next:
 measure on an integrated GPU and a phone; finer near-tree foliage; golfer model.
+
+2026-11-15 — Club selection — done: `clubs.js` (22 clubs: loft, lie, length, tour
+delivery), `clubLaunch` generalising the driver model, `club-distances.js` (stock
+carry, carry→speed), club picker with editable session-only carries in Settings,
+`club` URL param, per-club swing-speed range and attack default (attack range now
+-8..5), club-aware game targets, club scene takes a club (ball on turf, tangent
+contact, sole rested on turf), heads in `club-heads/` (wood.js, iron.js) built by
+two subagents to one contract · check: green (242 tests) · evidence: tour-speed
+carries within 4% of TrackMan; 8 iron hit in the browser carries 129 yd matching
+the Settings table; every family viewed in both pads and at close range ·
+decisions: a typed distance changes the club's swing speed, not the physics;
+speed/attack/loft reset when the club changes; golfer figure untouched · next:
+golfer's club and swing per club; distance profiles; conditions settings.

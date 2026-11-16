@@ -263,6 +263,13 @@ export function createSimulator(container, callbacks = {}) {
     if (onState) onState(state);
   }
 
+  // The driver is hit off a tee; every other club off the mat.
+  function setClub(club) {
+    tee.visible = club.teed;
+    restPosition.y = MAT_TOP + BALL_RADIUS + (club.teed ? TEE_HEIGHT : 0);
+    if (state === ADDRESS) ballToRest();
+  }
+
   function ballToRest() {
     ball.position.copy(restPosition);
     ball.scale.setScalar(1);
@@ -547,6 +554,7 @@ export function createSimulator(container, callbacks = {}) {
     setSide,
     setAim,
     setTarget,
+    setClub,
     setViewInset,
     dispose,
     // Step the simulation by hand; used to verify behaviour without waiting

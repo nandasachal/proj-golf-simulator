@@ -61,6 +61,7 @@ beforeEach(() => {
     setSide: jest.fn(),
     setAim: jest.fn(),
     setTarget: jest.fn(),
+    setClub: jest.fn(),
     setViewInset: jest.fn(),
     dispose: jest.fn(),
   };
@@ -964,5 +965,186 @@ describe("game mode", () => {
     fireEvent.click(screen.getByRole("button", { name: "New target" }));
     expect(lastTarget()).not.toBe(first);
     expect(game()).toHaveTextContent("0 of 0 hit");
+  });
+});
+
+describe("club selection", () => {
+  const lastClub = () => simulator.setClub.mock.calls.at(-1)[0];
+  const carryInput = (settings, name) =>
+    settings.getByRole("spinbutton", { name: `${name} carry in yards` });
+  // Hit sits behind the open Settings dialog in these tests.
+  const hitBehindDialog = () =>
+    fireEvent.click(
+      screen.getByRole("button", { name: /^hit$/i, hidden: true }),
+    );
+  const pick = (settings, name) =>
+    fireEvent.click(settings.getByRole("button", { name: new RegExp(name) }));
+
+  test("the driver is in hand on load, teed up", () => {
+    renderApp();
+    expect(lastClub().id).toBe("driver");
+    expect(lastClub().teed).toBe(true);
+    expect(screen.getByText("Driver · 10.5°")).toBeInTheDocument();
+    expect(clubScenes.above.options.club.id).toBe("driver");
+  });
+
+  test("Settings lists every kind of club with its loft and a carry distance", () => {
+    renderApp();
+    const settings = openSettings();
+    for (const group of ["Fairway woods", "Hybrids", "Irons", "Wedges"]) {
+      expect(settings.getByRole("group", { name: group })).toBeInTheDocument();
+    }
+    expect(
+      settings.getByRole("button", { name: /Driver.*10\.5°/ }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      settings.getByRole("button", { name: /7 iron.*34°/ }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(
+      settings.getByRole("button", { name: /Lob wedge.*60°/ }),
+    ).toBeInTheDocument();
+    // the bag gets shorter club by club
+    const yards = (name) => Number(carryInput(settings, name).value);
+    expect(yards("Driver")).toBeGreaterThan(yards("3 wood"));
+    expect(yards("3 wood")).toBeGreaterThan(yards("7 iron"));
+    expect(yards("7 iron")).toBeGreaterThan(yards("Lob wedge"));
+    expect(yards("Lob wedge")).toBeGreaterThan(50);
+    expect(settings.getByText(/sea level, 68°F, no wind/)).toBeInTheDocument();
+  });
+
+  test("picking a club puts it in hand: its own speed and attack angle, off the turf, in the URL", () => {
+    renderApp("/?speed=120&attack=3&loft=2&face=2");
+    const settings = openSettings();
+    pick(settings, "7 iron");
+
+    expect(address()).toContain("club=7i");
+    // speed, attack and loft belonged to the driver; face is the golfer's
+    expect(address()).not.toContain("speed=");
+    expect(address()).not.toContain("attack=");
+    expect(address()).not.toContain("loft=");
+    expect(address()).toContain("face=2");
+    expect(lastClub().id).toBe("7i");
+    expect(lastClub().teed).toBe(false);
+    expect(screen.getByText("7 iron · 34°")).toBeInTheDocument();
+    expect(valueOf("Swing speed")).toBe(76);
+    expect(valueOf("Attack angle")).toBe(-4);
+    // both 3D views are rebuilt for the new club
+    expect(clubScenes.above.options.club.id).toBe("7i");
+    expect(clubScenes.toe.options.club.id).toBe("7i");
+
+    hitBehindDialog();
+    expect(lastLaunch().initSpeedMPH).toBe(76);
+    // an iron launches higher and spins far more than a driver
+    expect(lastLaunch().initVerticalAngleDegrees).toBeGreaterThan(15);
+    expect(lastLaunch().initBackspinRPM).toBeGreaterThan(5000);
+  });
+
+  test("the club is read from the URL, and a name that is no club means the driver", () => {
+    renderApp("/?club=sw");
+    expect(lastClub().id).toBe("sw");
+    expect(screen.getByText("Sand wedge · 54°")).toBeInTheDocument();
+  });
+
+  test("an unknown club in the URL is the driver", () => {
+    renderApp("/?club=putter");
+    expect(lastClub().id).toBe("driver");
+  });
+
+  test("the swing-speed control covers the club's own range", () => {
+    renderApp("/?club=7i");
+    const speed = screen.getByRole("slider", { name: "Swing speed" });
+    expect(speed).toHaveAttribute("aria-valuemin", "64");
+    expect(speed).toHaveAttribute("aria-valuemax", "112");
+    press("s", { repeat: false });
+    expect(valueOf("Swing speed")).toBe(75);
+  });
+
+  test("typing a distance sets that club's swing speed for the session", () => {
+    renderApp("/?club=7i");
+    const settings = openSettings();
+    const before = Number(carryInput(settings, "7 iron").value);
+    const input = carryInput(settings, "7 iron");
+    fireEvent.change(input, { target: { value: String(before + 20) } });
+    fireEvent.blur(input);
+
+    expect(Number(carryInput(settings, "7 iron").value)).toBe(before + 20);
+    expect(valueOf("Swing speed")).toBeGreaterThan(76);
+    // session only: nothing about it goes in the URL
+    expect(address()).not.toContain("speed=");
+    hitBehindDialog();
+    expect(lastLaunch().initSpeedMPH).toBeGreaterThan(76);
+
+    // other clubs are untouched, and it survives switching away and back
+    pick(settings, "Driver");
+    expect(valueOf("Swing speed")).toBe(95);
+    pick(settings, "7 iron");
+    expect(valueOf("Swing speed")).toBeGreaterThan(76);
+
+    fireEvent.click(settings.getByRole("button", { name: "Reset distances" }));
+    expect(Number(carryInput(settings, "7 iron").value)).toBe(before);
+    expect(valueOf("Swing speed")).toBe(76);
+  });
+
+  test("a distance the club cannot reach is held to what it can", () => {
+    renderApp();
+    const settings = openSettings();
+    const input = carryInput(settings, "Lob wedge");
+    fireEvent.change(input, { target: { value: "300" } });
+    fireEvent.blur(input);
+    expect(Number(carryInput(settings, "Lob wedge").value)).toBeLessThan(120);
+  });
+
+  test("game targets are ones the club in hand can reach", () => {
+    renderApp("/?mode=game&club=lw");
+    const target = simulator.setTarget.mock.calls.at(-1)[0];
+    expect(target.z).toBeLessThan(120);
+    expect(target.z).toBeGreaterThan(55);
+  });
+
+  test("a ball in the air when the club changes is not scored against the new target", () => {
+    renderApp("/?mode=game");
+    hit();
+    const settings = openSettings();
+    pick(settings, "Lob wedge");
+    act(() =>
+      callbacks.onResult({
+        shape: "Straight",
+        carryYards: 200,
+        runYards: 20,
+        totalYards: 220,
+        offlineYards: 0,
+        apexYards: 25,
+        target: { hit: false, longYards: 120, rightYards: 0 },
+      }),
+    );
+    const game = screen.getByRole("status", { name: "Game", hidden: true });
+    expect(game).toHaveTextContent("0 of 0 hit");
+    expect(game).not.toHaveTextContent("Missed");
+
+    // the next shot, hit at the new target, counts
+    hitBehindDialog();
+    act(() =>
+      callbacks.onResult({
+        shape: "Straight",
+        carryYards: 80,
+        runYards: 1,
+        totalYards: 81,
+        offlineYards: 0,
+        apexYards: 20,
+        target: { hit: true, longYards: 1, rightYards: 0 },
+      }),
+    );
+    expect(game).toHaveTextContent("1 of 1 hit");
+  });
+
+  test("Escape in a distance field puts the number back and leaves Settings open", () => {
+    renderApp();
+    const settings = openSettings();
+    const input = carryInput(settings, "7 iron");
+    const before = input.value;
+    fireEvent.change(input, { target: { value: "999" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(carryInput(settings, "7 iron").value).toBe(before);
   });
 });

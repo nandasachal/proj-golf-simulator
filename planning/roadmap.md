@@ -57,8 +57,12 @@
 - **More shot controls**, in rough order of value: high/low strike on the face
   (changes launch and spin); wind; tee height; ball position in the stance.
   Altitude/temperature and slope are lower value.
-- Club selection (irons, wedges) — the physics already matches tour numbers for
-  them; every shot is currently a driver.
+- [done] Club selection (2026-11-15) — 22 clubs chosen in Settings with lofts and
+  editable stock carries; every club modelled in 3D in the control views.
+- **Club follow-ups**: the golfer on the range still holds the same generic club
+  and makes a driver swing for every club; saved distance profiles; altitude,
+  temperature and wind settings for the stock distances; a quicker way to change
+  club than opening Settings; a putter.
 - [done] Target challenge (2026-11-15) — Game mode: random target rings, hit/miss
   scoring and streak.
 - [done] Tunable turf (2026-11-15) — grass, height of cut, firmness and leaf

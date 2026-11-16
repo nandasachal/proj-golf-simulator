@@ -8,7 +8,10 @@ import {
   fromGround,
   fromSide,
   snap,
+  clubGeometry,
+  facePivot,
 } from "./club-handles";
+import { CLUBS, getClub } from "../simulate/clubs";
 import { AIM_VALUES, CLUB_FACE_ANGLE_VALUES, STRIKE_VALUES } from "./constant";
 
 const values = (overrides = {}) => ({
@@ -238,6 +241,76 @@ describe("handles seen from the toe", () => {
     const b = sideHandles(shown({ attackAngle: 1, loftChange: 1 }));
     expect(distance(a.attackAngle, b.attackAngle)).toBeGreaterThan(1.7);
     expect(distance(a.loftChange, b.loftChange)).toBeGreaterThan(1.3);
+  });
+});
+
+describe("handles for clubs played off the turf", () => {
+  const shown = (clubId, overrides, standardLoft) =>
+    shownAngles(values(overrides), 1, {
+      standardLoft,
+      club: getClub(clubId),
+    });
+
+  test("only the driver's ball is on a tee", () => {
+    expect(clubGeometry(getClub("driver")).ballHeight).toBe(BALL.height);
+    for (const club of CLUBS.filter((entry) => !entry.teed)) {
+      expect(clubGeometry(club).ballHeight).toBe(BALL.radius);
+    }
+  });
+
+  test("the arriving arrow is level with a ball on the ground", () => {
+    const tail = sideHandles(shown("7i", {}, 20)).attackAngle;
+    expect(tail.y).toBeCloseTo(BALL.radius);
+  });
+
+  test("the face touches the ball lower down the more loft it has", () => {
+    const flat = facePivot(12, BALL.radius);
+    const lofted = facePivot(50, BALL.radius);
+    expect(lofted.y).toBeLessThan(flat.y);
+    expect(lofted.y).toBeGreaterThan(0);
+    // always exactly one ball radius from the ball's centre
+    for (const pivot of [flat, lofted]) {
+      expect(Math.hypot(pivot.y - BALL.radius, pivot.z)).toBeCloseTo(
+        BALL.radius,
+      );
+    }
+  });
+
+  test("dragging a handle to where it is drawn gives back the same value", () => {
+    for (const [clubId, standardLoft] of [
+      ["3w", 11.4],
+      ["4h", 14.1],
+      ["7i", 19.9],
+      ["lw", 38.5],
+    ]) {
+      for (const loftChange of [-4, 0, 4]) {
+        for (const attackAngle of [-8, -4, 0, 5]) {
+          const angles = shown(
+            clubId,
+            { loftChange, attackAngle },
+            standardLoft,
+          );
+          const handles = sideHandles(angles);
+          expect(fromSide.attackAngle(handles.attackAngle, angles)).toBeCloseTo(
+            attackAngle,
+            6,
+          );
+          expect(
+            fromSide.loftChange(handles.loftChange, {
+              ...angles,
+              standardLoft,
+            }),
+          ).toBeCloseTo(loftChange, 6);
+        }
+      }
+    }
+  });
+
+  test("the head is grabbed on top of it, lower than a driver's crown", () => {
+    const driver = topHandles(shown("driver", {}, 14), 1).strike;
+    const iron = topHandles(shown("7i", {}, 20), 1).strike;
+    expect(iron.y).toBeLessThan(driver.y);
+    expect(iron.z).toBeGreaterThan(driver.z);
   });
 });
 
