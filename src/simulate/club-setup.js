@@ -73,6 +73,20 @@ export function clubSetup({
   };
 }
 
+// The same setup with its small angles drawn `factor` times bigger, so a 1°
+// change is easy to see. Only what is drawn changes: the labels keep the true
+// numbers, and loft and launch are left at true size.
+export function amplifyAngles(setup, factor) {
+  return {
+    ...setup,
+    aimDegrees: setup.aimDegrees * factor,
+    faceDegrees: setup.faceDegrees * factor,
+    pathDegrees: setup.pathDegrees * factor,
+    startDegrees: setup.startDegrees * factor,
+    attackDegrees: setup.attackDegrees * factor,
+  };
+}
+
 // One sentence for screen readers and tests.
 export function describeClubSetup(setup) {
   const { labels } = setup;

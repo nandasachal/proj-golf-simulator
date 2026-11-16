@@ -584,6 +584,28 @@ describe("club view", () => {
     }
   });
 
+  test("angles can be drawn three times bigger without changing the numbers", () => {
+    renderApp("/?face=2&path=-1");
+    expect(posed()).toMatchObject({ faceDegrees: 2, pathDegrees: -1 });
+
+    const toggle = region().getByRole("button", {
+      name: "Draw angles at three times their size",
+    });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(posed()).toMatchObject({ faceDegrees: 6, pathDegrees: -3 });
+    expect(posed().labels.face).toBe("2° open");
+    expect(region().getByText("2° open")).toBeInTheDocument();
+
+    // still follows the controls while amplified
+    press("e");
+    expect(posed().faceDegrees).toBe(9);
+
+    fireEvent.click(toggle);
+    expect(posed()).toMatchObject({ faceDegrees: 3, pathDegrees: -1 });
+  });
+
   test("the view can be enlarged and shrunk again", () => {
     renderApp();
     fireEvent.click(

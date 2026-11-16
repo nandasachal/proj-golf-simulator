@@ -1,4 +1,5 @@
 import {
+  amplifyAngles,
   clubSetup,
   describeClubSetup,
   groundDirection,
@@ -99,6 +100,33 @@ describe("clubSetup", () => {
     expect(describeClubSetup(setup({ strike: 0.5 }))).toMatch(
       /struck 0\.5 in toe side$/,
     );
+  });
+});
+
+describe("amplifyAngles", () => {
+  test("draws the small angles bigger but keeps the true numbers in the labels", () => {
+    const real = setup({ faceAngle: 2, pathAngle: -1, aim: 1, attackAngle: 2 });
+    const drawn = amplifyAngles(real, 3);
+    expect(drawn.faceDegrees).toBe(real.faceDegrees * 3);
+    expect(drawn.pathDegrees).toBe(real.pathDegrees * 3);
+    expect(drawn.startDegrees).toBeCloseTo(real.startDegrees * 3);
+    expect(drawn.aimDegrees).toBe(3);
+    expect(drawn.attackDegrees).toBe(6);
+    expect(drawn.labels).toEqual(real.labels);
+  });
+
+  test("leaves loft, launch, strike and handedness at true size", () => {
+    const real = setup({ loftChange: 2, strike: 0.5, side: "Left" });
+    const drawn = amplifyAngles(real, 3);
+    expect(drawn.launchDegrees).toBe(real.launchDegrees);
+    expect(drawn.loftTiltDegrees).toBe(real.loftTiltDegrees);
+    expect(drawn.strikeCm).toBe(real.strikeCm);
+    expect(drawn.mirror).toBe(-1);
+  });
+
+  test("a factor of one changes nothing", () => {
+    const real = setup({ faceAngle: 3 });
+    expect(amplifyAngles(real, 1)).toEqual(real);
   });
 });
 

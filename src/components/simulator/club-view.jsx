@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowsAngleContract, ArrowsAngleExpand } from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
-import { clubSetup, describeClubSetup } from "../../simulate/club-setup";
+import {
+  amplifyAngles,
+  clubSetup,
+  describeClubSetup,
+} from "../../simulate/club-setup";
 import { createClubScene, VIEWS } from "../../simulate/club-scene";
 
 const FACE = "#ffffff";
@@ -35,6 +39,8 @@ const ClubView = ({
   const scene = useRef(null);
   const [view, setView] = useState("behind");
   const [expanded, setExpanded] = useState(false);
+  // Draw the small angles three times their size, for when 1° is hard to see.
+  const [amplified, setAmplified] = useState(false);
 
   const setup = clubSetup({
     faceAngle,
@@ -55,7 +61,7 @@ const ClubView = ({
   }, []);
 
   useEffect(() => {
-    scene.current.update(setup);
+    scene.current.update(amplified ? amplifyAngles(setup, 3) : setup);
     // `setup` is rebuilt every render; these are the values it depends on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -67,6 +73,7 @@ const ClubView = ({
     loftChange,
     strike,
     side,
+    amplified,
   ]);
 
   const chooseView = (name) => {
@@ -106,6 +113,26 @@ const ClubView = ({
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          aria-label="Draw angles at three times their size"
+          aria-pressed={amplified}
+          data-tooltip-id="main-tooltip"
+          data-tooltip-content={
+            amplified
+              ? "Angles are drawn 3× their real size. Click for true size."
+              : "Angles are drawn at true size. Click to draw them 3× bigger."
+          }
+          className={classNames(
+            "h-7 shrink-0 rounded-lg px-2 text-xs font-semibold transition-colors",
+            amplified
+              ? "bg-lime-400 text-slate-900"
+              : "bg-white/10 text-white/80 hover:bg-white/20 hover:text-white",
+          )}
+          onClick={() => setAmplified(!amplified)}
+        >
+          3×
+        </button>
         <button
           type="button"
           aria-label={expanded ? "Shrink club view" : "Enlarge club view"}

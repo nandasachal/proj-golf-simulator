@@ -25,7 +25,7 @@ const LOOK_AT = new THREE.Vector3(0, 4, -3.5);
 export const VIEWS = {
   behind: { label: "Behind", position: [20, 42, -60] },
   toe: { label: "Toe", position: [-70, 9, -4] },
-  above: { label: "Above", position: [0, 92, -6.5] },
+  above: { label: "Above", position: [0, 118, -7] },
   face: { label: "Face", position: [-20, 13, 58] },
 };
 
@@ -574,22 +574,87 @@ function buildTurf() {
 
 // --- guide lines ---
 
-// A flat strip on the turf starting at the origin and running along +z, with
-// an arrowhead at the far end. Rotate it about y to point it.
-function ribbon({ color, width, from, to, opacity, height }) {
-  const shape = new THREE.Shape();
-  const half = width / 2;
-  const head = width * 1.6;
-  shape.moveTo(-half, from);
-  shape.lineTo(half, from);
-  shape.lineTo(half, to - head);
-  shape.lineTo(half * 2.1, to - head);
-  shape.lineTo(0, to);
-  shape.lineTo(-half * 2.1, to - head);
-  shape.lineTo(-half, to - head);
-  shape.closePath();
+const cssColor = (color) => `#${new THREE.Color(color).getHexString()}`;
+
+// A flat strip on the turf running along +z from `from` to `to` (measured
+// from the ball), fading in from its tail and ending in an arrowhead. With
+// `chevrons` it carries direction marks along its length, like a swing-path
+// strip. Rotate it about y to point it.
+function ribbon({ color, width, from, to, opacity, height, chevrons }) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  // The top of the canvas is the far (arrow) end of the strip.
+  const headLength = Math.min(h * 0.22, ((width * 1.5) / (to - from)) * h);
+
+  const fade = ctx.createLinearGradient(0, h, 0, 0);
+  fade.addColorStop(0, "rgba(255,255,255,0)");
+  fade.addColorStop(0.25, "rgba(255,255,255,0.75)");
+  fade.addColorStop(1, "rgba(255,255,255,1)");
+  ctx.fillStyle = fade;
+  // shaft
+  ctx.fillRect(w * 0.22, headLength, w * 0.56, h - headLength);
+  // arrowhead
+  ctx.beginPath();
+  ctx.moveTo(w / 2, 0);
+  ctx.lineTo(w, headLength);
+  ctx.lineTo(0, headLength);
+  ctx.closePath();
+  ctx.fill();
+
+  // Tint it; what is drawn so far only sets the shape.
+  ctx.globalCompositeOperation = "source-in";
+  ctx.fillStyle = cssColor(color);
+  ctx.fillRect(0, 0, w, h);
+
+  if (chevrons) {
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.lineWidth = 3;
+    const spacing = h / 9;
+    for (let y = headLength + spacing; y < h; y += spacing) {
+      ctx.beginPath();
+      ctx.moveTo(w * 0.26, y + 9);
+      ctx.lineTo(w / 2, y - 9);
+      ctx.lineTo(w * 0.74, y + 9);
+      ctx.stroke();
+    }
+  }
+
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = 8;
+  // The drawn shaft is 56% of the canvas width, so widen the strip to match.
   const mesh = new THREE.Mesh(
-    new THREE.ShapeGeometry(shape),
+    new THREE.PlaneGeometry(width / 0.56, to - from),
+    new THREE.MeshBasicMaterial({
+      map,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    }),
+  );
+  // Lie it flat with the top of the texture toward +z.
+  mesh.rotation.x = Math.PI / 2;
+  mesh.rotation.z = Math.PI;
+  mesh.position.z = (from + to) / 2;
+  const holder = new THREE.Group();
+  holder.add(mesh);
+  holder.position.y = height;
+  mesh.renderOrder = Math.round(height * 100);
+  return holder;
+}
+
+// A plain bar on the turf across the origin, along x. Used for the line of
+// the club face, which makes a small face angle much easier to read.
+function bar({ color, length, thickness, opacity, height }) {
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(length, thickness),
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
@@ -599,15 +664,72 @@ function ribbon({ color, width, from, to, opacity, height }) {
       toneMapped: false,
     }),
   );
-  // Shape lies in x/y; lay it down so its y runs along +z.
-  mesh.rotation.x = Math.PI / 2;
-  mesh.scale.y = 1;
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.renderOrder = Math.round(height * 100);
   const holder = new THREE.Group();
   holder.add(mesh);
   holder.position.y = height;
-  holder.renderOrder = Math.round(height * 10);
-  mesh.renderOrder = holder.renderOrder;
   return holder;
+}
+
+// A small text tag that always faces the camera and draws over everything.
+function label(color) {
+  const canvas = document.createElement("canvas");
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: texture,
+      // Hidden when the club or ball is in front of it, so a tag behind the
+      // head never covers the face.
+      depthTest: true,
+      depthWrite: false,
+      toneMapped: false,
+      transparent: true,
+      // Same size on screen wherever it sits, so near tags don't balloon.
+      sizeAttenuation: false,
+    }),
+  );
+  sprite.renderOrder = 1000;
+  let shown = null;
+
+  sprite.setText = (text) => {
+    if (text === shown) return;
+    shown = text;
+    const fontSize = 44;
+    const font = `600 ${fontSize}px -apple-system, "Segoe UI", Helvetica, Arial, sans-serif`;
+    const ctx = canvas.getContext("2d");
+    ctx.font = font;
+    const padding = 22;
+    canvas.width = Math.ceil(ctx.measureText(text).width) + padding * 2;
+    canvas.height = 72;
+    // resizing the canvas clears it and resets its state
+    ctx.font = font;
+    ctx.fillStyle = "rgba(8, 20, 14, 0.82)";
+    ctx.beginPath();
+    ctx.roundRect(0, 0, canvas.width, canvas.height, 18);
+    ctx.fill();
+    ctx.fillStyle = cssColor(color);
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, padding, canvas.height / 2 + 2);
+    texture.needsUpdate = true;
+    // Texture storage is sized on first upload; a new size needs a new one.
+    texture.dispose();
+    sprite.userData.aspect = canvas.width / canvas.height;
+    sprite.fit();
+  };
+
+  // Tags are a fixed number of pixels tall, whatever size the view is.
+  // `unitsPerPixel` converts pixels to the sprite's distance-1 units.
+  let unitsPerPixel = 0.001;
+  let pixelsTall = 22;
+  sprite.fit = (perPixel = unitsPerPixel, pixels = pixelsTall) => {
+    unitsPerPixel = perPixel;
+    pixelsTall = pixels;
+    const tall = pixelsTall * unitsPerPixel;
+    sprite.scale.set((sprite.userData.aspect || 1) * tall, tall, 1);
+  };
+  return sprite;
 }
 
 // A rod with a cone tip pointing along +z from the origin.
@@ -700,10 +822,11 @@ export function createClubScene(container) {
   const pathRibbon = ribbon({
     color: PATH_COLOR,
     width: 5.2,
-    from: -58,
-    to: 34,
-    opacity: 0.5,
+    from: -62,
+    to: 40,
+    opacity: 0.62,
     height: 0.1,
+    chevrons: true,
   });
   const startRibbon = ribbon({
     color: START_COLOR,
@@ -721,7 +844,24 @@ export function createClubScene(container) {
     opacity: 0.8,
     height: 0.18,
   });
-  scene.add(aimLine, pathRibbon, startRibbon, faceRibbon);
+  // The line of the club face, square to where it points.
+  const faceLine = bar({
+    color: FACE_COLOR,
+    length: 28,
+    thickness: 0.45,
+    opacity: 0.9,
+    height: 0.2,
+  });
+  scene.add(aimLine, pathRibbon, startRibbon, faceRibbon, faceLine);
+
+  const labels = {
+    path: label(PATH_COLOR),
+    face: label(FACE_COLOR),
+    start: label(START_COLOR),
+    launch: label(START_COLOR),
+    attack: label(PATH_COLOR),
+  };
+  scene.add(...Object.values(labels));
 
   // In the air: how the head arrives and how the ball leaves.
   const attackRod = rod({ color: PATH_COLOR, length: 20, radius: 0.2 });
@@ -835,6 +975,39 @@ export function createClubScene(container) {
       .set(0, BALL_HEIGHT, 0)
       .addScaledVector(new THREE.Vector3().copy(leaving), BALL_RADIUS + 2);
 
+    // Name each guide where it ends. Face and start often point almost the
+    // same way, so they sit at different distances and heights.
+    // `aside` shifts a tag to the right (+) or left (-) of its line so the
+    // tags don't sit on top of each other when seen from above.
+    const at = (direction, distance, height, aside = 0) =>
+      new THREE.Vector3(
+        direction.x * distance - direction.z * aside,
+        height,
+        direction.z * distance + direction.x * aside,
+      );
+    faceLine.position.set(contact.x, faceLine.position.y, contact.z);
+    faceLine.rotation.y = turn(setup.faceDegrees);
+    labels.path.setText(`Path ${setup.labels.path}`);
+    labels.path.position.copy(
+      at(groundDirection(setup.pathDegrees), -25, 2.6, -10),
+    );
+    labels.face.setText(`Face ${setup.labels.face}`);
+    labels.face.position.copy(
+      at(groundDirection(setup.faceDegrees), 15, 2.6, 11),
+    );
+    labels.start.setText(`Start ${setup.labels.start}`);
+    labels.start.position.copy(
+      at(groundDirection(setup.startDegrees), 26, 2.6, -11),
+    );
+    labels.launch.setText(`Launch ${setup.labels.launch}`);
+    labels.launch.position
+      .set(0, BALL_HEIGHT + 2.6, 0)
+      .addScaledVector(new THREE.Vector3().copy(leaving), BALL_RADIUS + 16);
+    labels.attack.setText(`Attack ${setup.labels.attack}`);
+    labels.attack.position
+      .copy(at(groundDirection(setup.pathDegrees), -22, 0, 9))
+      .setY(BALL_HEIGHT + 3.2);
+
     // Keep the same named angle when the golfer switches sides.
     if (flipped) setView(view, { instant: true });
     else render();
@@ -847,6 +1020,13 @@ export function createClubScene(container) {
     renderer.setSize(width, height);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    // At distance 1 the view is 2 * tan(fov / 2) units tall.
+    const unitsPerPixel = (2 * Math.tan((camera.fov * RADIANS) / 2)) / height;
+    // Smaller tags in the small view so five of them still fit.
+    const pixelsTall = Math.min(22, Math.max(13, height * 0.06));
+    for (const tag of Object.values(labels)) {
+      tag.fit(unitsPerPixel, pixelsTall);
+    }
     render();
   }
   const resizeObserver = new ResizeObserver(resize);

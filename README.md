@@ -128,9 +128,13 @@ React UI (App.js, components/)          src/simulate/ (no React)
   sole, blunt tail, cut flat at a face with 10.5° of built-in loft plus bulge and
   roll), finished with a woven-carbon crown under clear coat, brushed-metal sole,
   weight port and a necked hosel, plus shaft, dimpled ball, tee and a patch of
-  turf, and draws the guides at true angles: a wide lime ribbon for club path,
-  white for where the face points, orange for the ball's start line, a lime rod
-  for the head arriving (tilted by attack angle) and an orange rod for the launch.
+  turf, and draws the guides at true angles: a wide lime ribbon with chevrons for club
+  path, white for where the face points plus a white line along the face itself,
+  orange for the ball's start line, a lime rod for the head arriving (tilted by
+  attack angle) and an orange rod for the launch. Each guide carries a small tag
+  with its value; tags stay a fixed size on screen and hide behind the club. A 3×
+  button draws the small angles three times bigger (`amplifyAngles`) while the
+  tags keep the true numbers.
   It renders only when something changes. Buttons move the camera between four
   angles (Behind, Toe, Above, Face), drag orbits, and Enlarge pops it out.
   In development it is reachable as `window.__clubScene` (`setView(name, {instant:

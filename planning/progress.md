@@ -124,3 +124,12 @@ removed; Settings is now a gear button bottom-left, replacing the "?" button, wi
 the feedback form linked from a Feedback button inside it. check: green (170
 tests + strict build) · next: Sachal to pick a direction from the control/club-view
 design variations.
+
+2026-11-15 — 3D club view: guides and labels — done: ribbons fade in from the tail
+and the path ribbon carries chevrons; a white line along the club face makes small
+face angles readable; every guide has an in-scene tag (Path, Face, Start, Launch,
+Attack) that stays a fixed pixel size, sits to the side of its line and hides
+behind the club; a 3× button amplifies the small angles while tags keep true
+values; the Above camera is pulled back to fit the tags. check: green (174 tests +
+strict build), run in an isolated worktree because another session had
+uncommitted layout work in the main checkout · next: Sachal's notes on the view.

@@ -56,3 +56,8 @@ come with a plan for height (collapse, move to Settings, or shrink something).
 the start of a turn after an interruption, check `git status` and run the tests
 before assuming what is or isn't done. Here the strike control had been finished,
 and the Game-mode default changed, without this session doing either.
+2026-11-15 — note — Two Claude sessions were editing this repo at once (one on the
+3D club view, one on the laptop layout). Before committing, run `git status`: if
+there are changes you did not make, copy only your files into a throwaway
+`git worktree`, run `scripts/check.sh` there, and commit from it, so the other
+session's half-finished work is neither committed nor blocked.
