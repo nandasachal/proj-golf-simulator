@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { skinMaterial } from "./golfer-body-shading";
 
 // The golfer's head, sculpted and painted procedurally. Yards; origin at the
 // centre of the skull, face toward local -x, crown toward +y, ears on ±z.
@@ -12,6 +13,15 @@ import * as THREE from "three";
 // same functions, so paint and sculpt cannot drift apart.
 
 export const SKIN_COLOR = 0xa9795d;
+
+// The stump the skin ends in below the jaw, for the body's neck to run up
+// into: half depth, half width, and how far behind the middle of the skull
+// its centre sits at a height.
+export const NECK_STUMP = {
+  rf: 0.06,
+  rz: 0.058,
+  centre: (y) => 0.02 - (-0.13 - y) * 0.2,
+};
 
 const PI = Math.PI;
 // Jest has no GPU to upload to, so the maps only need to exist there.
@@ -151,9 +161,7 @@ function skullRow(q) {
     back: backAt(y) * kb,
     width: widthAt(y) * kw,
     taper: taperAt(y),
-    neckCentre: -0.02 + (-0.13 - y) * 0.2,
-    // Round the stump off so it sinks into the neck the body draws.
-    cap: Math.sqrt(Math.max(0, 1 - clamp01((-0.135 - y) / 0.035) ** 2.5)),
+    neckCentre: -NECK_STUMP.centre(y),
   };
 }
 
@@ -179,8 +187,8 @@ function skullPoint(row, col, out) {
   if (c > 0) z *= 1 - row.taper * c * c;
   const m = smooth(col.jaw - col.soft, col.jaw + col.soft, row.y);
   if (m < 1) {
-    f = mix(row.neckCentre + 0.049 * c * row.cap, f, m);
-    z = mix(0.047 * s * row.cap, z, m);
+    f = mix(row.neckCentre + NECK_STUMP.rf * c, f, m);
+    z = mix(NECK_STUMP.rz * s, z, m);
   }
   out.f = f;
   out.y = row.y;
@@ -195,14 +203,14 @@ const EYE_Z = 0.0315;
 const EYE_RADIUS = 0.0138;
 const LID_RADIUS = 0.0147;
 const EYE_HALF_WIDTH = 0.0136;
-const EYE_UPPER = 0.0047; // lid edges above and below the pupil: smiling eyes
-const EYE_LOWER = 0.0036;
+const EYE_UPPER = 0.0041; // lid edges above and below the pupil: smiling eyes
+const EYE_LOWER = 0.0031;
 
 const MOUTH_HALF = 0.031;
 const MOUTH_CORNER_Y = -0.064;
 const mouthTop = (z) => -0.067 + 0.003 * (z / MOUTH_HALF) ** 2;
 const mouthBottom = (z) =>
-  MOUTH_CORNER_Y - 0.0127 * (1 - (z / MOUTH_HALF) ** 2) ** 0.75;
+  MOUTH_CORNER_Y - 0.0085 * (1 - (z / MOUTH_HALF) ** 2) ** 0.75;
 // Negative inside the open smile.
 function mouthDistance(y, z) {
   if (z >= MOUTH_HALF) return Math.hypot(z - MOUTH_HALF, y - MOUTH_CORNER_Y);
@@ -226,7 +234,7 @@ const noseRidge = curve([
 ]);
 const noseWidth = curve([
   [-0.05, 0.013],
-  [-0.038, 0.0135],
+  [-0.038, 0.015],
   [-0.025, 0.0095],
   [-0.004, 0.008],
   [0.012, 0.011],
@@ -263,7 +271,7 @@ function faceOffset(y, z) {
   // Nose: ridge, wings, nostrils.
   if (y < 0.02 && y > -0.056) {
     d += noseRidge(y) * Math.exp(-((z / noseWidth(y)) ** 2.4));
-    d += 0.0095 * gauss(z - 0.015, 0.006) * gauss(y + 0.0415, 0.0055);
+    d += 0.011 * gauss(z - 0.0158, 0.0065) * gauss(y + 0.0415, 0.006);
     d -= 0.003 * gauss(z - 0.0075, 0.004) * gauss(y + 0.0465, 0.0025);
   }
   // Cheeks lifted by the smile, and the fold they make.
@@ -386,7 +394,7 @@ function hairThickness(col, y, f, z) {
   const sides = 0.0012 + 0.0093 * smooth(-0.035, 0.075, y);
   let depth = mix(sides, 0.02, smooth(0.05, 0.105, y));
   depth +=
-    0.02 *
+    0.012 *
     frontness *
     smooth(0.045, 0.08, y) *
     (1 - 0.5 * smooth(0.1, 0.12, y));
@@ -488,8 +496,8 @@ function buildSkinGeometry() {
   );
 }
 
-const HAIR_ROWS = 58;
-const HAIR_SEGMENTS = 144;
+const HAIR_ROWS = 40;
+const HAIR_SEGMENTS = 104;
 
 // The hair surface as a grid of (f, y, z), crown row first; the mesh is built
 // from it and the texture reads positions back out of it.
@@ -721,7 +729,7 @@ function browCoverage(y, z) {
   if (t < -0.05 || t > 1.05) return 0;
   const centre =
     0.0098 + 0.003 * Math.sin(PI * (0.15 + 0.75 * t)) - 0.0035 * t * t;
-  const half = 0.0039 * (1 - 0.7 * clamp01(t) ** 2.5);
+  const half = 0.0033 * (1 - 0.7 * clamp01(t) ** 2.5);
   return (
     smooth(half, half * 0.5, Math.abs(y - centre)) *
     smooth(-0.05, 0.05, t) *
@@ -832,7 +840,7 @@ function buildSkinTextures(size) {
         const brow = browCoverage(y, z);
         if (brow > 0) {
           const hairs = noise(z * 420 + y * 900, y * 1500 - z * 500);
-          const cover = brow * (0.8 + 0.2 * hairs);
+          const cover = brow * (0.62 + 0.25 * hairs);
           r = mix(r, 26, cover);
           g = mix(g, 20, cover);
           b = mix(b, 18, cover);
@@ -918,9 +926,9 @@ function buildHairTextures(size, grid) {
       const fine = hash(i, j);
       const shade = clamp01(strand * 1.25 - 0.12) ** 1.6;
       const o = (j * size + i) * 4;
-      color[o] = 9 + 40 * shade + 6 * fine;
-      color[o + 1] = 8 + 33 * shade + 5 * fine;
-      color[o + 2] = 8 + 30 * shade + 5 * fine;
+      color[o] = 16 + 44 * shade + 6 * fine;
+      color[o + 1] = 14 + 37 * shade + 5 * fine;
+      color[o + 2] = 13 + 34 * shade + 5 * fine;
       // Ragged edge: strands of different lengths at the hairline.
       const reach = 0.012 + 0.035 * noise(i * 0.45, 3) + 0.02 * hash(i, 1);
       color[o + 3] = v > reach ? 255 : 0;
@@ -982,6 +990,214 @@ function buildEyeTexture() {
   return texture;
 }
 
+// ----------------------------------------------------------- hair cards ----
+
+// Over the shell lie a few hundred cards - thin strips with strands painted
+// on them, each rooted in the scalp and combed the way the hair goes - so the
+// outline is broken into locks instead of being a smooth cap.
+
+const HAIR_CENTRE_Y = -0.01;
+
+// How far the shell stands from the middle of the head in any direction, as
+// a table over heading (round the head) and elevation.
+function shellRadius(grid) {
+  const wide = 96;
+  const tall = 48;
+  const cells = new Float32Array(wide * tall);
+  for (let k = 0; k < grid.length; k += 3) {
+    const f = grid[k];
+    const y = grid[k + 1] - HAIR_CENTRE_Y;
+    const z = grid[k + 2];
+    const r = Math.hypot(f, y, z);
+    const i = Math.floor(((Math.atan2(z, f) + PI) / (2 * PI)) * wide) % wide;
+    const j = Math.min(
+      tall - 1,
+      Math.floor(((Math.asin(y / r) + PI / 2) / PI) * tall),
+    );
+    cells[j * wide + i] = Math.max(cells[j * wide + i], r);
+  }
+  // A cell the samples happened to step over takes after its neighbours.
+  for (let pass = 0; pass < 2; pass++) {
+    const before = cells.slice();
+    for (let j = 0; j < tall; j++) {
+      for (let i = 0; i < wide; i++) {
+        if (before[j * wide + i] > 0) continue;
+        const left = before[j * wide + ((i + wide - 1) % wide)];
+        const right = before[j * wide + ((i + 1) % wide)];
+        if (left && right) cells[j * wide + i] = (left + right) / 2;
+      }
+    }
+  }
+  // Below the hairline there is no shell: carry its edge on downward.
+  for (let pass = 0; pass < tall; pass++) {
+    for (let j = tall - 2; j >= 0; j--) {
+      for (let i = 0; i < wide; i++) {
+        if (cells[j * wide + i] > 0) continue;
+        const above = cells[(j + 1) * wide + i];
+        const left = cells[j * wide + ((i + wide - 1) % wide)];
+        const right = cells[j * wide + ((i + 1) % wide)];
+        cells[j * wide + i] = above || left || right;
+      }
+    }
+  }
+  return (f, y, z) => {
+    const r = Math.hypot(f, y, z) || 1;
+    const u = ((Math.atan2(z, f) + PI) / (2 * PI)) * wide - 0.5;
+    const v = clamp01((Math.asin(y / r) + PI / 2) / PI) * tall - 0.5;
+    const i = Math.floor(u);
+    const j = Math.max(0, Math.min(tall - 2, Math.floor(v)));
+    const tu = u - i;
+    const tv = clamp01(v - j);
+    const at = (di, dj) => cells[(j + dj) * wide + ((i + di + wide) % wide)];
+    return mix(mix(at(0, 0), at(1, 0), tu), mix(at(0, 1), at(1, 1), tu), tv);
+  };
+}
+
+const CARD_STEPS = 6;
+const CARD_VARIANTS = 8;
+
+function buildCardGeometry(grid) {
+  const radius = shellRadius(grid);
+  let seed = 20241;
+  const random = () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const positions = [];
+  const normals = [];
+  const uvs = [];
+  const index = [];
+  const at = new THREE.Vector3();
+  const out = new THREE.Vector3();
+  const flow = new THREE.Vector3();
+  const side = new THREE.Vector3();
+  const p = {};
+
+  // Put a point at `lift` above the shell, straight out from the middle.
+  const settle = (lift) => {
+    out.copy(at).normalize();
+    at.copy(out).multiplyScalar(radius(out.x, out.y, out.z) + lift);
+  };
+
+  for (let n = 0; n < 1000; n++) {
+    const a = (random() * 2 - 1) * PI;
+    const col = skullColumn(a);
+    const share = Math.sqrt(random());
+    hairPoint(col, share, p);
+    const y = p.y;
+    const top = smooth(0.035, 0.085, y);
+    const front =
+      gauss(col.abs, 0.9) * smooth(0.03, 0.06, y) * smooth(0, 0.05, p.f);
+    const back = smooth(0.02, -0.06, p.f) * (1 - top);
+    // Thin the short sides out: the shell carries them.
+    if (top < 0.25 && random() > 0.55) continue;
+    const length =
+      mix(0.02 + 0.016 * random(), 0.05 + 0.03 * random(), top) *
+      (1 + 0.25 * front);
+    const width = mix(0.008, 0.013, top) * (0.75 + 0.5 * random());
+    const stand = mix(0.0015, 0.004 + 0.009 * random(), top);
+    const flick = top * (random() < 0.3 ? 0.006 + 0.008 * random() : 0.002);
+    const sweep = 0.28 + 0.3 * (random() - 0.5);
+    const variant = Math.floor(random() * CARD_VARIANTS);
+    const start = positions.length / 3;
+
+    at.set(p.f, y - HAIR_CENTRE_Y, p.z);
+    for (let k = 0; k <= CARD_STEPS; k++) {
+      const s = k / CARD_STEPS;
+      out.copy(at).normalize();
+      // Which way the hair is combed here: back over the top and a little
+      // across, down and back at the sides, straight down at the nape, and
+      // up off the forehead before it turns over.
+      const quiff = front * (1 - smooth(0.15, 0.7, s));
+      flow.set(
+        mix(mix(-0.75, -0.1, back), -1, top),
+        mix(mix(-0.55, -1, back), 0.12, top),
+        mix(0, sweep, top),
+      );
+      flow.x = mix(flow.x, -0.35, quiff);
+      flow.y = mix(flow.y, 1, quiff);
+      flow.addScaledVector(out, -flow.dot(out)).normalize();
+      side.crossVectors(out, flow).normalize();
+      const lift =
+        -0.002 * (1 - s) +
+        stand * Math.sin(PI * Math.min(1, s * 1.15)) +
+        flick * s * s +
+        0.006 * quiff * s;
+      const half = (width / 2) * (1 - 0.6 * s * s);
+      const centre = at.clone();
+      settle(lift);
+      const placed = at.clone();
+      at.copy(centre);
+      for (const edge of [-1, 1]) {
+        positions.push(
+          -(placed.x + side.x * half * edge),
+          placed.y + side.y * half * edge + HAIR_CENTRE_Y,
+          placed.z + side.z * half * edge,
+        );
+        normals.push(-out.x, out.y, out.z);
+        uvs.push((variant + (edge + 1) / 2) / CARD_VARIANTS, 1 - s);
+      }
+      if (k < CARD_STEPS) {
+        const i = start + k * 2;
+        index.push(i, i + 2, i + 1, i + 1, i + 2, i + 3);
+        // Short hair stops at the hairline; only the nape runs a little past.
+        const edge = hairlineAt((Math.abs(Math.atan2(at.z, at.x)) * 180) / PI);
+        const room = at.y + HAIR_CENTRE_Y - edge + mix(0.001, 0.008, back);
+        if (top > 0.6 || room > 0) {
+          at.addScaledVector(flow, length / CARD_STEPS);
+          settle(0);
+        }
+      }
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3),
+  );
+  geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(index);
+  return geometry;
+}
+
+// Strands for the cards: v runs root (1) to tip (0); toward the tip more and
+// more of them have ended, so a card frays out instead of ending square.
+function buildCardTexture(size) {
+  const tall = size / 2;
+  const data = new Uint8Array(size * tall * 4);
+  for (let i = 0; i < size; i++) {
+    const across =
+      ((i % (size / CARD_VARIANTS)) + 0.5) / (size / CARD_VARIANTS);
+    const edge = Math.sin(PI * across) ** 0.5;
+    const reach = (0.35 + 0.65 * hash(i, 7)) * (0.45 + 0.55 * edge);
+    const lock = noise(i * 0.22, 3);
+    const strand = 0.45 * hash(i, 11) + 0.55 * lock;
+    for (let j = 0; j < tall; j++) {
+      const along = 1 - (j + 0.5) / tall; // 0 at the root, 1 at the tip
+      const fine = hash(i, j);
+      const shade = clamp01(strand * 1.2 - 0.1) ** 1.5;
+      // A band of sheen across the lock, a third of the way along.
+      const sheen = 9 * gauss(along - 0.38 - 0.1 * lock, 0.16);
+      const o = (j * size + i) * 4;
+      data[o] = 20 + 52 * shade + sheen + 6 * fine;
+      data[o + 1] = 17 + 44 * shade + sheen * 0.92 + 5 * fine;
+      data[o + 2] = 16 + 40 * shade + sheen * 0.88 + 5 * fine;
+      data[o + 3] = along < reach && edge > 0.12 ? 255 : 0;
+    }
+  }
+  const texture = new THREE.DataTexture(data, size, tall, THREE.RGBAFormat);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.generateMipmaps = true;
+  texture.anisotropy = 4;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 // ---------------------------------------------------------------- build ----
 
 export function buildGolferHead() {
@@ -990,6 +1206,7 @@ export function buildGolferHead() {
   const add = (geometry, material, shadow = false) => {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = shadow;
+    mesh.receiveShadow = shadow;
     head.add(mesh);
     return mesh;
   };
@@ -998,13 +1215,9 @@ export function buildGolferHead() {
   eyeDepth = null;
   eyeDepth = surfaceDepth(EYE_Y, EYE_Z) + 0.005 - LID_RADIUS;
 
-  const skin = new THREE.MeshPhysicalMaterial({
+  const skin = skinMaterial({
     ...buildSkinTextures(TEXTURE_SIZE),
     normalScale: new THREE.Vector2(0.8, 0.8),
-    roughness: 0.62,
-    sheen: 0.25,
-    sheenRoughness: 0.55,
-    sheenColor: 0xff9c7a,
   });
   add(buildSkinGeometry(), skin, true).name = "skin";
 
@@ -1016,6 +1229,17 @@ export function buildGolferHead() {
     alphaTest: 0.5,
   });
   add(buildHairGeometry(hairGrid), hair, true).name = "hair";
+
+  const locks = new THREE.MeshStandardMaterial({
+    map: buildCardTexture(TEXTURE_SIZE === 16 ? 16 : 512),
+    roughness: 0.55,
+    alphaTest: 0.5,
+    alphaToCoverage: true,
+    side: THREE.DoubleSide,
+  });
+  const cards = add(buildCardGeometry(hairGrid), locks);
+  cards.name = "locks";
+  cards.receiveShadow = true;
 
   const earSkin = new THREE.MeshStandardMaterial({
     vertexColors: true,

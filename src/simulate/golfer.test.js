@@ -8,84 +8,108 @@ import {
   SWING_DURATION,
   CLUBHEAD_ADDRESS,
 } from "./golfer";
-import { BONE, BONE_COUNT, THIGH, SHIN } from "./golfer-body-figure";
+import { TOP_TIME } from "./swing-keys";
+import {
+  BONE,
+  BONE_COUNT,
+  THIGH,
+  SHIN,
+  UPPER_ARM,
+  FOREARM,
+} from "./golfer-body-figure";
+
+const up = (bone) => new Vector3(0, 1, 0).applyQuaternion(bone.quaternion);
+const lead = (bone) => new Vector3(0, 0, 1).applyQuaternion(bone.quaternion);
+const front = (bone) => new Vector3(-1, 0, 0).applyQuaternion(bone.quaternion);
+const degrees = (radians) => (radians * 180) / Math.PI;
+// How far a limb is bent at its middle joint: 0 is straight.
+const flex = (from, middle, to) =>
+  180 - degrees(from.clone().sub(middle).angleTo(to.clone().sub(middle)));
 
 describe("swingPose", () => {
-  test("starts at address", () => {
-    expect(swingPose(0)).toEqual({
-      arm: 0,
-      hinge: 0,
-      shoulders: 0,
-      hips: 0,
-      shift: 0,
-    });
+  test("holds address until the swing starts", () => {
+    expect(swingPose(0.1)).toEqual(swingPose(0));
+    expect(swingPose(0).pelvisTurn).toBe(0);
+    expect(swingPose(0).chestTurn).toBe(0);
   });
 
-  test("winds up well past horizontal with the wrists cocked before coming down", () => {
-    const top = swingPose(0.9);
-    expect(top.arm).toBeGreaterThan(2);
-    expect(top.hinge).toBeGreaterThan(1);
-    expect(top.shoulders).toBeGreaterThan(1);
-    expect(top.hips).toBeGreaterThan(0);
-    expect(top.hips).toBeLessThan(top.shoulders);
+  test("coils the chest about twice as far as the hips at the top", () => {
+    const top = swingPose(TOP_TIME);
+    expect(top.chestTurn).toBeLessThan(-85);
+    expect(top.pelvisTurn).toBeLessThan(-35);
+    expect(top.pelvisTurn).toBeGreaterThan(-55);
+    // the shaft has swung round to about parallel with the ground
+    expect(top.theta).toBeGreaterThan(250);
+    expect(top.theta).toBeLessThan(280);
   });
 
-  test("arms and club are back in line at impact, with the body already turning through", () => {
-    const impact = swingPose(CONTACT_TIME);
-    expect(impact.arm).toBeCloseTo(0, 6);
-    expect(impact.hinge).toBeCloseTo(0, 6);
-    expect(impact.hips).toBeLessThan(0);
-    expect(impact.shoulders).toBeLessThan(0);
-  });
-
-  test("finishes wrapped around toward the target and holds", () => {
-    const finish = swingPose(SWING_DURATION);
-    expect(finish.arm).toBeLessThan(-2);
-    expect(finish.shoulders).toBeLessThan(-1);
-    expect(swingPose(SWING_DURATION + 5)).toEqual(finish);
-  });
-
-  test("moves continuously, with no jump between phases", () => {
-    const step = 1 / 120;
-    let previous = swingPose(0);
-    for (let t = step; t <= SWING_DURATION + 0.1; t += step) {
-      const pose = swingPose(t);
-      for (const key of Object.keys(pose)) {
-        expect(Math.abs(pose[key] - previous[key])).toBeLessThan(0.3);
+  test("unwinds from the ground up: hips first, then chest, then club", () => {
+    const turnsBack = (key) => {
+      let at = 0;
+      let lowest = Infinity;
+      for (let t = 0.5; t < CONTACT_TIME; t += 1 / 240) {
+        const value = swingPose(t)[key];
+        if (value < lowest) {
+          lowest = value;
+          at = t;
+        }
       }
-      previous = pose;
-    }
+      return at;
+    };
+    const hips = turnsBack("pelvisTurn");
+    const chest = turnsBack("chestTurn");
+    expect(hips).toBeLessThan(chest);
+    expect(chest).toBeLessThanOrEqual(TOP_TIME + 1e-9);
+    // at impact the hips are more open than the chest, both past square
+    const impact = swingPose(CONTACT_TIME);
+    expect(impact.pelvisTurn).toBeGreaterThan(impact.chestTurn);
+    expect(impact.chestTurn).toBeGreaterThan(15);
   });
 
-  test("the downswing is much quicker than the backswing", () => {
-    expect(CONTACT_TIME - 0.9).toBeLessThan((0.9 - 0.15) / 2);
+  test("keeps the wrists cocked late and releases through the ball", () => {
+    const speed = (t) =>
+      Math.abs(swingPose(t + 0.005).theta - swingPose(t - 0.005).theta) / 0.01;
+    // the club is turning fastest around impact, far faster than early down
+    expect(speed(CONTACT_TIME)).toBeGreaterThan(3 * speed(TOP_TIME + 0.08));
+    expect(speed(CONTACT_TIME)).toBeGreaterThan(speed(CONTACT_TIME - 0.1));
+    expect(speed(CONTACT_TIME)).toBeGreaterThan(speed(CONTACT_TIME + 0.15));
+  });
+
+  test("the downswing is about a third as long as the backswing", () => {
+    const ratio = (TOP_TIME - 0.15) / (CONTACT_TIME - TOP_TIME);
+    expect(ratio).toBeGreaterThan(2.5);
+    expect(ratio).toBeLessThan(3.5);
+  });
+
+  test("holds the finish", () => {
+    expect(swingPose(SWING_DURATION + 5)).toEqual(swingPose(SWING_DURATION));
+    const finish = swingPose(SWING_DURATION);
+    expect(finish.chestTurn).toBeGreaterThan(100);
+    expect(finish.pelvisTurn).toBeGreaterThan(80);
   });
 });
 
 describe("clubheadPosition", () => {
-  test("rests behind the ball at address and returns there at impact", () => {
+  test("rests behind the ball at address and is back there at impact", () => {
     const address = clubheadPosition(swingPose(0));
     expect(address.distanceTo(CLUBHEAD_ADDRESS)).toBeLessThan(1e-6);
-
-    // Only the small weight shift toward the target separates the two.
     const impact = clubheadPosition(swingPose(CONTACT_TIME));
-    expect(impact.distanceTo(CLUBHEAD_ADDRESS)).toBeLessThan(0.06);
-    expect(Math.abs(impact.x)).toBeLessThan(1e-6);
+    expect(impact.distanceTo(CLUBHEAD_ADDRESS)).toBeLessThan(1e-6);
   });
 
-  test("is up behind the golfer at the top and high on the target side at the finish", () => {
-    const top = clubheadPosition(swingPose(0.9));
+  test("is up behind the golfer at the top and round behind them at the finish", () => {
+    const top = clubheadPosition(swingPose(TOP_TIME));
     expect(top.y).toBeGreaterThan(1.5);
-
     const finish = clubheadPosition(swingPose(SWING_DURATION));
     expect(finish.y).toBeGreaterThan(1.2);
   });
 
-  test("approaches the ball from behind it, travelling toward the target", () => {
+  test("approaches the ball from behind and inside, travelling toward the target", () => {
     const before = clubheadPosition(swingPose(CONTACT_TIME - 0.01));
     const after = clubheadPosition(swingPose(CONTACT_TIME + 0.01));
     expect(before.z).toBeLessThan(CLUBHEAD_ADDRESS.z);
     expect(after.z).toBeGreaterThan(CLUBHEAD_ADDRESS.z);
+    expect(before.x).toBeGreaterThan(0);
   });
 
   test("a left-hander's club is mirrored across the target line", () => {
@@ -113,32 +137,168 @@ describe("bodyPose", () => {
     }
   });
 
-  test("both arms reach their hand on the grip throughout", () => {
-    for (const t of times) expect(bodyPose(t).reached).toBe(true);
+  test("moves smoothly: no joint or the clubhead ever jumps", () => {
+    const step = 1 / 240;
+    const points = (t) => {
+      const body = bodyPose(t);
+      return [
+        ...body.bones.map((bone) => bone.position),
+        body.handPoint,
+        body.headCenter,
+        body.clubhead,
+      ];
+    };
+    let before = points(0);
+    let now = points(step);
+    for (let t = 2 * step; t <= SWING_DURATION + 0.1; t += step) {
+      const next = points(t);
+      next.forEach((point, i) => {
+        const clubhead = i === next.length - 1;
+        // yards in 1/240 s: hands under ~15 yd/s, clubhead under ~60
+        expect(point.distanceTo(now[i])).toBeLessThan(clubhead ? 0.25 : 0.065);
+        // and no sudden change of velocity either
+        const kink = point
+          .clone()
+          .sub(now[i])
+          .sub(now[i].clone().sub(before[i]))
+          .length();
+        expect(kink).toBeLessThan(clubhead ? 0.05 : 0.012);
+      });
+      before = now;
+      now = next;
+    }
   });
 
-  test("the grip is at the hands, which lead the club back to the ball", () => {
-    const { handPoint, mount } = bodyPose(CONTACT_TIME);
-    const shaft = new Vector3(0, -1, 0).applyQuaternion(mount);
-    const clubhead = clubheadPosition(swingPose(CONTACT_TIME));
-    expect(clubhead.clone().sub(handPoint).normalize().dot(shaft)).toBeCloseTo(
-      1,
-      6,
+  test("stands to the ball like a golfer", () => {
+    const { bones, handPoint, wrists, headCenter } = bodyPose(0);
+    const flexed = (thigh, shin, foot) =>
+      flex(bones[thigh].position, bones[shin].position, bones[foot].position);
+    for (const knee of [
+      flexed(BONE.leadThigh, BONE.leadShin, BONE.leadFoot),
+      flexed(BONE.trailThigh, BONE.trailShin, BONE.trailFoot),
+    ]) {
+      expect(knee).toBeGreaterThan(15);
+      expect(knee).toBeLessThan(30);
+    }
+    // knees over the feet, ahead of the ankles; hips over the heels
+    expect(bones[BONE.leadShin].position.x).toBeLessThan(
+      bones[BONE.leadFoot].position.x - 0.05,
+    );
+    expect(
+      Math.abs(
+        bones[BONE.leadThigh].position.x - bones[BONE.leadFoot].position.x,
+      ),
+    ).toBeLessThan(0.1);
+    // spine tipped toward the ball from the hips, and a little away from the
+    // target, which sets the lead shoulder above the trail one
+    const tip = degrees(up(bones[BONE.chest]).angleTo(new Vector3(0, 1, 0)));
+    expect(tip).toBeGreaterThan(30);
+    expect(tip).toBeLessThan(45);
+    expect(up(bones[BONE.chest]).z).toBeLessThan(0);
+    expect(bones[BONE.leadUpperArm].position.y).toBeGreaterThan(
+      bones[BONE.trailUpperArm].position.y + 0.03,
+    );
+    // arms hanging nearly straight down from the shoulders
+    const hang = wrists[0].clone().sub(bones[BONE.leadUpperArm].position);
+    expect(degrees(hang.angleTo(new Vector3(0, -1, 0)))).toBeLessThan(12);
+    // hands clear of the thighs but not reaching for the ball
+    const thighFront = bones[BONE.leadShin].position.x;
+    expect(handPoint.x).toBeLessThan(thighFront - 0.1);
+    expect(handPoint.x).toBeGreaterThan(thighFront - 0.4);
+    // head carried on the line of the spine, not craned out in front of it
+    const neck = headCenter.clone().sub(bones[BONE.chest].position);
+    expect(neck.length()).toBeLessThan(0.24);
+    expect(degrees(neck.angleTo(up(bones[BONE.chest])))).toBeLessThan(20);
+  });
+
+  test("turns the back to the target at the top, the lead shoulder under the chin", () => {
+    const { bones, handPoint, headCenter } = bodyPose(TOP_TIME);
+    expect(front(bones[BONE.chest]).z).toBeLessThan(-0.7);
+    expect(bones[BONE.leadUpperArm].position.y).toBeLessThan(
+      bones[BONE.trailUpperArm].position.y,
+    );
+    expect(handPoint.y).toBeGreaterThan(headCenter.y - 0.05);
+    // the lead arm is still straight
+    expect(
+      flex(
+        bones[BONE.leadUpperArm].position,
+        bones[BONE.leadForearm].position,
+        bodyPose(TOP_TIME).wrists[0],
+      ),
+    ).toBeLessThan(25);
+  });
+
+  test("is open, on the lead side and behind the ball at impact", () => {
+    const { bones, headCenter, handPoint, clubhead } = bodyPose(CONTACT_TIME);
+    const address = bodyPose(0);
+    expect(front(bones[BONE.pelvis]).z).toBeGreaterThan(0.5);
+    expect(lead(bones[BONE.chest]).y).toBeGreaterThan(0.2); // trail shoulder low
+    expect(bones[BONE.pelvis].position.z).toBeGreaterThan(
+      address.bones[BONE.pelvis].position.z + 0.1,
+    );
+    expect(headCenter.z).toBeLessThan(CLUBHEAD_ADDRESS.z);
+    expect(headCenter.distanceTo(address.headCenter)).toBeLessThan(0.12);
+    expect(handPoint.z).toBeGreaterThan(clubhead.z); // hands lead the clubhead
+    expect(bones[BONE.trailFoot].position.y).toBeGreaterThan(
+      address.bones[BONE.trailFoot].position.y + 0.01,
     );
   });
 
-  test("the lead foot stays planted and the trail heel comes up in the finish", () => {
+  test("the club is in the hands, its shaft running to the clubhead", () => {
+    for (const t of [
+      0,
+      0.5,
+      TOP_TIME,
+      1.05,
+      CONTACT_TIME,
+      1.3,
+      SWING_DURATION,
+    ]) {
+      const { handPoint, mount, clubhead } = bodyPose(t);
+      const shaft = new Vector3(0, -1, 0).applyQuaternion(mount);
+      expect(
+        clubhead.clone().sub(handPoint).normalize().dot(shaft),
+      ).toBeCloseTo(1, 6);
+    }
+  });
+
+  test("the face is square to the target at address and at impact", () => {
+    for (const t of [0, CONTACT_TIME]) {
+      const face = new Vector3(0, 0, 1).applyQuaternion(bodyPose(t).mount);
+      expect(Math.abs(face.x)).toBeLessThan(0.02);
+      expect(face.z).toBeGreaterThan(0.99);
+    }
+  });
+
+  test("both arms reach their hand on the grip throughout", () => {
+    for (const t of times) {
+      const { bones, wrists, reached } = bodyPose(t);
+      expect(reached).toBe(true);
+      for (const [arm, wrist] of [
+        [BONE.leadUpperArm, wrists[0]],
+        [BONE.trailUpperArm, wrists[1]],
+      ]) {
+        expect(bones[arm].position.distanceTo(wrist)).toBeLessThan(
+          UPPER_ARM + FOREARM + 0.005,
+        );
+      }
+    }
+  });
+
+  test("the lead foot stays put and the trail foot comes up onto its toe", () => {
     const address = bodyPose(0).bones;
     const finish = bodyPose(SWING_DURATION).bones;
-    expect(
-      finish[BONE.leadFoot].position.distanceTo(
-        address[BONE.leadFoot].position,
-      ),
-    ).toBeLessThan(1e-9);
+    for (const t of times) {
+      expect(
+        bodyPose(t).bones[BONE.leadFoot].position.distanceTo(
+          address[BONE.leadFoot].position,
+        ),
+      ).toBeLessThan(0.05);
+    }
     expect(finish[BONE.trailFoot].position.y).toBeGreaterThan(
       address[BONE.trailFoot].position.y + 0.08,
     );
-    expect(bodyPose(CONTACT_TIME - 0.3).bones[BONE.trailFoot].position.y).toBe(
+    expect(bodyPose(TOP_TIME).bones[BONE.trailFoot].position.y).toBe(
       address[BONE.trailFoot].position.y,
     );
   });
@@ -156,6 +316,16 @@ describe("bodyPose", () => {
       }
     }
   });
+
+  test("finishes tall on the lead leg, facing the target", () => {
+    const { bones, headCenter } = bodyPose(SWING_DURATION);
+    expect(front(bones[BONE.pelvis]).z).toBeGreaterThan(0.95);
+    expect(up(bones[BONE.chest]).y).toBeGreaterThan(0.97);
+    expect(
+      Math.abs(bones[BONE.pelvis].position.z - bones[BONE.leadFoot].position.z),
+    ).toBeLessThan(0.12);
+    expect(headCenter.y).toBeGreaterThan(bodyPose(0).headCenter.y + 0.1);
+  });
 });
 
 describe("createGolfer", () => {
@@ -166,7 +336,7 @@ describe("createGolfer", () => {
     );
     for (const side of ["Right", "Left"]) {
       golfer.setSide(side);
-      for (const t of [0, 0.9, CONTACT_TIME, SWING_DURATION]) {
+      for (const t of [0, TOP_TIME, CONTACT_TIME, SWING_DURATION]) {
         golfer.setTime(t);
         golfer.group.updateMatrixWorld(true);
         const head = mount

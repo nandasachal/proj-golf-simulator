@@ -116,7 +116,9 @@ React UI (App.js, components/)          src/simulate/ (no React)
   shot readout  ◄── callbacks ──────  shot-analysis.js       trajectory → carry, total, shape…
   URL query state (hooks/use-query)   main.js                scene, render loop, shot states
                                         ├─ range.js          assembles scenery/ (below)
-                                        ├─ golfer.js         skeleton + swing keyframes
+                                        ├─ golfer.js         hangs the meshes on the rig
+                                        │    swing-keys.js     the swing keyed at P1-P10 (tour reference)
+                                        │    swing-rig.js      spine chain, leg and arm IK, grip
                                         │    golfer-body-*.js  skinned body, hands, clothing textures
                                         │    golfer-head.js    sculpted, painted head
                                         │    golfer-club.js    the selected club, fitted to the hands

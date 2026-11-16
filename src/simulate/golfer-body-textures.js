@@ -51,7 +51,36 @@ function weave(size, colour, height, seed) {
   return { colourCanvas, heightCanvas, colourCtx, heightCtx };
 }
 
-function normalsFrom(heightCanvas, strength) {
+// Folds in the cloth, as a smooth height (in texels) over the canvas: each is
+// a patch of ripples - centre (u, v), spread, the heading the ripples run
+// across, their wavelength in texels and their depth. Too gentle to survive
+// eight bits of height map, so they are added while the normals are worked out.
+function folds(size, list) {
+  return (x, y) => {
+    const u = x / size;
+    const v = y / size;
+    let h = 0;
+    for (const [u0, v0, su, sv, heading, wave, depth, phase = 0] of list) {
+      let du = Math.abs(u - u0);
+      if (du > 0.5) du = 1 - du;
+      const dv = v - v0;
+      const mask = Math.exp(-(du * du) / (su * su) - (dv * dv) / (sv * sv));
+      if (mask < 0.02) continue;
+      const across = x * Math.cos(heading) + y * Math.sin(heading);
+      const bend =
+        0.6 *
+        Math.sin(
+          (x * Math.sin(heading) - y * Math.cos(heading)) / (wave * 1.7) +
+            phase * 3,
+        );
+      h +=
+        depth * mask * Math.sin((across / wave) * 2 * Math.PI + phase + bend);
+    }
+    return h;
+  };
+}
+
+function normalsFrom(heightCanvas, strength, fold = null) {
   const size = heightCanvas.width;
   const source = heightCanvas
     .getContext("2d")
@@ -63,8 +92,12 @@ function normalsFrom(heightCanvas, strength) {
     source[(((y + size) % size) * size + ((x + size) % size)) * 4];
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const dx = ((at(x + 1, y) - at(x - 1, y)) / 255) * strength;
-      const dy = ((at(x, y + 1) - at(x, y - 1)) / 255) * strength;
+      let dx = ((at(x + 1, y) - at(x - 1, y)) / 255) * strength;
+      let dy = ((at(x, y + 1) - at(x, y - 1)) / 255) * strength;
+      if (fold) {
+        dx += (fold(x + 1, y) - fold(x - 1, y)) / 2;
+        dy += (fold(x, y + 1) - fold(x, y - 1)) / 2;
+      }
       const length = Math.hypot(dx, dy, 1);
       image.data.set(
         [
@@ -81,16 +114,35 @@ function normalsFrom(heightCanvas, strength) {
   return out;
 }
 
-function finish({ colourCanvas, heightCanvas }, strength) {
+function finish({ colourCanvas, heightCanvas }, strength, fold = null) {
+  if (fold) shadeFolds(colourCanvas, fold);
   const map = new THREE.CanvasTexture(colourCanvas);
   map.colorSpace = THREE.SRGBColorSpace;
   map.anisotropy = 8;
   const normalMap = new THREE.CanvasTexture(
-    normalsFrom(heightCanvas, strength),
+    normalsFrom(heightCanvas, strength, fold),
   );
   normalMap.anisotropy = 8;
   map.wrapS = normalMap.wrapS = THREE.RepeatWrapping;
   return { map, normalMap };
+}
+
+// Darken the colour map a little down in the folds, lighten it on their
+// crests: the shading a fold keeps whatever the light is doing.
+function shadeFolds(colourCanvas, fold) {
+  const size = colourCanvas.width;
+  const ctx = colourCanvas.getContext("2d");
+  const image = ctx.getImageData(0, 0, size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const k = 1 + Math.max(-0.16, Math.min(0.08, fold(x, y) * 0.022));
+      const i = (y * size + x) * 4;
+      image.data[i] *= k;
+      image.data[i + 1] *= k;
+      image.data[i + 2] *= k;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
 }
 
 // Stroke the same path on the colour map and, as a ridge or a groove, on the
@@ -233,22 +285,44 @@ export function shirtMaps(skinColor) {
       { colour: "rgba(120,126,138,0.35)", level: 70, width: 1.5 },
     );
   }
-  return finish(painted, 1.8);
+  return finish(
+    painted,
+    1.8,
+    // u: 0 the middle of the back, 0.25 and 0.75 the sides, 0.5 the chest
+    folds(size, [
+      // gathered into the belt, all the way round
+      [0, 0.86, 0.5, 0.1, 0.12, 46, 1.92, 0.4],
+      [0.5, 0.86, 0.5, 0.1, -0.15, 58, 1.8, 2.1],
+      [0.25, 0.8, 0.12, 0.14, 0.5, 64, 2.4, 1],
+      [0.75, 0.8, 0.12, 0.14, -0.5, 64, 2.4, 4],
+      // dragged out of the armpits toward the chest and the shoulder blades
+      [0.33, 0.36, 0.07, 0.1, 0.95, 52, 2.7, 0.7],
+      [0.67, 0.36, 0.07, 0.1, -0.95, 52, 2.7, 2.9],
+      [0.17, 0.36, 0.07, 0.1, -0.95, 52, 2.4, 5],
+      [0.83, 0.36, 0.07, 0.1, 0.95, 52, 2.4, 1.6],
+      // hanging off the shoulder blades and across the small of the back
+      [0, 0.56, 0.16, 0.12, 1.45, 70, 1.92, 2],
+      [0.08, 0.3, 0.06, 0.07, 0.3, 60, 1.32, 3],
+      [0.92, 0.3, 0.06, 0.07, -0.3, 60, 1.32, 0.3],
+      // slack down the front
+      [0.5, 0.62, 0.14, 0.14, 1.3, 84, 1.56, 1.2],
+    ]),
+  );
 }
 
 // A sleeve: the bottom edge is the hem, with a ribbed band above it.
 export function sleeveMaps() {
-  const size = 256;
+  const size = 512;
   const painted = knit(size, 23);
   const { colourCtx, heightCtx } = painted;
-  const band = 26;
+  const band = 40;
   colourCtx.fillStyle = "rgba(60,66,80,0.16)";
   colourCtx.fillRect(0, size - band, size, band);
   heightCtx.fillStyle = "#808080";
   heightCtx.fillRect(0, size - band, size, band);
-  for (let x = 0; x < size; x += 4) {
+  for (let x = 0; x < size; x += 6) {
     heightCtx.fillStyle = "#b8b8b8";
-    heightCtx.fillRect(x, size - band, 2, band);
+    heightCtx.fillRect(x, size - band, 3, band);
   }
   seam(
     painted,
@@ -256,7 +330,7 @@ export function sleeveMaps() {
       [0, size - band],
       [size, size - band],
     ]),
-    { colour: "rgba(110,116,128,0.7)", level: 50, width: 2 },
+    { colour: "rgba(110,116,128,0.7)", level: 50, width: 2.5 },
   );
   return finish(painted, 1.8);
 }
@@ -360,7 +434,27 @@ export function trouserMaps() {
     },
     { colour: stitch, level: 70, width: 1.5 },
   );
-  return finish(painted, 2.6);
+  return finish(
+    painted,
+    2.6,
+    // v: 0.2 the crotch, 0.59 the knee, 1 the hem
+    folds(size, [
+      // whiskers out of the crotch, across the front of the hip and thigh
+      [0.6, 0.24, 0.13, 0.07, 1.1, 58, 5, 0.3],
+      [0.42, 0.27, 0.1, 0.08, 1.95, 66, 4, 2],
+      // under the seat
+      [0.06, 0.3, 0.12, 0.035, 1.5, 44, 5, 1],
+      [0.94, 0.3, 0.12, 0.035, 1.64, 44, 5, 3],
+      // behind the knee, and the cloth bagging over the front of it
+      [0, 0.6, 0.2, 0.045, 1.52, 40, 6, 0.6],
+      [0.5, 0.55, 0.14, 0.05, 1.4, 60, 3.4, 4],
+      [0.5, 0.66, 0.14, 0.04, 1.75, 56, 3, 1.3],
+      // down the shin
+      [0.4, 0.8, 0.2, 0.1, 0.5, 90, 2.4, 2.2],
+      // stacked on the shoe
+      [0.5, 0.95, 0.5, 0.045, 1.5, 34, 6, 0.9],
+    ]),
+  );
 }
 
 // A shoe upper: canvas y runs from the heel (top) to the toe; x around the

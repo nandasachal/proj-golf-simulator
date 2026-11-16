@@ -16,7 +16,8 @@ describe("buildGolferHead", () => {
     expect(box.max.y).toBeGreaterThan(0.12);
     expect(box.max.y).toBeLessThan(0.17);
     expect(box.min.y).toBeCloseTo(-0.17, 2);
-    expect(box.max.z).toBeCloseTo(-box.min.z, 3);
+    // (the locks are combed across, so only nearly symmetric)
+    expect(box.max.z).toBeCloseTo(-box.min.z, 2);
     expect(box.max.z).toBeGreaterThan(0.075);
     expect(box.max.z).toBeLessThan(0.1);
     expect(box.min.x).toBeLessThan(-0.11);
@@ -33,6 +34,17 @@ describe("buildGolferHead", () => {
     expect(Math.abs(skin.getZ(tip))).toBeLessThan(0.004);
     expect(skin.getY(tip)).toBeLessThan(-0.02);
     expect(skin.getY(tip)).toBeGreaterThan(-0.06);
+  });
+
+  it("wears its hair in locks that stay close to the scalp", () => {
+    const locks = head.getObjectByName("locks").geometry.attributes.position;
+    expect(locks.count).toBeGreaterThan(2000);
+    for (let i = 0; i < locks.count; i++) {
+      expect(
+        Math.hypot(locks.getX(i), locks.getY(i) + 0.01, locks.getZ(i)),
+      ).toBeLessThan(0.185);
+      expect(Math.abs(locks.getZ(i))).toBeLessThan(0.1);
+    }
   });
 
   it("has no broken vertices and stays inside the triangle budget", () => {

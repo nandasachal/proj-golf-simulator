@@ -225,3 +225,17 @@ changed away from address/impact (hands fold in); one club length for all clubs;
 club carries its own reflection map since the scene has no environment · next:
 face likeness pass (nose, expression, hair silhouette), frame rate measurement,
 per-club length and posture.
+
+2026-11-15 — golfer swing rig and anatomy — done: swing rebuilt as a keyed
+full-body rig (swing-keys.js: pelvis, chest, head, feet, hands and club keyed
+at P1-P10 from published tour biomechanics; swing-rig.js: FK spine, two-bone
+IK legs and trail arm, clubface tied to the lead hand), 3:1 tempo, address
+shaft 52.4 degrees, SWING_DURATION 1.9; body surfaces reshaped with anatomy,
+curved neck joining the head, hair cards, swept-tube fingers, self-shadowing
+and wrap-lit skin · check: green (293 tests) · evidence: posed at address, top,
+impact, finish from down-the-line and face-on plus close-ups in the browser;
+agents covered P1-P10, left-hander, 7 iron, sand wedge and a real Hit ·
+decisions: no outside code/data taken (open swing datasets had no clear
+licence); no video frames compared, numbers only · next: finish position
+(hands high, lead elbow), iron/wedge stance and ball position, toe break and
+clavicle bones, trouser fit, hands and face close up, frame rate.

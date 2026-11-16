@@ -1,0 +1,313 @@
+import * as THREE from "three";
+import {
+  BONE,
+  BONE_COUNT,
+  UPPER_ARM,
+  FOREARM,
+  THIGH,
+  SHIN,
+  HIP_JOINT,
+  SHOULDER_JOINT,
+  SPINE_JOINT,
+} from "./golfer-body-figure";
+import { WRIST, ANKLE_HEIGHT } from "./golfer-body-kit";
+import { CLUB_LENGTH, shaftDirection } from "./swing-keys";
+
+// The golfer's skeleton for a keyed pose (swing-keys.js): the spine built up
+// from the pelvis, the legs reached down to the feet, the club placed in the
+// hands and the arms reached out to it. Right-hander: stands at +x facing
+// -x, target down +z. Every bone's frame at rest is +x the golfer's back,
+// +y up, +z the lead side. Yards.
+
+const MAT_TOP = 0.06;
+const ANKLE_Y = MAT_TOP + ANKLE_HEIGHT;
+// The ball is played forward, off the lead heel: the stance is centred
+// behind it.
+const STANCE_Z = -0.09;
+const STANCE_HALF_WIDTH = 0.25;
+const FEET_X = 0.97;
+const LEAD_FLARE = 22;
+const TRAIL_FLARE = -6;
+// Hips above the heels, the tailbone behind them.
+const PELVIS_ADDRESS = new THREE.Vector3(0.985, 1.085, STANCE_Z);
+const SPINE_LENGTH = 0.622;
+// The base of the neck in the chest's frame, and how far up it the skull's
+// centre sits: part of the way along the chest's line, the rest the head's.
+const NECK_BASE = new THREE.Vector3(0, 0.045, 0);
+const NECK_RISE = 0.045;
+const SKULL_RISE = 0.115;
+
+// Where each hand holds the grip, along the mount's y from the hand point.
+export const LEAD_HAND = 0.055;
+export const TRAIL_HAND = -0.02;
+export const HAND_SCALE = 1.12;
+const wristOn = (holdAt, side) =>
+  new THREE.Vector3(
+    WRIST.x * HAND_SCALE,
+    holdAt + WRIST.y * HAND_SCALE,
+    side * WRIST.z * HAND_SCALE,
+  );
+const LEAD_WRIST = wristOn(LEAD_HAND, 1);
+const TRAIL_WRIST = wristOn(TRAIL_HAND, -1);
+const ARM = UPPER_ARM + FOREARM;
+const STRAIGHT_ARM = ARM * 0.985;
+// The shoulder blades let a shoulder reach toward its hand or draw back.
+const LEAD_GIVE = [-0.03, 0.075];
+const TRAIL_GIVE = [0, 0.085];
+// The points the feet turn about: the ball of the trail foot, and the
+// outside edge of the lead one.
+const BALL_OF_FOOT = new THREE.Vector3(-0.165, -0.085, 0);
+const OUTSIDE_EDGE = new THREE.Vector3(-0.06, -ANKLE_HEIGHT, 0.05);
+
+const RADIANS = Math.PI / 180;
+const X_AXIS = new THREE.Vector3(1, 0, 0);
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+
+const q1 = new THREE.Quaternion();
+const m1 = new THREE.Matrix4();
+const v1 = new THREE.Vector3();
+const v2 = new THREE.Vector3();
+const v3 = new THREE.Vector3();
+
+// A segment's orientation: turned about its own long axis, that axis tipped
+// forward (bend, toward the ball) and then sideways (lean, away from the
+// target).
+function orient(out, turn, bend, lean) {
+  out.setFromAxisAngle(X_AXIS, -lean * RADIANS);
+  out.multiply(q1.setFromAxisAngle(Z_AXIS, bend * RADIANS));
+  return out.multiply(q1.setFromAxisAngle(Y_AXIS, turn * RADIANS));
+}
+
+// A bone's frame from its y axis and roughly where its x should point.
+function frameYX(out, y, xToward) {
+  v1.copy(y).normalize();
+  v2.crossVectors(xToward, v1).normalize();
+  v3.crossVectors(v1, v2);
+  return out.setFromRotationMatrix(m1.makeBasis(v3, v1, v2));
+}
+
+const axis = new THREE.Vector3();
+const sideways = new THREE.Vector3();
+
+// Middle joint of a two-bone limb that bends toward `bend`; if the limb is
+// at full stretch the joint sits on the straight line.
+function midJoint(out, from, to, upper, lower, bend) {
+  axis.subVectors(to, from);
+  const distance = Math.min(axis.length(), upper + lower - 1e-4);
+  axis.normalize();
+  const along =
+    (upper * upper - lower * lower + distance * distance) / (2 * distance);
+  const height = Math.sqrt(Math.max(0, upper * upper - along * along));
+  sideways.copy(bend).addScaledVector(axis, -bend.dot(axis));
+  if (sideways.lengthSq() > 1e-8) sideways.normalize();
+  return out
+    .copy(from)
+    .addScaledVector(axis, along)
+    .addScaledVector(sideways, height);
+}
+
+// min and max with the corner rounded off, so a limit is met without a jolt.
+const softMax = (a, b) => 0.5 * (a + b + Math.sqrt((a - b) * (a - b) + 4e-4));
+const softMin = (a, b) => 0.5 * (a + b - Math.sqrt((a - b) * (a - b) + 4e-4));
+
+export function createRig() {
+  const V = () => new THREE.Vector3();
+  const Q = () => new THREE.Quaternion();
+  return {
+    bones: Array.from({ length: BONE_COUNT }, () => ({
+      position: V(),
+      quaternion: Q(),
+    })),
+    // The middle of the grip, and the club there: -y down the shaft, +z the
+    // way the face looks. The hands sit on the grip in the same frame, the
+    // back of the lead hand facing the way the clubface does.
+    handPoint: V(),
+    mount: Q(),
+    clubhead: V(),
+    wrists: [V(), V()],
+    neckBase: V(),
+    headCenter: V(),
+    head: Q(),
+    // Whether both arms are long enough to hold the grip where it is.
+    reached: true,
+  };
+}
+
+const pelvisQ = new THREE.Quaternion();
+const spineQ = new THREE.Quaternion();
+const chestQ = new THREE.Quaternion();
+const chestBack = new THREE.Vector3();
+const chestUp = new THREE.Vector3();
+const chestLead = new THREE.Vector3();
+const pelvisFront = new THREE.Vector3();
+const shaft = new THREE.Vector3();
+const butt = new THREE.Vector3();
+const face = new THREE.Vector3();
+const square = new THREE.Vector3();
+const toe = new THREE.Vector3();
+const shoulder = new THREE.Vector3();
+const elbow = new THREE.Vector3();
+const reach = new THREE.Vector3();
+const pole = new THREE.Vector3();
+const hip = new THREE.Vector3();
+const knee = new THREE.Vector3();
+const ankle = new THREE.Vector3();
+const footQ = new THREE.Quaternion();
+const plantedQ = new THREE.Quaternion();
+const toes = new THREE.Vector3();
+const point = new THREE.Vector3();
+
+export function solveRig(pose, rig = createRig()) {
+  const { bones } = rig;
+
+  // Spine: pelvis, a middle bone turned and tipped half way, chest.
+  const pelvis = bones[BONE.pelvis];
+  pelvis.position
+    .set(pose.pelvisBack, pose.pelvisUp, pose.pelvisToward)
+    .add(PELVIS_ADDRESS);
+  orient(pelvisQ, pose.pelvisTurn, pose.pelvisBend, pose.pelvisLean);
+  pelvis.quaternion.copy(pelvisQ);
+  orient(chestQ, pose.chestTurn, pose.chestBend, pose.chestLean);
+  spineQ.copy(pelvisQ).slerp(chestQ, 0.5);
+  const spine = bones[BONE.spine];
+  spine.position
+    .set(0, SPINE_JOINT, 0)
+    .applyQuaternion(pelvisQ)
+    .add(pelvis.position);
+  spine.quaternion.copy(spineQ);
+  const chest = bones[BONE.chest];
+  chest.position
+    .set(0, SPINE_LENGTH - SPINE_JOINT, 0)
+    .applyQuaternion(spineQ)
+    .add(spine.position);
+  chest.quaternion.copy(chestQ);
+  chestBack.copy(X_AXIS).applyQuaternion(chestQ);
+  chestUp.copy(Y_AXIS).applyQuaternion(chestQ);
+  chestLead.copy(Z_AXIS).applyQuaternion(chestQ);
+  pelvisFront.set(-1, 0, 0).applyQuaternion(pelvisQ);
+
+  // Club. The face is in line with the back of the lead hand, and a flat
+  // lead wrist has the lead arm, the shaft and the back of that hand all in
+  // one plane: the face looks square out of the plane of arm and shaft.
+  const hands = rig.handPoint.set(pose.handsX, pose.handsY, pose.handsZ);
+  shaftDirection(pose.theta, pose.phi, shaft);
+  butt.copy(shaft).negate();
+  shoulder
+    .set(0, SHOULDER_JOINT.y, SHOULDER_JOINT.z)
+    .applyQuaternion(chestQ)
+    .add(chest.position);
+  reach.subVectors(hands, shoulder).normalize();
+  face.crossVectors(reach, butt).normalize();
+  face.applyAxisAngle(butt, pose.roll * RADIANS);
+  square.set(0, -butt.z, butt.y).normalize();
+  face.lerp(square, pose.square).normalize();
+  toe.crossVectors(butt, face);
+  rig.mount.setFromRotationMatrix(m1.makeBasis(toe, butt, face));
+  // Hold the lead arm straight: push the hands out along it.
+  if (pose.straight > 0) {
+    point.copy(LEAD_WRIST).applyQuaternion(rig.mount).add(hands).sub(shoulder);
+    const length = point.length();
+    hands.addScaledVector(
+      point,
+      (pose.straight * (STRAIGHT_ARM + 0.01 - length)) / length,
+    );
+  }
+  rig.clubhead.copy(hands).addScaledVector(shaft, CLUB_LENGTH);
+
+  // Arms, from each shoulder to its wrist on the grip, the elbows hanging
+  // down and a little behind.
+  // Past impact they fold in front of the chest instead.
+  const u = Math.min(1, Math.max(0, (pose.chestTurn - 35) / 70));
+  const through = u * u * (3 - 2 * u);
+  rig.reached = true;
+  for (let i = 0; i < 2; i++) {
+    const side = i === 0 ? 1 : -1;
+    const wrist = rig.wrists[i]
+      .copy(i === 0 ? LEAD_WRIST : TRAIL_WRIST)
+      .applyQuaternion(rig.mount)
+      .add(hands);
+    shoulder
+      .set(0, SHOULDER_JOINT.y, side * SHOULDER_JOINT.z)
+      .applyQuaternion(chestQ)
+      .add(chest.position);
+    reach.subVectors(wrist, shoulder);
+    const [draw, stretch] = i === 0 ? LEAD_GIVE : TRAIL_GIVE;
+    const give = softMin(stretch, softMax(draw, reach.length() - STRAIGHT_ARM));
+    shoulder.addScaledVector(reach.normalize(), give);
+    if (shoulder.distanceTo(wrist) > ARM + 0.004) rig.reached = false;
+    pole
+      .set(0, -1, 0)
+      .addScaledVector(chestBack, (i === 0 ? 0.3 : 0.4) - through)
+      .addScaledVector(chestLead, side * 0.25);
+    midJoint(elbow, shoulder, wrist, UPPER_ARM, FOREARM, pole);
+    const upperArm = bones[i === 0 ? BONE.leadUpperArm : BONE.trailUpperArm];
+    upperArm.position.copy(shoulder);
+    frameYX(upperArm.quaternion, point.subVectors(shoulder, elbow), pole);
+    const forearm = bones[i === 0 ? BONE.leadForearm : BONE.trailForearm];
+    forearm.position.copy(elbow);
+    frameYX(forearm.quaternion, point.subVectors(elbow, wrist), pole);
+  }
+
+  // Legs, from the hips down to feet that stay where they were planted.
+  for (let i = 0; i < 2; i++) {
+    const side = i === 0 ? 1 : -1;
+    ankle.set(FEET_X, ANKLE_Y, STANCE_Z + side * STANCE_HALF_WIDTH);
+    let yaw;
+    if (i === 0) {
+      yaw = LEAD_FLARE + pose.leadSpin;
+      plantedQ.setFromAxisAngle(Y_AXIS, LEAD_FLARE * RADIANS);
+      footQ
+        .setFromAxisAngle(Y_AXIS, yaw * RADIANS)
+        .multiply(q1.setFromAxisAngle(X_AXIS, pose.leadRoll * RADIANS));
+      point.copy(OUTSIDE_EDGE);
+    } else {
+      yaw = TRAIL_FLARE + pose.trailTurn;
+      plantedQ.setFromAxisAngle(Y_AXIS, TRAIL_FLARE * RADIANS);
+      footQ
+        .setFromAxisAngle(Y_AXIS, yaw * RADIANS)
+        .multiply(q1.setFromAxisAngle(Z_AXIS, pose.trailLift * RADIANS));
+      point.copy(BALL_OF_FOOT);
+      ankle.z += pose.trailSlide;
+    }
+    ankle.add(v1.copy(point).applyQuaternion(plantedQ));
+    ankle.sub(v1.copy(point).applyQuaternion(footQ));
+    hip
+      .set(0, HIP_JOINT.y, side * HIP_JOINT.z)
+      .applyQuaternion(pelvisQ)
+      .add(pelvis.position);
+    // The knee points between where the toes and the hips do.
+    toes.set(-Math.cos(yaw * RADIANS), 0, Math.sin(yaw * RADIANS));
+    pole.copy(toes).addScaledVector(pelvisFront, 0.6);
+    pole.y = 0;
+    pole.z -= side * (i === 0 ? pose.leadKneeIn : pose.trailKneeIn);
+    pole.normalize();
+    midJoint(knee, hip, ankle, THIGH, SHIN, pole);
+    const thigh = bones[i === 0 ? BONE.leadThigh : BONE.trailThigh];
+    thigh.position.copy(hip);
+    frameYX(
+      thigh.quaternion,
+      point.subVectors(hip, knee),
+      v3.copy(pole).addScaledVector(pelvisFront, 1).negate(),
+    );
+    const shin = bones[i === 0 ? BONE.leadShin : BONE.trailShin];
+    shin.position.copy(knee);
+    frameYX(
+      shin.quaternion,
+      point.subVectors(knee, ankle),
+      v3.copy(pole).negate(),
+    );
+    const foot = bones[i === 0 ? BONE.leadFoot : BONE.trailFoot];
+    foot.position.copy(ankle);
+    foot.quaternion.copy(footQ);
+  }
+
+  // Head: a short neck carrying on up the spine, the skull over the top of it.
+  orient(rig.head, pose.headTurn, pose.headPitch, pose.headLean);
+  rig.neckBase.copy(NECK_BASE).applyQuaternion(chestQ).add(chest.position);
+  rig.headCenter
+    .copy(rig.neckBase)
+    .addScaledVector(chestUp, NECK_RISE)
+    .addScaledVector(v1.copy(Y_AXIS).applyQuaternion(rig.head), SKULL_RISE);
+  return rig;
+}
