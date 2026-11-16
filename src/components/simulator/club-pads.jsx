@@ -11,27 +11,20 @@ import {
 } from "../../utils/constant";
 import { SHORTCUTS, keyLabel } from "../../utils/shortcuts";
 import {
-  SIDE,
-  TOP,
-  aimFromPointer,
-  aimHandle,
-  aimTurn,
-  attackFromPointer,
-  attackHandle,
-  faceFromPointer,
-  faceHandle,
-  faceTurn,
-  headShift,
-  loftFromPointer,
-  loftHandle,
-  pathFromPointer,
-  pathHandle,
-  pathTurn,
-  sideX,
+  GAIN,
+  REACH,
+  fromGround,
+  fromSide,
+  shownAngles,
+  sideHandles,
   snap,
-  strikeFromPointer,
-  toPadPoint,
-} from "../../utils/club-pad";
+  topHandles,
+} from "../../utils/club-handles";
+import {
+  clubSetup,
+  DRIVER_STATIC_LOFT_DEGREES,
+} from "../../simulate/club-setup";
+import { createClubScene } from "../../simulate/club-scene";
 import {
   driverLaunch,
   FACE_START_WEIGHT,
@@ -43,8 +36,6 @@ const PATH = "#a3e635";
 const START = "#fb923c";
 const STRIKE = "#fbbf24";
 const AIM = "#7dd3fc";
-const MUTED = "rgba(255,255,255,0.32)";
-const DEGREES = Math.PI / 180;
 
 const RANGES = {
   clubFaceAngle: CLUB_FACE_ANGLE_VALUES,
@@ -195,13 +186,15 @@ const ValueChip = ({ control, value, text, active, onChange, onActive }) => {
   );
 };
 
-// A round grab handle inside a pad. It is a real slider to assistive tech
-// and the keyboard; the pointer drags it, a double-click resets it.
+// A round grab handle drawn over a 3D view. It is a real slider to assistive
+// tech and the keyboard; the pointer drags it, a double-click resets it.
+// While it is hovered or held, a tag beside it says the value.
 const Handle = ({
   control,
   value,
   text,
   point,
+  bounds,
   colour,
   active,
   dragging,
@@ -226,6 +219,14 @@ const Handle = ({
     }
   };
   const lit = active || dragging;
+  // The tag sits above the handle, or below when there is no room, and is
+  // kept inside the view sideways.
+  const tagWidth = text.length * 6.4 + 16;
+  const tagX = Math.min(
+    Math.max(point.x - tagWidth / 2, 4),
+    Math.max(4, bounds.width - tagWidth - 4),
+  );
+  const tagY = point.y > 40 ? point.y - 38 : point.y + 18;
   return (
     <g
       role="slider"
@@ -242,58 +243,210 @@ const Handle = ({
       onDoubleClick={() => onChange(control, range.DEFAULT)}
       onPointerEnter={() => onActive(control)}
       onPointerLeave={() => onActive(null)}
+      onFocus={() => onActive(control)}
+      onBlur={() => onActive(null)}
       {...drag(control)}
     >
       {/* generous invisible target so the handle is easy to grab */}
       <circle cx={point.x} cy={point.y} r="20" fill="transparent" />
       {lit && (
-        <circle cx={point.x} cy={point.y} r="17" fill={colour} opacity="0.25" />
+        <circle cx={point.x} cy={point.y} r="17" fill={colour} opacity="0.28" />
       )}
+      {/* dark halo so the ring reads against turf, club and ball alike */}
       <circle
         cx={point.x}
         cy={point.y}
-        r={lit ? 11 : 9.5}
+        r={lit ? 12.5 : 11}
+        fill="rgba(6,14,10,0.55)"
+      />
+      <circle
+        cx={point.x}
+        cy={point.y}
+        r={lit ? 10 : 8.5}
         className="club-handle-ring"
         fill="#0b1a12"
         stroke={colour}
         strokeWidth="3"
       />
-      <circle cx={point.x} cy={point.y} r="3" fill={colour} />
+      <circle cx={point.x} cy={point.y} r="2.6" fill={colour} />
+      {lit && (
+        <g pointerEvents="none" data-tag>
+          <rect
+            x={tagX}
+            y={tagY}
+            width={tagWidth}
+            height="20"
+            rx="6"
+            fill="rgba(6,14,10,0.92)"
+            stroke={colour}
+            strokeOpacity="0.7"
+          />
+          <text
+            x={tagX + tagWidth / 2}
+            y={tagY + 14}
+            textAnchor="middle"
+            fontSize="11"
+            fontWeight="600"
+            fill="#ffffff"
+          >
+            {text}
+          </text>
+        </g>
+      )}
     </g>
   );
 };
 
-const Arrowheads = () => (
-  <defs>
-    {[
-      ["face", FACE],
-      ["path", PATH],
-      ["start", START],
-    ].map(([name, colour]) => (
-      <marker
-        key={name}
-        id={`pad-arrow-${name}`}
-        viewBox="0 0 10 10"
-        refX="7"
-        refY="5"
-        markerWidth="4.5"
-        markerHeight="4.5"
-        orient="auto-start-reverse"
+// Fixed camera angles for the two views. x flips for a left-hander.
+const VIEW_FROM_ABOVE = {
+  orbit: false,
+  labels: false,
+  airGuides: false,
+  camera: { position: [0, 82, -19], lookAt: [0, 2, -1.4], fov: 30 },
+};
+const VIEW_FROM_TOE = {
+  orbit: false,
+  labels: false,
+  groundGuides: false,
+  loftLever: true,
+  attackRodLength: 9,
+  launchRodLength: 30,
+  turfRadius: 420,
+  camera: { position: [-70, 10.5, 4], lookAt: [0, 10.5, 4], fov: 30 },
+};
+
+// One live 3D view of the driver, with the drag handles laid over it.
+const Pad3D = ({
+  name,
+  caption,
+  options,
+  setup,
+  className,
+  note,
+  noteOnLeft,
+  onScene,
+  children,
+}) => {
+  const box = useRef(null);
+  const scene = useRef(null);
+
+  useEffect(() => {
+    const created = createClubScene(box.current, options);
+    scene.current = created;
+    onScene(created);
+    // Handle positions depend on the view's size, so say when it changes.
+    const observer = new ResizeObserver(() => onScene(created));
+    observer.observe(box.current);
+    return () => {
+      observer.disconnect();
+      created.dispose();
+      onScene(null);
+    };
+    // The scene is built once; `options` and `onScene` never change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-pose only when something the scene draws has changed, not on every
+  // hover.
+  const pose = JSON.stringify(setup);
+  useEffect(() => {
+    scene.current.update(setup);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pose]);
+
+  return (
+    <div
+      className={classNames(
+        "club-pad relative overflow-hidden rounded-lg ring-1 ring-inset ring-white/10",
+        className,
+      )}
+    >
+      <div ref={box} className="absolute inset-0" aria-hidden="true" />
+      <p className="pointer-events-none absolute left-2 top-1.5 rounded bg-black/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/75">
+        {caption}
+      </p>
+      {note && (
+        <p
+          className={classNames(
+            "pointer-events-none absolute bottom-1.5 rounded bg-black/40 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-orange-300",
+            noteOnLeft ? "left-2" : "right-2",
+          )}
+        >
+          {note}
+        </p>
+      )}
+      <svg
+        className="absolute inset-0 h-full w-full select-none"
+        role="group"
+        aria-label={name}
       >
-        <path d="M0,0 L10,5 L0,10 z" fill={colour} />
-      </marker>
-    ))}
-  </defs>
+        {children}
+      </svg>
+    </div>
+  );
+};
+
+// A thumbnail of the flight seen from above, sideways movement drawn larger
+// so the shape is readable at this size.
+const FlightIcon = ({ sketch }) => (
+  <svg
+    viewBox="0 0 30 22"
+    className="h-[18px] w-6 shrink-0"
+    aria-hidden="true"
+    data-preview
+  >
+    <line
+      x1="15"
+      y1="21"
+      x2="15"
+      y2="1"
+      stroke="rgba(255,255,255,0.25)"
+      strokeDasharray="1.5 2.5"
+    />
+    <polyline
+      fill="none"
+      stroke={START}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      points={sketch
+        .map(
+          (p) =>
+            `${Math.min(28, Math.max(2, 15 + p.across * 55)).toFixed(1)},${(
+              21 -
+              p.along * 19
+            ).toFixed(1)}`,
+        )
+        .join(" ")}
+    />
+  </svg>
 );
 
-// The club at impact, drawn twice, as the shot controls: drag a handle, use
-// its keys, or click a value to type it.
+// The club at impact, shown twice in 3D, as the shot controls: drag a
+// handle, use its keys, or click a value to type it.
 const ClubPads = ({ values, side, preview, onChange }) => {
   const mirror = side === "Left" ? -1 : 1;
   const [active, setActive] = useState(null);
   const [dragging, setDragging] = useState(null);
-  const topPad = useRef(null);
-  const sidePad = useRef(null);
+  // The two scenes, once built. `layout` only exists to redraw the handles
+  // when a view is created, resized or flipped for the other hand.
+  const scenes = useRef({ top: null, side: null });
+  const [, setLayout] = useState(0);
+  const [onTopScene, onSideScene] = useRef([
+    (scene) => {
+      scenes.current.top = scene;
+      setLayout((count) => count + 1);
+    },
+    (scene) => {
+      scenes.current.side = scene;
+      setLayout((count) => count + 1);
+    },
+  ]).current;
+  // The scenes flip their cameras for the other hand after this render, so
+  // the handles need placing again once they have.
+  useEffect(() => {
+    setLayout((count) => count + 1);
+  }, [side]);
 
   const {
     clubFaceAngle: face,
@@ -304,14 +457,45 @@ const ClubPads = ({ values, side, preview, onChange }) => {
     loftChange,
     strike,
   } = values;
-  const setup = { face, path, aim, strike, mirror };
   const launch = driverLaunch(swingSpeed, { attackAngle: attack, loftChange });
   const standardLoft = launch.dynamicLoftDegrees - loftChange;
   const start =
     FACE_START_WEIGHT * face +
     (1 - FACE_START_WEIGHT) * path +
     STRIKE_START_DEGREES_PER_INCH * strike;
-  const startTurn = aimTurn(aim) + mirror * start * TOP.anglePerDegree;
+  const shown = shownAngles(values, mirror, { standardLoft, start });
+
+  // What each 3D view is posed with. Above: the horizontal story, drawn
+  // large. From the toe: attack and loft only, square to the camera.
+  const base = clubSetup({
+    faceAngle: face,
+    pathAngle: path,
+    swingSpeed,
+    aim,
+    attackAngle: attack,
+    loftChange,
+    strike,
+    side,
+  });
+  const topSetup = {
+    ...base,
+    aimDegrees: shown.aimDegrees,
+    faceDegrees: shown.faceDegrees,
+    pathDegrees: shown.pathDegrees,
+    startDegrees: shown.startDegrees,
+    attackDegrees: 0,
+    strikeCm: shown.strikeCm,
+  };
+  const sideSetup = {
+    ...base,
+    aimDegrees: 0,
+    faceDegrees: 0,
+    pathDegrees: 0,
+    startDegrees: 0,
+    attackDegrees: shown.attackDegrees,
+    loftTiltDegrees: shown.loftDegrees - DRIVER_STATIC_LOFT_DEGREES,
+    strikeCm: 0,
+  };
 
   const text = {
     clubFaceAngle: describe.clubFaceAngle.text(face),
@@ -325,38 +509,38 @@ const ClubPads = ({ values, side, preview, onChange }) => {
     swingSpeed: describe.swingSpeed.text(swingSpeed),
   };
 
-  // What a pointer position means for each control, before snapping.
-  const fromPointer = {
-    clubFaceAngle: (p) => faceFromPointer(p, setup),
-    clubPathAngle: (p) => pathFromPointer(p, setup),
-    aim: (p) => aimFromPointer(p),
-    strike: (p) => strikeFromPointer(p, setup),
-    attackAngle: (p) => attackFromPointer(p, { mirror }),
-    loftChange: (p) => loftFromPointer(p, { mirror }) - standardLoft,
+  // Where each handle is drawn, in pixels within its view.
+  const onSide = (control) =>
+    control === "attackAngle" || control === "loftChange";
+  const world = { ...topHandles(shown, mirror), ...sideHandles(shown) };
+  const placed = (control) => {
+    const scene = onSide(control) ? scenes.current.side : scenes.current.top;
+    return scene ? scene.project(world[control]) : null;
   };
-  const padOf = (control) =>
-    control === "attackAngle" || control === "loftChange"
-      ? [sidePad, SIDE]
-      : [topPad, TOP];
 
   const speedBar = useRef(null);
-  const speedFrom = (event) => {
-    const rect = speedBar.current.getBoundingClientRect();
-    const fraction = (event.clientX - rect.left) / rect.width;
-    return (
-      SWING_SPEED_VALUES.MIN +
-      fraction * (SWING_SPEED_VALUES.MAX - SWING_SPEED_VALUES.MIN)
-    );
-  };
   const moveTo = (control, event) => {
     let raw;
     if (control === "swingSpeed") {
-      raw = speedFrom(event);
+      const rect = speedBar.current.getBoundingClientRect();
+      raw =
+        SWING_SPEED_VALUES.MIN +
+        ((event.clientX - rect.left) / rect.width) *
+          (SWING_SPEED_VALUES.MAX - SWING_SPEED_VALUES.MIN);
+    } else if (onSide(control)) {
+      const point = scenes.current.side.pick(event.clientX, event.clientY, {
+        plane: "side",
+      });
+      if (!point) return;
+      raw = fromSide[control](point, { standardLoft });
     } else {
-      const [ref, pad] = padOf(control);
-      raw = fromPointer[control](
-        toPadPoint(event, ref.current.getBoundingClientRect(), pad),
-      );
+      // The head is grabbed by its crown, the rest on the turf.
+      const point = scenes.current.top.pick(event.clientX, event.clientY, {
+        plane: "ground",
+        height: control === "strike" ? REACH.headHeight : 0,
+      });
+      if (!point) return;
+      raw = fromGround[control](point, shown, mirror);
     }
     const next = snap(raw, RANGES[control]);
     if (next !== values[control]) onChange(control, next);
@@ -368,19 +552,14 @@ const ClubPads = ({ values, side, preview, onChange }) => {
     if (!["aim", "clubFaceAngle", "clubPathAngle"].includes(control)) {
       return control;
     }
-    const point = toPadPoint(
-      event,
-      topPad.current.getBoundingClientRect(),
-      TOP,
-    );
-    const centres = {
-      aim: aimHandle(aim),
-      clubFaceAngle: faceHandle(setup),
-      clubPathAngle: pathHandle(setup),
+    const rect = event.currentTarget.closest("svg").getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const distance = (name) => {
+      const point = placed(name);
+      return Math.hypot(x - point.x, y - point.y);
     };
-    const distance = (name) =>
-      Math.hypot(point.x - centres[name].x, point.y - centres[name].y);
-    return Object.keys(centres).reduce((best, name) =>
+    return ["aim", "clubFaceAngle", "clubPathAngle"].reduce((best, name) =>
       distance(name) < distance(best) ? name : best,
     );
   };
@@ -399,7 +578,7 @@ const ClubPads = ({ values, side, preview, onChange }) => {
   });
 
   // While a handle is held, follow the pointer wherever it goes on the page,
-  // so the drag survives leaving the handle or the pad.
+  // so the drag survives leaving the handle or the view.
   const follow = useRef(null);
   follow.current = moveTo;
   useEffect(() => {
@@ -416,17 +595,27 @@ const ClubPads = ({ values, side, preview, onChange }) => {
     };
   }, [dragging]);
 
-  const handleProps = (control) => ({
-    control,
-    value: values[control],
-    text: text[control],
-    colour: describe[control].colour,
-    active: active === control,
-    dragging: dragging === control,
-    drag,
-    onChange,
-    onActive: setActive,
-  });
+  const handle = (control, bounds) => {
+    const point = placed(control);
+    if (!point) return null;
+    return (
+      <Handle
+        key={control}
+        control={control}
+        value={values[control]}
+        text={text[control]}
+        point={point}
+        bounds={bounds}
+        colour={describe[control].colour}
+        active={active === control}
+        dragging={dragging === control}
+        drag={drag}
+        onChange={onChange}
+        onActive={setActive}
+      />
+    );
+  };
+  const boundsOf = (scene) => (scene ? scene.size() : { width: 308 });
   const chipProps = (control) => ({
     control,
     value: values[control],
@@ -436,195 +625,44 @@ const ClubPads = ({ values, side, preview, onChange }) => {
     onActive: setActive,
   });
 
-  const { ball } = TOP;
-  const shift = headShift(setup);
-  const loftPoint = loftHandle({ loft: launch.dynamicLoftDegrees, mirror });
-  const attackPoint = attackHandle({ attack, mirror });
-  const launchDrawn = launch.launchAngleDegrees * 2 * DEGREES;
   const speedFraction =
     (swingSpeed - SWING_SPEED_VALUES.MIN) /
     (SWING_SPEED_VALUES.MAX - SWING_SPEED_VALUES.MIN);
+  // Draw the held handle last so its tag is never under a neighbour.
+  const inOrder = (controls) =>
+    [...controls].sort(
+      (a, b) =>
+        (a === dragging || a === active) - (b === dragging || b === active),
+    );
 
   return (
     <div className="flex flex-col gap-1.5" aria-label="Shot controls">
-      <div className="flex items-baseline justify-between">
-        <p className="text-sm font-bold">
+      <div className="flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-sm font-bold">
+          {preview && <FlightIcon sketch={preview.sketch} />}
           {preview ? preview.shape : "Club at impact"}
         </p>
-        <p className="text-[11px] text-white/55">
+        <p
+          className="text-[11px] text-white/55"
+          data-tooltip-id="main-tooltip"
+          data-tooltip-content="Angles are drawn several times their real size (the × in each view's corner) so a one-degree change is easy to see and grab. The numbers are the true values."
+        >
           Drag a handle · click a value to type
         </p>
       </div>
 
-      {/* From above: aim, face, path, strike */}
-      <svg
-        ref={topPad}
-        viewBox={`0 0 ${TOP.width} ${TOP.height}`}
-        className="club-pad block w-full select-none rounded-lg"
-        role="group"
-        aria-label="Club from above"
+      <Pad3D
+        name="Club from above"
+        caption={`Above ×${GAIN.face}`}
+        options={VIEW_FROM_ABOVE}
+        setup={topSetup}
+        className="aspect-[308/206]"
+        onScene={onTopScene}
       >
-        <Arrowheads />
-        <line
-          x1={ball.x}
-          y1="6"
-          x2={ball.x}
-          y2={TOP.height - 6}
-          stroke={MUTED}
-          strokeDasharray="3 5"
-        />
-        {/* where this setup sends the ball, sketched from above */}
-        {preview && (
-          <polyline
-            data-preview
-            fill="none"
-            stroke={START}
-            strokeWidth="2"
-            strokeDasharray="1 5"
-            strokeLinecap="round"
-            opacity="0.9"
-            points={preview.sketch
-              .map(
-                (p) =>
-                  `${(ball.x + p.across * 130).toFixed(1)},${(
-                    ball.y -
-                    8 -
-                    p.along * 92
-                  ).toFixed(1)}`,
-              )
-              .join(" ")}
-          />
+        {inOrder(["strike", "clubPathAngle", "clubFaceAngle", "aim"]).map(
+          (control) => handle(control, boundsOf(scenes.current.top)),
         )}
-        {/* the arc the aim handle rides on */}
-        <path
-          d={`M ${aimHandle(AIM_VALUES.MIN).x} ${aimHandle(AIM_VALUES.MIN).y} A ${TOP.aimRadius} ${TOP.aimRadius} 0 0 1 ${aimHandle(AIM_VALUES.MAX).x} ${aimHandle(AIM_VALUES.MAX).y}`}
-          fill="none"
-          stroke={MUTED}
-          strokeWidth="2"
-        />
-        <g transform={`rotate(${aimTurn(aim)} ${ball.x} ${ball.y})`}>
-          <line
-            x1={ball.x}
-            y1={ball.y - 12}
-            x2={ball.x}
-            y2={ball.y - TOP.aimRadius + 12}
-            stroke={AIM}
-            strokeWidth="1.5"
-            opacity="0.7"
-          />
-        </g>
-        {/* path: the head arriving from behind the ball */}
-        <g
-          data-arrow="path"
-          transform={`rotate(${pathTurn(setup)} ${ball.x} ${ball.y})`}
-        >
-          <line
-            x1={ball.x}
-            y1={ball.y + TOP.pathRadius - 12}
-            x2={ball.x}
-            y2={ball.y + 52}
-            stroke={PATH}
-            strokeWidth="4"
-            markerEnd="url(#pad-arrow-path)"
-          />
-        </g>
-        {/* face: the head, and where the face points */}
-        <g
-          data-arrow="face"
-          transform={`rotate(${faceTurn(setup)} ${ball.x} ${ball.y})`}
-        >
-          <line
-            x1={ball.x}
-            y1={ball.y - 14}
-            x2={ball.x}
-            y2={ball.y - TOP.faceRadius + 13}
-            stroke={FACE}
-            strokeWidth="3"
-            markerEnd="url(#pad-arrow-face)"
-          />
-          <g
-            data-strike
-            transform={`translate(${shift} 0)`}
-            style={{
-              cursor: dragging === "strike" ? "grabbing" : "ew-resize",
-              touchAction: "none",
-            }}
-            role="slider"
-            tabIndex={0}
-            data-control="strike"
-            aria-label={describe.strike.name}
-            aria-valuemin={STRIKE_VALUES.MIN}
-            aria-valuemax={STRIKE_VALUES.MAX}
-            aria-valuenow={strike}
-            aria-valuetext={text.strike}
-            className="club-handle"
-            onKeyDown={(event) => {
-              const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-              if (step) {
-                event.preventDefault();
-                onChange(
-                  "strike",
-                  snap(strike + step * STRIKE_VALUES.STEP, STRIKE_VALUES),
-                );
-              }
-            }}
-            onDoubleClick={() => onChange("strike", STRIKE_VALUES.DEFAULT)}
-            onPointerEnter={() => setActive("strike")}
-            onPointerLeave={() => setActive(null)}
-            {...drag("strike")}
-          >
-            <rect
-              x={ball.x - 50}
-              y={ball.y + 10}
-              width="100"
-              height="32"
-              rx="14"
-              className="club-handle-ring"
-              fill="#15181d"
-              stroke={
-                active === "strike" || dragging === "strike" ? STRIKE : FACE
-              }
-              strokeWidth="2.5"
-            />
-            <line
-              x1={ball.x - mirror * 50}
-              y1={ball.y + 26}
-              x2={ball.x - mirror * 84}
-              y2={ball.y + 38}
-              stroke="#c9ced6"
-              strokeWidth="5"
-              strokeLinecap="round"
-            />
-            {/* grip marks: this is the part you slide */}
-            <path
-              d={`M ${ball.x - 26} ${ball.y + 20} l -7 6 l 7 6 M ${ball.x + 26} ${ball.y + 20} l 7 6 l -7 6`}
-              fill="none"
-              stroke={STRIKE}
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </g>
-        </g>
-        <circle cx={ball.x} cy={ball.y} r="10" fill="#ffffff" />
-        <g
-          data-arrow="start"
-          transform={`rotate(${startTurn} ${ball.x} ${ball.y})`}
-        >
-          <line
-            x1={ball.x}
-            y1={ball.y - 14}
-            x2={ball.x}
-            y2={ball.y - 38}
-            stroke={START}
-            strokeWidth="3"
-            markerEnd="url(#pad-arrow-start)"
-          />
-        </g>
-        <Handle {...handleProps("clubPathAngle")} point={pathHandle(setup)} />
-        <Handle {...handleProps("clubFaceAngle")} point={faceHandle(setup)} />
-        <Handle {...handleProps("aim")} point={aimHandle(aim)} />
-      </svg>
+      </Pad3D>
 
       <div className="grid grid-cols-2 gap-1.5">
         <ValueChip {...chipProps("clubFaceAngle")} />
@@ -633,95 +671,23 @@ const ClubPads = ({ values, side, preview, onChange }) => {
         <ValueChip {...chipProps("aim")} />
       </div>
 
-      {/* From the side: attack angle and loft */}
-      <svg
-        ref={sidePad}
-        viewBox={`0 0 ${SIDE.width} ${SIDE.height}`}
-        className="club-pad block w-full select-none rounded-lg"
-        role="group"
-        aria-label="Club from the side"
+      <Pad3D
+        name="Club from the side"
+        caption={`Toe ×${GAIN.attack}`}
+        options={VIEW_FROM_TOE}
+        setup={sideSetup}
+        className="aspect-[308/112]"
+        note={`launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
+          launch.backspinRPM,
+        )} rpm`}
+        // keep it clear of the attack handle, which swaps sides with the golfer
+        noteOnLeft={mirror < 0}
+        onScene={onSideScene}
       >
-        <Arrowheads />
-        <line
-          x1="8"
-          y1={SIDE.ground}
-          x2={SIDE.width - 8}
-          y2={SIDE.ground}
-          stroke={MUTED}
-        />
-        <g
-          transform={
-            mirror < 0 ? `translate(${SIDE.width} 0) scale(-1 1)` : undefined
-          }
-        >
-          <line
-            x1="128"
-            y1="6"
-            x2="144"
-            y2="68"
-            stroke="#c9ced6"
-            strokeWidth="4"
-            strokeLinecap="round"
-          />
-          <path
-            d="M118 70 Q114 85 136 85 L160 85 L160 64 Q136 58 118 70 Z"
-            fill="#15181d"
-            stroke={FACE}
-            strokeWidth="2"
-          />
-          <line
-            x1="178"
-            y1={SIDE.ground}
-            x2="178"
-            y2="80"
-            stroke="#f2e6c9"
-            strokeWidth="3"
-          />
-          <circle cx="178" cy="73" r="8" fill="#ffffff" />
-          <line
-            data-arrow="start"
-            x1="190"
-            y1="68"
-            x2={190 + 54 * Math.cos(launchDrawn)}
-            y2={68 - 54 * Math.sin(launchDrawn)}
-            stroke={START}
-            strokeWidth="3"
-            markerEnd="url(#pad-arrow-start)"
-          />
-        </g>
-        <line
-          data-arrow="face"
-          x1={sideX(SIDE.facePivot.x, mirror)}
-          y1={SIDE.facePivot.y}
-          x2={loftPoint.x}
-          y2={loftPoint.y}
-          stroke={FACE}
-          strokeWidth="3"
-        />
-        <line
-          data-arrow="path"
-          x1={attackPoint.x}
-          y1={attackPoint.y}
-          x2={sideX(SIDE.attackTip.x, mirror)}
-          y2={SIDE.attackTip.y}
-          stroke={PATH}
-          strokeWidth="4"
-          markerEnd="url(#pad-arrow-path)"
-        />
-        <text
-          x={sideX(SIDE.width - 10, mirror)}
-          y="14"
-          textAnchor={mirror < 0 ? "start" : "end"}
-          fontSize="11"
-          fill={START}
-        >
-          launch {launch.launchAngleDegrees.toFixed(1)}° ·{" "}
-          {Math.round(launch.backspinRPM)} rpm
-        </text>
-        <Handle {...handleProps("attackAngle")} point={attackPoint} />
-        <Handle {...handleProps("loftChange")} point={loftPoint} />
-      </svg>
-
+        {inOrder(["attackAngle", "loftChange"]).map((control) =>
+          handle(control, boundsOf(scenes.current.side)),
+        )}
+      </Pad3D>
       <div className="grid grid-cols-2 gap-1.5">
         <ValueChip {...chipProps("attackAngle")} />
         <ValueChip {...chipProps("loftChange")} />
@@ -733,8 +699,10 @@ const ClubPads = ({ values, side, preview, onChange }) => {
           <ValueChip {...chipProps("swingSpeed")} />
         </div>
         <div
+          ref={speedBar}
           role="slider"
           tabIndex={0}
+          data-control="swingSpeed"
           aria-label={describe.swingSpeed.name}
           aria-valuemin={SWING_SPEED_VALUES.MIN}
           aria-valuemax={SWING_SPEED_VALUES.MAX}
@@ -762,8 +730,6 @@ const ClubPads = ({ values, side, preview, onChange }) => {
           }
           onPointerEnter={() => setActive("swingSpeed")}
           onPointerLeave={() => setActive(null)}
-          ref={speedBar}
-          data-control="swingSpeed"
           {...drag("swingSpeed")}
         >
           <div

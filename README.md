@@ -98,19 +98,25 @@ React UI (App.js, components/)          src/simulate/ (no React)
 - **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
   viewport with a HUD over it (stacked under the scene on phones).
   - **Shot controls are the club itself** (`components/simulator/club-pads.jsx`).
-    The left panel draws the club at impact twice: from above (aim, face, path,
-    strike) and from the side (attack angle, loft), plus one bar for swing
-    speed. Every control can be set three ways: drag its handle, press its keys
-    (`src/utils/shortcuts.js`: Q/E face, A/D path, S/W speed, G/T attack, H/Y
-    loft, B/N strike, Z/C aim, Space hit, R reset), or click its value to type a
-    number. Handles are real `role="slider"` elements (arrow keys, Home/End,
-    double-click to reset). The panel names the shot shape for the current
-    setup and sketches its flight, but gives no distance, so game mode still
-    has to be judged. Drag geometry is pure and tested in
-    `src/utils/club-pad.js`; angles are drawn five times their size so one
-    degree is an easy drag.
-  - A live 3D close-up of the driver (see below) is behind a "3D close-up"
-    toggle under the panel.
+    The left panel shows the driver at impact in two live 3D views, built from
+    the same scene as the old close-up (`club-scene.js`, below): from above
+    (aim, face, path, strike) and from the toe (attack angle, loft), plus one
+    bar for swing speed. Drag handles are laid over each view at the screen
+    position of a point in the scene, and a drag is read back by casting a
+    ray from the pointer onto the turf (or the upright plane through the ball
+    and target). Every control can be set three ways: drag its handle, press
+    its keys (`src/utils/shortcuts.js`: Q/E face, A/D path, S/W speed, G/T
+    attack, H/Y loft, B/N strike, Z/C aim, Space hit, R reset), or click its
+    value to type a number. Handles are real `role="slider"` elements (arrow
+    keys, Home/End, double-click to reset) and show their value in a tag while
+    hovered or held. The panel names the shot shape for the current setup with
+    a thumbnail of its flight, but gives no distance, so game mode still has
+    to be judged.
+  - **Angles are drawn bigger than life in the two views** so one degree is a
+    visible, grabbable movement: face and path ×5, aim ×2.5, attack and loft
+    ×4, strike ×2 (the × is shown in each view's corner; the numbers are
+    always true). The handle geometry is pure and tested in
+    `src/utils/club-handles.js`, in the scene's own centimetres.
   - Session settings (game mode, dominant side, turf) and the feedback link are
     in a modal behind the gear button, bottom left. On laptops Hit sits to the
     right of the result bar.
@@ -132,7 +138,11 @@ React UI (App.js, components/)          src/simulate/ (no React)
 - **Golfer** is built from primitives and animated by hand-written keyframes
   rather than an imported rigged model: nothing to license or download, and the
   contact frame is exact by construction.
-- **Club view** — a second, small Three.js scene under the control panel.
+- **Club scene** — the 3D driver used by the two control views. `createClubScene`
+  takes options for a fixed camera, which guides to draw, and exposes `project`
+  (scene point to screen pixels) and `pick` (screen position to scene point) for
+  the drag handles. The named camera angles, orbiting and value tags from the
+  earlier free-look close-up are still in the scene but no longer mounted.
   `club-setup.js` (pure, tested) turns the controls into the pose: absolute face,
   path and start directions, loft tilt, strike offset, launch. `club-scene.js`
   (WebGL) sculpts a driver head in code: `headPoint` maps a unit sphere onto the

@@ -78,3 +78,7 @@ does.
 Safari throws a SecurityError after 100 `history.replaceState` calls in 30 seconds.
 Shot values live in a draft in `App.js` and are written to the URL 250 ms after
 they stop changing.
+2026-11-16 — preference — Sachal wants the shot controls to look like the 3D
+close-up (real modelled driver, turf, lit), not flat schematic diagrams. Any new
+control surface should be built on the 3D club scene, with handles projected onto
+it, and held to a high visual bar.

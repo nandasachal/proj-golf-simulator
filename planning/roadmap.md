@@ -45,6 +45,11 @@
   view's size on short screens.
 - [done] Direct-manipulation shot controls (2026-11-16) — drag handles on the
   club, click-to-type values, live shot-shape preview; sliders removed.
+- [done] 3D control views (2026-11-16) — the two flat control diagrams are now
+  live 3D views of the driver with the drag handles on top.
+- Free-look close-up: the orbiting, enlargeable 3D view was removed when the
+  controls became 3D. The scene still supports it; bring it back as an
+  "expand" on a control view if it is missed.
 - **More shot controls**, in rough order of value: high/low strike on the face
   (changes launch and spin); wind; tee height; ball position in the stance.
   Altitude/temperature and slope are lower value.

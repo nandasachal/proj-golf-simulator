@@ -65,7 +65,8 @@
 }
 
 .club-pad {
-  background: #17331f;
+  // behind the turf, where it has faded out toward the edge or the horizon
+  background: linear-gradient(#0e2318 0%, #1c4429 62%, #2a5c35 100%);
 }
 
 .club-handle {

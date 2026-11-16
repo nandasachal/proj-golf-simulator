@@ -163,3 +163,18 @@ tests) · still open: on phones the pads and the 3D scene don't fit on screen
 together, so you adjust, then scroll up to watch; handle grab areas are 41 px on a
 phone (44 is the usual minimum); tab order visits Hit and Settings before the
 controls; real trackpad/touch still untried by hand.
+
+2026-11-16 — 3D control views — done: the two flat control diagrams are replaced by
+live 3D views of the driver (the close-up's scene on fixed cameras: from above and
+from the toe) with the drag handles projected onto them and drags read back by ray
+casting. `club-scene.js` gained fixed-camera/guide options, `project` and `pick`;
+handle geometry moved to world space in `src/utils/club-handles.js` (replaces
+`club-pad.js`). Handles show a value tag while hovered or held; the side view has a
+line up the face plane for loft. The separate "3D close-up" toggle is gone (it was
+the duplicate). check: green (213 tests + strict build) · verified in the browser:
+all seven controls drag with realistic pointer routing, both hands, every handle
+≥12 px inside its view across 128 extreme setups, fits 1280x720, phone width and
+touch-style drag · decisions: two fixed views rather than one tabbed view, so no
+control needs a camera change to reach; angles exaggerated per control (×5, ×2.5,
+×4, ×2) and disclosed in each view's corner · next: real-hand trial; consider an
+expand/free-look on a view.

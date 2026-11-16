@@ -19,6 +19,8 @@ const RADIANS = Math.PI / 180;
 export const FACE_COLOR = 0xffffff;
 export const PATH_COLOR = 0xa3e635;
 export const START_COLOR = 0xfb923c;
+// How far the loft lever reaches up from the middle of the face.
+export const LOFT_LEVER_LENGTH = 20;
 
 // Camera positions for a right-hander; x flips for a left-hander.
 const LOOK_AT = new THREE.Vector3(0, 4, -3.5);
@@ -503,7 +505,8 @@ function buildTee() {
   return tee;
 }
 
-function buildTurf() {
+// `radius` is how far the patch of turf reaches before it has faded away.
+function buildTurf(radius = 95) {
   const size = 512;
   const paint = (draw) => {
     const canvas = document.createElement("canvas");
@@ -550,11 +553,12 @@ function buildTurf() {
   const map = new THREE.CanvasTexture(colour);
   map.colorSpace = THREE.SRGBColorSpace;
   map.wrapS = map.wrapT = THREE.RepeatWrapping;
-  map.repeat.set(5, 5);
+  // the same size of grass however big the patch
+  map.repeat.set(radius / 19, radius / 19);
   map.anisotropy = 8;
 
   // The fade must not tile with the grass, so it uses its own UVs.
-  const geometry = new THREE.CircleGeometry(95, 64);
+  const geometry = new THREE.CircleGeometry(radius, 64);
   const turf = new THREE.Mesh(
     geometry,
     new THREE.MeshStandardMaterial({
@@ -761,7 +765,35 @@ const pointAlong = (object, direction) =>
     new THREE.Vector3(direction.x, direction.y, direction.z).normalize(),
   );
 
-export function createClubScene(container) {
+// Options, all optional:
+//   orbit        let the viewer drag to look around (default true)
+//   camera       { position: [x, y, z], lookAt: [x, y, z], fov } for one
+//                fixed angle instead of the named views; x flips for a
+//                left-hander
+//   labels       draw the value tags (default true)
+//   groundGuides draw the aim, path, face and start lines on the turf
+//   airGuides    draw the attack and launch arrows
+//   loftLever    draw a line up the plane of the face, so its lean is easy
+//                to see and to grab
+//   attackRodLength, launchRodLength  how long the arriving and leaving
+//                arrows are drawn
+//   turfRadius   how far the turf reaches (bigger for a view along the ground)
+export function createClubScene(container, options = {}) {
+  const {
+    orbit = true,
+    camera: fixedCamera = null,
+    labels: showLabels = true,
+    groundGuides = true,
+    airGuides = true,
+    loftLever = false,
+    attackRodLength = 20,
+    launchRodLength = 46,
+    turfRadius = 95,
+  } = options;
+  const lookAt = fixedCamera
+    ? new THREE.Vector3(...fixedCamera.lookAt)
+    : LOOK_AT;
+
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
@@ -795,7 +827,7 @@ export function createClubScene(container) {
   rim.position.set(50, 35, 40);
   scene.add(sun, rim, new THREE.AmbientLight(0xffffff, 0.25));
 
-  scene.add(buildTurf(), buildTee(), buildBall());
+  scene.add(buildTurf(turfRadius), buildTee(), buildBall());
 
   // Everything that turns with the golfer's aim.
   const aimed = new THREE.Group();
@@ -864,8 +896,16 @@ export function createClubScene(container) {
   scene.add(...Object.values(labels));
 
   // In the air: how the head arrives and how the ball leaves.
-  const attackRod = rod({ color: PATH_COLOR, length: 20, radius: 0.2 });
-  const launchRod = rod({ color: START_COLOR, length: 46, radius: 0.24 });
+  const attackRod = rod({
+    color: PATH_COLOR,
+    length: attackRodLength,
+    radius: 0.2,
+  });
+  const launchRod = rod({
+    color: START_COLOR,
+    length: launchRodLength,
+    radius: 0.24,
+  });
   scene.add(attackRod, launchRod);
 
   // The driver. `club` turns with the face; `tilt` tips it back for loft;
@@ -877,14 +917,52 @@ export function createClubScene(container) {
   club.add(tilt);
   scene.add(club);
 
-  const camera = new THREE.PerspectiveCamera(30, 1, 1, 800);
-  const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.copy(LOOK_AT);
-  controls.enablePan = false;
-  controls.minDistance = 28;
-  controls.maxDistance = 170;
-  controls.maxPolarAngle = Math.PI / 2 - 0.03;
-  controls.enableDamping = false;
+  if (loftLever) {
+    // Rises from the middle of the face along the face's own plane, so it
+    // leans exactly as far as the loft.
+    const lever = rod({
+      color: FACE_COLOR,
+      length: LOFT_LEVER_LENGTH,
+      radius: 0.16,
+    });
+    const lean = DRIVER_STATIC_LOFT_DEGREES * RADIANS;
+    pointAlong(lever, { x: 0, y: Math.cos(lean), z: -Math.sin(lean) });
+    tilt.add(lever);
+  }
+
+  for (const guide of [
+    aimLine,
+    pathRibbon,
+    startRibbon,
+    faceRibbon,
+    faceLine,
+  ]) {
+    guide.visible = groundGuides;
+  }
+  attackRod.visible = airGuides;
+  launchRod.visible = airGuides;
+  for (const tag of Object.values(labels)) tag.visible = showLabels;
+
+  const camera = new THREE.PerspectiveCamera(fixedCamera?.fov ?? 30, 1, 1, 800);
+  // Without orbiting the camera just looks at its target.
+  const controls = orbit
+    ? new OrbitControls(camera, renderer.domElement)
+    : {
+        target: new THREE.Vector3(),
+        update() {
+          camera.lookAt(this.target);
+        },
+        addEventListener() {},
+        dispose() {},
+      };
+  controls.target.copy(lookAt);
+  if (orbit) {
+    controls.enablePan = false;
+    controls.minDistance = 28;
+    controls.maxDistance = 170;
+    controls.maxPolarAngle = Math.PI / 2 - 0.03;
+    controls.enableDamping = false;
+  }
 
   let mirror = 1;
   let view = "behind";
@@ -896,7 +974,7 @@ export function createClubScene(container) {
   }
 
   function viewPosition(name) {
-    const [x, y, z] = VIEWS[name].position;
+    const [x, y, z] = fixedCamera ? fixedCamera.position : VIEWS[name].position;
     return new THREE.Vector3(x * mirror, y, z);
   }
 
@@ -908,7 +986,7 @@ export function createClubScene(container) {
     if (instant) {
       tween = null;
       camera.position.copy(to);
-      controls.target.copy(LOOK_AT);
+      controls.target.copy(lookAt);
       controls.update();
       render();
       return;
@@ -923,13 +1001,13 @@ export function createClubScene(container) {
     const t = Math.min(1, (now - tween.start) / 450);
     const eased = t * t * (3 - 2 * t);
     // Swing round the look-at point rather than cutting through the club.
-    const from = tween.from.clone().sub(LOOK_AT);
-    const to = tween.to.clone().sub(LOOK_AT);
+    const from = tween.from.clone().sub(lookAt);
+    const to = tween.to.clone().sub(lookAt);
     const distance = from.length() + (to.length() - from.length()) * eased;
     const direction = from.normalize().lerp(to.normalize(), eased);
     if (direction.lengthSq() < 1e-6) direction.set(0, 1, 0);
     camera.position
-      .copy(LOOK_AT)
+      .copy(lookAt)
       .addScaledVector(direction.normalize(), distance);
     controls.update();
     render();
@@ -947,7 +1025,7 @@ export function createClubScene(container) {
     pathRibbon.rotation.y = turn(setup.pathDegrees);
     faceRibbon.rotation.y = turn(setup.faceDegrees);
     startRibbon.rotation.y = turn(setup.startDegrees);
-    centreLine.visible = setup.aimDegrees !== 0;
+    centreLine.visible = groundGuides && setup.aimDegrees !== 0;
 
     // The face meets the back of the ball.
     const contact = new THREE.Vector3(0, BALL_HEIGHT, 0).addScaledVector(
@@ -967,7 +1045,10 @@ export function createClubScene(container) {
     pointAlong(attackRod, arriving);
     attackRod.position
       .set(0, BALL_HEIGHT, 0)
-      .addScaledVector(new THREE.Vector3().copy(arriving), -36);
+      .addScaledVector(
+        new THREE.Vector3().copy(arriving),
+        -(16 + attackRodLength),
+      );
 
     const leaving = risingDirection(setup.startDegrees, setup.launchDegrees);
     pointAlong(launchRod, leaving);
@@ -1056,7 +1137,57 @@ export function createClubScene(container) {
     container.removeChild(renderer.domElement);
   }
 
-  const api = { update, setView, dispose, render, scene, camera };
+  // Where a point in the scene is drawn, in pixels from the view's top left.
+  function project(point) {
+    camera.updateMatrixWorld();
+    const ndc = new THREE.Vector3(point.x, point.y, point.z).project(camera);
+    return {
+      x: ((ndc.x + 1) / 2) * container.clientWidth,
+      y: ((1 - ndc.y) / 2) * container.clientHeight,
+    };
+  }
+
+  // The point in the scene under a screen position, on the turf (or a level
+  // plane `height` above it) for `plane: "ground"`, or on the upright plane
+  // through the ball and the target for `plane: "side"`. Null if the view
+  // never meets that plane there.
+  const raycaster = new THREE.Raycaster();
+  function pick(clientX, clientY, { plane = "ground", height = 0 } = {}) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    camera.updateMatrixWorld();
+    raycaster.setFromCamera(
+      new THREE.Vector2(
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        1 - ((clientY - rect.top) / rect.height) * 2,
+      ),
+      camera,
+    );
+    const surface =
+      plane === "side"
+        ? new THREE.Plane(new THREE.Vector3(1, 0, 0), 0)
+        : new THREE.Plane(new THREE.Vector3(0, 1, 0), -height);
+    const hit = raycaster.ray.intersectPlane(surface, new THREE.Vector3());
+    return hit ? { x: hit.x, y: hit.y, z: hit.z } : null;
+  }
+
+  // The view's size on the page, in pixels.
+  const size = () => ({
+    width: container.clientWidth,
+    height: container.clientHeight,
+  });
+
+  const api = {
+    update,
+    setView,
+    dispose,
+    render,
+    project,
+    pick,
+    size,
+    scene,
+    camera,
+  };
   if (process.env.NODE_ENV !== "production") window.__clubScene = api;
   return api;
 }

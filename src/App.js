@@ -7,7 +7,6 @@ import ClubPads from "./components/simulator/club-pads";
 import ButtonRow, { HitButton } from "./components/simulator/button-row";
 import ShotReadout from "./components/simulator/shot-readout";
 import SettingsModal from "./components/simulator/settings-modal";
-import ClubView from "./components/simulator/club-view";
 import GameCard from "./components/simulator/game-card";
 import { useQueryState, useSetQueries } from "./hooks/use-query";
 import { createSimulator } from "./simulate/main";
@@ -173,19 +172,6 @@ function App() {
     desktop.addEventListener("change", update);
     return () => desktop.removeEventListener("change", update);
   }, []);
-
-  const [showCloseUp, setShowCloseUp] = useState(false);
-  // On a short screen the close-up opens below the fold of the left column:
-  // bring it into view instead of leaving only its tab strip showing.
-  const closeUpToggle = useRef(null);
-  useEffect(() => {
-    if (showCloseUp) {
-      closeUpToggle.current.nextElementSibling?.scrollIntoView?.({
-        block: "nearest",
-        behavior: "smooth",
-      });
-    }
-  }, [showCloseUp]);
 
   // What this setup will do, shown while it is being adjusted.
   const preview = useMemo(
@@ -463,28 +449,6 @@ function App() {
             showHit={!isDesktop}
           />
         </div>
-        <button
-          type="button"
-          className="hud-panel flex h-9 items-center justify-between px-3 text-xs font-semibold text-white/80 hover:text-white"
-          ref={closeUpToggle}
-          aria-expanded={showCloseUp}
-          onClick={() => setShowCloseUp((shown) => !shown)}
-        >
-          3D close-up
-          <span aria-hidden="true">{showCloseUp ? "Hide" : "Show"}</span>
-        </button>
-        {showCloseUp && (
-          <ClubView
-            faceAngle={faceAngle}
-            pathAngle={pathAngle}
-            swingSpeed={swingSpeed}
-            aim={aim}
-            attackAngle={attackAngle}
-            loftChange={loftChange}
-            strike={strike}
-            side={side}
-          />
-        )}
       </div>
     </div>
   );
