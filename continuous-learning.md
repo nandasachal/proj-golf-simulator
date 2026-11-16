@@ -46,3 +46,13 @@ flipping on bad frames). Anything flat on the ground must go through
 `groundOverlay()` in `range.js` (draw order + polygon offset + no depth write), not
 just a small y offset. Still screenshots hid this; it only shows in motion, so
 measure frame-to-frame pixel change when touching the ground layers.
+2026-11-15 — mistake — `Math.round` on a signed value rounds -2.25 to -2.2 but 2.25
+to 2.3, so a left-hander's label read "2.2° left" where a right-hander's read
+"2.3° right". Round the magnitude, then add the direction word.
+2026-11-15 — note — The left column now holds seven sliders plus the 3D club view
+and overflows windows under about 850 px tall. Anything else added there needs to
+come with a plan for height (collapse, move to Settings, or shrink something).
+2026-11-15 — note — A session can end mid-task and another can pick the work up: at
+the start of a turn after an interruption, check `git status` and run the tests
+before assuming what is or isn't done. Here the strike control had been finished,
+and the Game-mode default changed, without this session doing either.

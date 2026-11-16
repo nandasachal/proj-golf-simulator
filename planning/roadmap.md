@@ -38,6 +38,11 @@
   (2026-11-15).
 - [done] Attack angle and loft-at-impact controls (2026-11-15).
 - [done] Heel/toe strike location control (2026-11-15).
+- [done] Heel/toe strike control; Game mode as the default (2026-11-15).
+- [done] 3D driver close-up replacing the flat club diagrams (2026-11-15), first
+  pass. Refinements still open: head shape from behind, materials, making small
+  face-to-path angles easier to see at true size, labels in the scene, and the
+  view's size on short screens.
 - **More shot controls**, in rough order of value: high/low strike on the face
   (changes launch and spin); wind; tee height; ball position in the stance.
   Altitude/temperature and slope are lower value.
