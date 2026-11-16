@@ -48,3 +48,18 @@
     outline-offset: 4px;
   }
 }
+
+// Backdrop for the close-up club view: a soft sky falling to the turf patch.
+.club-view {
+  background: radial-gradient(
+    120% 90% at 50% 100%,
+    #5c8f52 0%,
+    #9cc3d6 46%,
+    #6fa3d8 100%
+  );
+  touch-action: none;
+
+  canvas {
+    display: block;
+  }
+}

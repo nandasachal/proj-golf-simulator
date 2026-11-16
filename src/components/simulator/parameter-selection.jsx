@@ -28,7 +28,7 @@ const Slider = ({
   keys,
   keyHint,
 }) => (
-  <div className="mt-4 first:mt-0">
+  <div className="mt-2.5 first:mt-0">
     <div className="flex items-baseline justify-between gap-2">
       <label htmlFor={id} className="text-sm font-medium text-white/80">
         {name}
@@ -50,7 +50,7 @@ const Slider = ({
     <input
       id={id}
       type="range"
-      className="hud-range mt-2 w-full cursor-pointer"
+      className="hud-range mt-1.5 w-full cursor-pointer"
       min={range.MIN}
       max={range.MAX}
       step={range.STEP}

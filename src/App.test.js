@@ -2,14 +2,25 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import App from "./App";
 import { createSimulator } from "./simulate/main";
+import { createClubScene } from "./simulate/club-scene";
 import { TURF_PRESETS } from "./simulate/ground";
 
 // jsdom has no WebGL, so the 3D scene can't start under Jest; the fake stands
 // in for it and records what the UI asks it to do.
 jest.mock("./simulate/main", () => ({ createSimulator: jest.fn() }));
+jest.mock("./simulate/club-scene", () => ({
+  createClubScene: jest.fn(),
+  VIEWS: {
+    behind: { label: "Behind" },
+    toe: { label: "Toe" },
+    above: { label: "Above" },
+    face: { label: "Face" },
+  },
+}));
 
 let simulator;
 let callbacks;
+let clubScene;
 
 beforeEach(() => {
   simulator = {
@@ -20,6 +31,9 @@ beforeEach(() => {
     setViewInset: jest.fn(),
     dispose: jest.fn(),
   };
+  clubScene = { update: jest.fn(), setView: jest.fn(), dispose: jest.fn() };
+  createClubScene.mockReset();
+  createClubScene.mockReturnValue(clubScene);
   createSimulator.mockReset();
   createSimulator.mockImplementation((_container, simCallbacks) => {
     callbacks = simCallbacks;
@@ -92,10 +106,10 @@ describe("shot controls", () => {
     fireEvent.change(screen.getByLabelText(/^aim/i), {
       target: { value: "-5" },
     });
-    expect(screen.getByText("4° open")).toBeInTheDocument();
-    expect(screen.getByText("2° out-to-in")).toBeInTheDocument();
+    expect(screen.getAllByText("4° open").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("2° out-to-in").length).toBeGreaterThan(0);
     expect(screen.getAllByText("120 mph").length).toBeGreaterThan(0);
-    expect(screen.getByText("5° left")).toBeInTheDocument();
+    expect(screen.getAllByText("5° left").length).toBeGreaterThan(0);
 
     hit();
     const launch = lastLaunch();
@@ -131,13 +145,13 @@ describe("shot controls", () => {
     renderApp("/?speed=105");
     hit();
     const level = lastLaunch();
-    expect(screen.getByText("level")).toBeInTheDocument();
+    expect(screen.getAllByText("level").length).toBeGreaterThan(0);
     expect(screen.getByText("14.1°")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/attack angle/i), {
       target: { value: "5" },
     });
-    expect(screen.getByText("5° up")).toBeInTheDocument();
+    expect(screen.getAllByText("5° up").length).toBeGreaterThan(0);
     hit();
     const up = lastLaunch();
     expect(up.initVerticalAngleDegrees).toBeGreaterThan(
@@ -486,81 +500,91 @@ describe("shot result bar", () => {
   });
 });
 
-describe("club views", () => {
-  const view = (name) =>
-    screen.getByRole("img", { name: new RegExp(`^${name}`) });
-  const arrowTurn = (name, arrow) =>
-    view(name)
-      .querySelector(`[data-arrow="${arrow}"]`)
-      .getAttribute("transform");
+describe("club view", () => {
+  const club = () => screen.getByRole("img", { name: /^Driver at impact/ });
+  const posed = () => clubScene.update.mock.calls.at(-1)[0];
+  const region = () =>
+    within(screen.getByRole("region", { name: "Club at impact" }));
 
-  test("three views sit under the controls and describe the current setup", () => {
+  test("a 3D close-up sits under the controls and is posed from the current setup", () => {
     renderApp("/?face=2&path=-1&speed=100");
-    expect(view("From behind")).toBeInTheDocument();
-    expect(view("From the toe")).toBeInTheDocument();
-    expect(view("From above")).toHaveAccessibleName(
-      "From above: face 2° open, path 1° out-to-in, ball starts 1.5° right, aim straight, struck in the centre",
+    expect(club()).toHaveAccessibleName(
+      "Driver at impact: face 2° open, path 1° out-to-in, ball starts 1.5° right, aim straight, attack level, 14.5° of loft, launches at 12.4° with 2815 rpm of backspin, struck in the centre",
     );
-    expect(view("From the toe")).toHaveAccessibleName(
-      "From the toe: 100 mph, attack level, 14.5° of loft, launches at 12.4° with 2815 rpm of backspin",
-    );
+    expect(posed()).toMatchObject({
+      faceDegrees: 2,
+      pathDegrees: -1,
+      aimDegrees: 0,
+      strikeCm: 0,
+      mirror: 1,
+    });
+    expect(region().getByText("2° open")).toBeInTheDocument();
+    expect(region().getByText("1° out-to-in")).toBeInTheDocument();
+    expect(region().getByText("1.5° right")).toBeInTheDocument();
   });
 
-  test("the arrows turn as the controls change", () => {
+  test("the club is re-posed as each control changes", () => {
     renderApp();
-    expect(arrowTurn("From above", "face")).toBe("rotate(0 60 72)");
-    expect(arrowTurn("From above", "path")).toBe("rotate(0 60 72)");
-
     press("e");
     press("e");
     press("a");
-    // drawn at three times the real angle so small changes are visible
-    expect(arrowTurn("From above", "face")).toBe("rotate(6 60 72)");
-    expect(arrowTurn("From above", "path")).toBe("rotate(-3 60 72)");
-    expect(view("From above")).toHaveAccessibleName(
-      /face 2° open, path 1° out-to-in/,
-    );
-
-    press("w");
-    expect(view("From the toe")).toHaveAccessibleName(/^From the toe: 96 mph/);
+    expect(posed()).toMatchObject({ faceDegrees: 2, pathDegrees: -1 });
 
     press("c");
-    expect(view("From behind")).toHaveAccessibleName(
-      /aim 1° right, struck in the centre$/,
-    );
+    expect(posed()).toMatchObject({
+      aimDegrees: 1,
+      faceDegrees: 3,
+      pathDegrees: 0,
+    });
 
-    // the toe view shows the vertical controls
-    const toeArrow = (arrow) =>
-      view("From the toe")
-        .querySelector(`[data-arrow="${arrow}"]`)
-        .getAttribute("transform");
-    const levelAttack = toeArrow("path");
-    const standardLoft = toeArrow("face");
+    const level = posed();
     press("t");
     press("y");
-    expect(toeArrow("path")).not.toBe(levelAttack);
-    expect(toeArrow("face")).not.toBe(standardLoft);
-    expect(view("From the toe")).toHaveAccessibleName(/attack 1° up/);
+    expect(posed().attackDegrees).toBe(1);
+    expect(posed().loftTiltDegrees).toBeGreaterThan(level.loftTiltDegrees);
 
-    // a toe strike slides the head toward the golfer in both plan views
-    const head = (name) =>
-      view(name).querySelector("[data-strike]").getAttribute("transform");
-    const centredAbove = head("From above");
-    const centredBehind = head("From behind");
     press("n");
-    press("n");
-    expect(head("From above")).toBe("translate(-5.5 0)");
-    expect(head("From above")).not.toBe(centredAbove);
-    expect(head("From behind")).not.toBe(centredBehind);
-    expect(view("From above")).toHaveAccessibleName(
-      /struck 0.5 in toward the toe$/,
-    );
+    expect(posed().strikeCm).toBeCloseTo(0.635);
+    expect(club()).toHaveAccessibleName(/struck 0\.25 in toe side$/);
   });
 
-  test("a left-hander's open face points the other way on the page", () => {
+  test("a left-hander's club is mirrored", () => {
     renderApp("/?face=2&side=Left");
-    expect(arrowTurn("From above", "face")).toBe("rotate(-6 60 72)");
-    expect(view("From above")).toHaveAccessibleName(/ball starts 1.7° left/);
+    expect(posed()).toMatchObject({ mirror: -1, faceDegrees: -2 });
+  });
+
+  test("the angle buttons move the camera", () => {
+    renderApp();
+    const angles = region().getByRole("group", { name: "Camera angle" });
+    expect(
+      within(angles).getByRole("button", { name: "Behind" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    for (const [label, name] of [
+      ["Toe", "toe"],
+      ["Above", "above"],
+      ["Face", "face"],
+      ["Behind", "behind"],
+    ]) {
+      fireEvent.click(within(angles).getByRole("button", { name: label }));
+      expect(clubScene.setView).toHaveBeenLastCalledWith(name);
+      expect(
+        within(angles).getByRole("button", { name: label }),
+      ).toHaveAttribute("aria-pressed", "true");
+    }
+  });
+
+  test("the view can be enlarged and shrunk again", () => {
+    renderApp();
+    fireEvent.click(
+      region().getByRole("button", { name: "Enlarge club view" }),
+    );
+    expect(
+      region().getByRole("button", { name: "Shrink club view" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(region().getByRole("button", { name: "Shrink club view" }));
+    expect(
+      region().getByRole("button", { name: "Enlarge club view" }),
+    ).toBeInTheDocument();
   });
 });
 

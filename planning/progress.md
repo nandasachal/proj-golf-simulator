@@ -98,3 +98,14 @@ ball speed. Game mode is now the default; `mode=practice` in the URL selects
 practice. check: green (158 tests + strict build) · next: realistic 3D club view
 replacing the three flat diagrams (one large view, angle buttons, ground ribbons,
 driver sculpted in code — options confirmed by Sachal).
+
+2026-11-15 — 3D club view — done: replaced the three flat SVG diagrams with one
+live 3D close-up of the driver at impact (options confirmed by Sachal: sculpted in
+code, one large view with angle buttons, ground ribbons at true angles). Driver
+head shaped from a sphere with a lofted, curved face, hosel, red shaft, dimpled
+ball on a tee, turf patch, studio reflections and shadows; ribbons for path, face
+and start line plus rods for attack and launch; Behind/Toe/Above/Face camera
+buttons, drag to orbit, Enlarge. check: green (169 tests + strict build) ·
+decisions: true angles, so face and start lines nearly overlap at small values;
+view shrinks on short screens · next: Sachal to review the look and direct
+refinements (head shape, materials, camera angles, labels).

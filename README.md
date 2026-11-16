@@ -100,9 +100,8 @@ React UI (App.js, components/)          src/simulate/ (no React)
   holds only what shapes a shot: face, path, swing speed, attack angle, loft,
   strike location, aim, Hit. Each has
   keyboard shortcuts (`src/utils/shortcuts.js`: Q/E face, A/D path, S/W speed, G/T
-  attack, H/Y loft, B/N strike, Z/C aim, Space hit, R reset), shown on hover. Under the panel, three diagrams of the
-  club at impact (from behind, from the toe, from above) redraw as the controls
-  move, with angles drawn at three times their size. Session settings (game mode,
+  attack, H/Y loft, B/N strike, Z/C aim, Space hit, R reset), shown on hover. Under the panel, a live 3D
+  close-up of the driver meeting the ball is posed by the controls (see below). Session settings (game mode,
   dominant side, turf) are in a modal behind the ⋯ button. Shot setup, turf (`turf` preset plus `cut`/`firm`/`wet`/`grass`
   overrides) and `mode` live in the query string (`hooks/use-query.js`), so a
   setup is shareable via URL; the game score and current target are not. The UI talks to the scene only through
@@ -120,6 +119,18 @@ React UI (App.js, components/)          src/simulate/ (no React)
 - **Golfer** is built from primitives and animated by hand-written keyframes
   rather than an imported rigged model: nothing to license or download, and the
   contact frame is exact by construction.
+- **Club view** — a second, small Three.js scene under the control panel.
+  `club-setup.js` (pure, tested) turns the controls into the pose: absolute face,
+  path and start directions, loft tilt, strike offset, launch. `club-scene.js`
+  (WebGL) sculpts a driver head in code from a shaped sphere (10.5° of built-in
+  loft, bulge and roll on the face), plus shaft, dimpled ball, tee and a patch of
+  turf, and draws the guides at true angles: a wide lime ribbon for club path,
+  white for where the face points, orange for the ball's start line, a lime rod
+  for the head arriving (tilted by attack angle) and an orange rod for the launch.
+  It renders only when something changes. Buttons move the camera between four
+  angles (Behind, Toe, Above, Face), drag orbits, and Enlarge pops it out.
+  In development it is reachable as `window.__clubScene` (`setView(name, {instant:
+  true})`).
 - **Three.js** is the npm `three` package, imported as ES modules.
 - **Verifying the scene** — in development `main.js` exposes `window.__golfSim`
   with `advance(seconds)` (step the simulation without waiting on real time) and

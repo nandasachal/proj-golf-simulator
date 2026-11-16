@@ -9,7 +9,7 @@ import ParameterSelection from "./components/simulator/parameter-selection";
 import ButtonRow from "./components/simulator/button-row";
 import ShotReadout from "./components/simulator/shot-readout";
 import SettingsModal from "./components/simulator/settings-modal";
-import ClubViews from "./components/simulator/club-views";
+import ClubView from "./components/simulator/club-view";
 import GameCard from "./components/simulator/game-card";
 import { useQueryState, useSetQueries } from "./hooks/use-query";
 import { createSimulator } from "./simulate/main";
@@ -341,7 +341,7 @@ function App() {
       {/* Left column: the shot controls, then the club-at-impact views. */}
       <div className="z-10 m-3 flex flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-2rem)] md:w-[340px] md:overflow-y-auto">
         <div ref={panel} className="hud-panel p-4">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between">
             <div className="hidden md:block">
               <Navbar />
             </div>
@@ -372,7 +372,7 @@ function App() {
           />
           <ButtonRow handleReset={handleReset} simulate={handleHit} />
         </div>
-        <ClubViews
+        <ClubView
           faceAngle={faceAngle}
           pathAngle={pathAngle}
           swingSpeed={swingSpeed}

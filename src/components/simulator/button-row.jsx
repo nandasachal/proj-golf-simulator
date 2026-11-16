@@ -21,7 +21,7 @@ const ButtonRow = ({ handleReset, simulate }) => {
   };
 
   return (
-    <div className="mt-5">
+    <div className="mt-4">
       <button
         type="button"
         className="flex w-full items-center justify-center rounded-lg bg-lime-400 py-2.5 text-base font-bold text-slate-900 transition-colors hover:bg-lime-300 active:bg-lime-500"
