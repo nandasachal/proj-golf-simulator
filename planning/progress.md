@@ -109,3 +109,11 @@ buttons, drag to orbit, Enlarge. check: green (169 tests + strict build) ·
 decisions: true angles, so face and start lines nearly overlap at small values;
 view shrinks on short screens · next: Sachal to review the look and direct
 refinements (head shape, materials, camera angles, labels).
+
+2026-11-15 — 3D club view: head shape and materials — done: reshaped the driver
+head (rim lowered below mid-face so the crown is a dome and the sole a shallow
+dish, squarer plan, rounder tail, crown peak just behind the face); crown is
+woven carbon under clear coat and now reads gloss black; brushed-metal sole;
+weight port set flush with a chrome surround; hosel grows out of the heel with a
+neck and collar; added a rim light. check: green (169 tests + strict build) ·
+next: guide lines and labels, or further look-and-feel notes from Sachal.

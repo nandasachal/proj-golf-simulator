@@ -122,8 +122,11 @@ React UI (App.js, components/)          src/simulate/ (no React)
 - **Club view** — a second, small Three.js scene under the control panel.
   `club-setup.js` (pure, tested) turns the controls into the pose: absolute face,
   path and start directions, loft tilt, strike offset, launch. `club-scene.js`
-  (WebGL) sculpts a driver head in code from a shaped sphere (10.5° of built-in
-  loft, bulge and roll on the face), plus shaft, dimpled ball, tee and a patch of
+  (WebGL) sculpts a driver head in code: `headPoint` maps a unit sphere onto the
+  head (rounded-triangle plan, domed crown over a rim set below mid-face, shallow
+  sole, blunt tail, cut flat at a face with 10.5° of built-in loft plus bulge and
+  roll), finished with a woven-carbon crown under clear coat, brushed-metal sole,
+  weight port and a necked hosel, plus shaft, dimpled ball, tee and a patch of
   turf, and draws the guides at true angles: a wide lime ribbon for club path,
   white for where the face points, orange for the ball's start line, a lime rod
   for the head arriving (tilted by attack angle) and an orange rod for the launch.
