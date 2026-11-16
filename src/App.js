@@ -3,10 +3,8 @@ import "./App.scss";
 import { Toaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
 
-import Navbar from "./components/navbar";
-import FloatingFeedbackButton from "./components/common/floating-feedback-button";
 import ParameterSelection from "./components/simulator/parameter-selection";
-import ButtonRow from "./components/simulator/button-row";
+import ButtonRow, { HitButton } from "./components/simulator/button-row";
 import ShotReadout from "./components/simulator/shot-readout";
 import SettingsModal from "./components/simulator/settings-modal";
 import ClubView from "./components/simulator/club-view";
@@ -127,6 +125,17 @@ function App() {
   const attackAngle = clamp(rawAttack, ATTACK_ANGLE_VALUES);
   const loftChange = clamp(rawLoft, LOFT_CHANGE_VALUES);
   const strike = clamp(Number.parseFloat(rawStrike), STRIKE_VALUES);
+
+  // Laptop and up: Hit sits beside the result bar. Phones: with the controls.
+  const [isDesktop, setIsDesktop] = useState(
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+  );
+  useEffect(() => {
+    const desktop = window.matchMedia(DESKTOP_QUERY);
+    const update = () => setIsDesktop(desktop.matches);
+    desktop.addEventListener("change", update);
+    return () => desktop.removeEventListener("change", update);
+  }, []);
 
   const simulator = useRef(null);
   const stage = useRef(null);
@@ -312,9 +321,6 @@ function App() {
         <div id="display-container" ref={stage} className="absolute inset-0" />
 
         <div className="pointer-events-none absolute inset-0 flex items-start justify-between gap-3 p-3 md:p-4">
-          <div className="pointer-events-auto md:hidden">
-            <Navbar />
-          </div>
           <div className="pointer-events-auto ml-auto flex flex-col items-end gap-2">
             {target && (
               <GameCard
@@ -326,37 +332,35 @@ function App() {
             )}
           </div>
         </div>
-        {/* Result bar along the bottom, centred on the screen. On phones it
-            takes the full width and the feedback button sits above it. */}
+        {/* Along the bottom: the result bar with Hit to its right, the pair
+            centred on the screen. On phones the bar takes the full width and
+            Hit stays with the controls below. */}
         <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-20 flex justify-center md:bottom-4 md:left-20 md:right-20">
-          <div className="pointer-events-auto max-w-full">
+          <div className="pointer-events-auto flex max-w-full items-stretch gap-2">
             <ShotReadout live={live} result={result} />
+            {isDesktop && (
+              <HitButton onClick={handleHit} className="min-h-[52px] px-7" />
+            )}
           </div>
         </div>
-        <div className="absolute bottom-[84px] right-3 md:bottom-4 md:right-4">
-          <FloatingFeedbackButton />
+        {/* Settings, bottom left (above the result bar on phones). */}
+        <div className="absolute bottom-[84px] left-3 z-20 md:bottom-4 md:left-4">
+          <SettingsModal
+            mode={mode}
+            side={side}
+            turf={turf}
+            turfPreset={turfPreset}
+            onMode={(value) => handleValueChange("mode", value)}
+            onSide={(value) => handleValueChange("side", value)}
+            onTurfPreset={handleTurfPreset}
+            onTurfField={handleTurfField}
+          />
         </div>
       </div>
 
       {/* Left column: the shot controls, then the club-at-impact views. */}
-      <div className="z-10 m-3 flex flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-2rem)] md:w-[340px] md:overflow-y-auto">
+      <div className="z-10 m-3 flex flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-5.5rem)] md:w-[340px] md:overflow-y-auto">
         <div ref={panel} className="hud-panel p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="hidden md:block">
-              <Navbar />
-            </div>
-            <p className="text-sm font-bold md:hidden">Shot setup</p>
-            <SettingsModal
-              mode={mode}
-              side={side}
-              turf={turf}
-              turfPreset={turfPreset}
-              onMode={(value) => handleValueChange("mode", value)}
-              onSide={(value) => handleValueChange("side", value)}
-              onTurfPreset={handleTurfPreset}
-              onTurfField={handleTurfField}
-            />
-          </div>
           <ParameterSelection
             values={{
               clubFaceAngle: faceAngle,
@@ -370,7 +374,11 @@ function App() {
             }}
             handleValueChange={handleValueChange}
           />
-          <ButtonRow handleReset={handleReset} simulate={handleHit} />
+          <ButtonRow
+            handleReset={handleReset}
+            simulate={handleHit}
+            showHit={!isDesktop}
+          />
         </div>
         <ClubView
           faceAngle={faceAngle}

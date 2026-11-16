@@ -102,7 +102,8 @@ React UI (App.js, components/)          src/simulate/ (no React)
   keyboard shortcuts (`src/utils/shortcuts.js`: Q/E face, A/D path, S/W speed, G/T
   attack, H/Y loft, B/N strike, Z/C aim, Space hit, R reset), shown on hover. Under the panel, a live 3D
   close-up of the driver meeting the ball is posed by the controls (see below). Session settings (game mode,
-  dominant side, turf) are in a modal behind the ⋯ button. Shot setup, turf (`turf` preset plus `cut`/`firm`/`wet`/`grass`
+  dominant side, turf) and the feedback link are in a modal behind the gear
+  button, bottom left. On laptops Hit sits to the right of the result bar. Shot setup, turf (`turf` preset plus `cut`/`firm`/`wet`/`grass`
   overrides) and `mode` live in the query string (`hooks/use-query.js`), so a
   setup is shareable via URL; the game score and current target are not. The UI talks to the scene only through
   `createSimulator(container, callbacks)` in `main.js`.

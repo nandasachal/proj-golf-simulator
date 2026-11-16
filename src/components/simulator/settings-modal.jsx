@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Dialog } from "@headlessui/react";
-import { ThreeDots, X } from "react-bootstrap-icons";
+import { ChatDots, GearFill, X } from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
 import {
   GRASSES,
@@ -8,6 +8,9 @@ import {
   TURF_PRESETS,
   stimpFeet,
 } from "../../simulate/ground";
+
+const FEEDBACK_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLSfR6vP8GLaPvjIRF9qY8NDl5em_JxNO10pJcJrR03tU-B0YIw/viewform";
 
 const firmnessWord = (value) =>
   value < 0.35 ? "soft" : value > 0.65 ? "firm" : "medium";
@@ -92,12 +95,12 @@ const SettingsModal = ({
         type="button"
         aria-label="Settings"
         aria-haspopup="dialog"
-        className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+        className="hud-panel flex h-10 w-10 items-center justify-center !rounded-full text-white/90 transition-colors hover:text-white"
         onClick={() => setOpen(true)}
         data-tooltip-id="main-tooltip"
-        data-tooltip-content="Settings: game mode, handedness, turf"
+        data-tooltip-content="Settings: game mode, handedness, turf, feedback"
       >
-        <ThreeDots size={18} />
+        <GearFill size={18} />
       </button>
 
       <Dialog
@@ -223,6 +226,15 @@ const SettingsModal = ({
                 </p>
               </Section>
             </div>
+            <a
+              className="mt-5 flex items-center justify-center rounded-lg bg-white/10 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+              href={FEEDBACK_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <ChatDots size={14} className="mr-1.5" />
+              Feedback
+            </a>
           </Dialog.Panel>
         </div>
       </Dialog>

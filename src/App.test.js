@@ -64,7 +64,7 @@ const result = () => screen.getByRole("status", { name: "Shot result" });
 describe("shot controls", () => {
   test("the panel holds the shot controls and nothing about the session", () => {
     renderApp();
-    expect(screen.getAllByText(/golf simulator/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/golf simulator/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/club face/i)).toHaveValue("0");
     expect(screen.getByLabelText(/club path/i)).toHaveValue("0");
     expect(screen.getByLabelText(/swing speed/i)).toHaveValue("95");
@@ -364,6 +364,17 @@ describe("settings", () => {
     expect(dialog.getByText("Settings")).toBeInTheDocument();
     fireEvent.click(dialog.getByRole("button", { name: "Close settings" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  test("has a Feedback link to the feedback form", () => {
+    renderApp();
+    const dialog = openSettings();
+    const link = dialog.getByRole("link", { name: /feedback/i });
+    expect(link).toHaveAttribute(
+      "href",
+      expect.stringContaining("docs.google.com/forms"),
+    );
+    expect(link).toHaveAttribute("target", "_blank");
   });
 
   test("dominant side tells the scene and mirrors the next launch", () => {

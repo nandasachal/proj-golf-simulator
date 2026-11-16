@@ -117,3 +117,10 @@ woven carbon under clear coat and now reads gloss black; brushed-metal sole;
 weight port set flush with a chrome surround; hosel grows out of the heel with a
 neck and collar; added a rim light. check: green (169 tests + strict build) ·
 next: guide lines and labels, or further look-and-feel notes from Sachal.
+
+2026-11-16 — laptop layout fixes — done: Hit moved to the right of the result bar
+with the pair centred (phones keep Hit with the controls); the "Golf Simulator" tag
+removed; Settings is now a gear button bottom-left, replacing the "?" button, with
+the feedback form linked from a Feedback button inside it. check: green (170
+tests + strict build) · next: Sachal to pick a direction from the control/club-view
+design variations.
