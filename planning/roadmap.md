@@ -9,6 +9,14 @@
   [product-specs/driving-range-game.md](product-specs/driving-range-game.md) and
   [eng-plans/driving-range-game.md](eng-plans/driving-range-game.md).
 
+- **Players, leaderboard and visitor tracking** (proposed 2026-11-17) — save a
+  name, record every game, rank players by share of targets hit; visitor
+  analytics; gamification in later phases. Needs a small backend. Awaiting
+  approval and a hosting decision. See
+  [product-specs/profiles-leaderboard.md](product-specs/profiles-leaderboard.md)
+  and [eng-plans/profiles-leaderboard.md](eng-plans/profiles-leaderboard.md).
+  - [done] Shorter game: 5 targets, 3 to win, 4 in advanced (2026-11-17).
+
 ## Should Have
 
 - [done] Regression tests for `src/simulate/shot.js` — shipped with Phase 0 of the
