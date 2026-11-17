@@ -82,3 +82,7 @@ they stop changing.
 close-up (real modelled driver, turf, lit), not flat schematic diagrams. Any new
 control surface should be built on the 3D club scene, with handles projected onto
 it, and held to a high visual bar.
+2026-11-16 — note — A hidden preview pane delays React passive effects, so a
+correctly scored shot can look unscored during browser verification (the scene's
+target was still null at hit time). Flush with a click or render (e.g. Restart)
+before hitting, and don't chase it as an app bug.
