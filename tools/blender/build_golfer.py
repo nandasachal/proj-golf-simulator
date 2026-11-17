@@ -6,6 +6,7 @@ Needs the MPFB extension and the MakeHuman system asset pack (both CC0 for
 assets); see tools/blender/README.md. Writes tools/blender/golfer.blend (the
 working file) and public/models/golfer.glb (what the simulator loads).
 """
+import json
 import os
 import sys
 
@@ -56,6 +57,12 @@ for target, weight in spec.TARGETS.items():
 # has to be final before either goes on.
 TargetService.bake_targets(human)
 
+import golfer_outfit
+
+with open(os.path.join(HERE, "golfer_measure.json"), "w") as out:
+    json.dump(golfer_outfit.measure(human), out, indent=2)
+    out.write("\n")
+
 HumanService.set_character_skin(
     asset("skins", spec.SKIN, "mhmat"), human, skin_type="GAMEENGINE"
 )
@@ -72,6 +79,12 @@ for kind, name, asset_type in spec.ASSETS:
 ExportService.bake_modifiers_remove_helpers(
     human, bake_masks=True, bake_subdiv=False, remove_helpers=True
 )
+
+rig = human.parent
+suit = bpy.data.objects[f"body.{spec.SUIT}"]
+golfer_outfit.glove(human, spec)
+golfer_outfit.collar(suit, human, rig, spec)
+golfer_outfit.beanie(human, rig, spec)
 
 import golfer_finish
 

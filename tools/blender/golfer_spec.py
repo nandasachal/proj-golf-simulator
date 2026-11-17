@@ -1,4 +1,6 @@
 """What the golfer is: body sliders, skin, and what he wears."""
+# The build is held: tools/blender/golfer_measure.json records its girth and
+# src/simulate/golfer-build.test.js fails if a change makes him heavier.
 
 MACROS = {
     "gender": 1.0,
@@ -30,20 +32,45 @@ TARGETS = {
 
 SKIN = "young_caucasian_male"
 # Part of the skin texture's file name, and the tone its skin is brought to
-# (linear-ish sRGB, 0-1): a warm brown.
+# (sRGB, 0-1): a warm brown.
 SKIN_IMAGE = "young_lightskinned_male_diffuse"
 SKIN_TONE = (0.66, 0.48, 0.37)
+SKIN_ROUGHNESS = 0.66
+# How dark the stubble and the cropped hair below the hat go (0 is none).
+STUBBLE = 0.3
+IRIS = (0.5, 0.33, 0.22)
 
-# Clothes, painted over the casual suit: white polo, navy trim and trousers.
-POLO = (0.93, 0.93, 0.91)
-TRIM = (0.07, 0.10, 0.2)
-TROUSERS = (0.15, 0.19, 0.31)
+# The outfit follows Sachal's reference video (tools/blender/reference, not
+# in git): slate beanie, dark quarter-zip pullover with a lighter yoke, grey
+# tapered trousers, dark knit trainers, white glove on the lead hand.
+SUIT = "male_casualsuit02"
+SHOES = "shoes06"
+TOP = (0.16, 0.18, 0.25)
+TOP_YOKE = (0.22, 0.24, 0.32)
+TOP_LINING = (0.42, 0.44, 0.5)
+# The yoke covers the shoulders: above this height, inside this half-width.
+YOKE_HEIGHT = 1.385
+YOKE_REACH = 0.27
+ZIP = (0.2, 0.21, 0.24)
+ZIP_LENGTH = 0.19
+TROUSERS = (0.38, 0.375, 0.39)
+SHOE = (0.15, 0.16, 0.2)
+SOCK = (0.13, 0.13, 0.15)
+GLOVE = (0.86, 0.87, 0.87)
+BEANIE = (0.36, 0.42, 0.6)
+BEANIE_THICKNESS = 0.015
+BEANIE_SLOUCH = 0.03
+BEANIE_RIBS = 18
+# Where the hat's rim sits (metres up): mid forehead, over the top of the
+# ears, down to the nape.
+BEANIE_RIM_FRONT = 1.722
+BEANIE_RIM_SIDE = 1.672
+BEANIE_RIM_BACK = 1.625
 
-# (asset folder, asset name, MPFB asset type)
+# (asset folder, asset name, MPFB asset type). No hair: the hat covers it.
 ASSETS = [
-    ("clothes", "male_casualsuit04", "Clothes"),
-    ("clothes", "shoes05", "Clothes"),
-    ("hair", "short01", "Hair"),
+    ("clothes", SUIT, "Clothes"),
+    ("clothes", SHOES, "Clothes"),
     ("eyes", "low-poly", "Eyes"),
     ("eyebrows", "eyebrow001", "Eyebrows"),
     ("eyelashes", "eyelashes01", "Eyelashes"),

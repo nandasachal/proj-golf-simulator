@@ -1,108 +1,190 @@
-"""Work on the assembled character before export: golf clothes painted over
-the MakeHuman casual suit, skin tone, and textures sized for the web."""
+"""Texture work on the assembled character before export: the outfit's
+colours painted over the MakeHuman clothes, skin, eyes, and textures sized
+for the web."""
 import bpy
 import numpy as np
 
-
-def _pixels(image):
-    w, h = image.size
-    data = np.empty(w * h * 4, dtype=np.float32)
-    image.pixels.foreach_get(data)
-    # Rows run bottom to top.
-    return data.reshape(h, w, 4)
+import golfer_paint as paint
 
 
-def _store(image, data, size=None):
-    image.pixels.foreach_set(data.astype(np.float32).ravel())
-    if size and image.size[0] > size:
-        image.scale(size, size)
-    image.pack()
+def _shade(lum, radius, gain, low, high):
+    """Folds and weave kept from a texture, its broad colour changes dropped."""
+    return 1 + np.clip((lum - paint.blur(lum, radius)) * gain, low, high)
 
 
-def _find(fragment):
-    for image in bpy.data.images:
-        if fragment in image.name:
-            return image
-    raise SystemExit(f"No image matching {fragment}")
-
-
-def _luma(rgb):
-    return rgb[..., 0] * 0.2126 + rgb[..., 1] * 0.7152 + rgb[..., 2] * 0.0722
-
-
-def golf_clothes(spec):
-    """The suit's texture has the T-shirt across the top and jeans below.
-    The shirt becomes a plain polo with dark trim, the jeans dark trousers."""
-    image = _find("casualsuit04_diffuse")
-    px = _pixels(image)
-    h, w, _ = px.shape
+def outfit(suit, spec):
+    """The suit is a sweater and jeans on one texture. The sweater becomes the
+    pullover (plain, with a lighter yoke over the shoulders), the jeans the
+    trousers (the denim's fade and colour gone, its seams kept)."""
+    image = paint.find(f"{spec.SUIT}_diffuse")
+    size = image.size[0]
+    px = paint.pixels(image)
     rgb = px[..., :3]
-    luma = _luma(rgb)
-    rows = np.arange(h)[:, None] / h
-    cols = np.arange(w)[None, :] / w
-    shirt = np.broadcast_to(rows > 0.595, luma.shape)
-
-    # Shirt: keep the weave's light and shade, lose the colour and the logo.
-    orange = (rgb[..., 0] > rgb[..., 2] + 0.25) & shirt
-    cloth = luma[shirt & ~orange]
-    weave = np.clip((luma - np.median(cloth)) * 0.9, -0.12, 0.08)
-    collar = shirt & (luma < np.median(cloth) * 0.72) & (rows > 0.9)
-    logo = (
-        shirt
-        & (np.abs(cols - 0.557) < 0.075)
-        & (np.abs(rows - 0.83) < 0.075)
-    )
-    weave = np.where(logo, 0.0, weave)
-    trim = orange & ~logo | collar
-    for c in range(3):
-        channel = spec.POLO[c] + weave
-        channel = np.where(trim, spec.TRIM[c] * (0.8 + luma), channel)
-        rgb[..., c] = np.where(shirt, np.clip(channel, 0, 1), rgb[..., c])
-
-    # Trousers: the denim's fade flattened out, in the trouser colour.
-    legs = ~shirt
-    denim = luma[legs]
-    shade = 0.75 + np.clip((luma - np.median(denim)) * 0.9, -0.3, 0.35)
-    for c in range(3):
-        rgb[..., c] = np.where(
-            legs, np.clip(spec.TROUSERS[c] * shade, 0, 1), rgb[..., c]
+    lum = paint.luma(rgb)
+    mesh = suit.data
+    top = paint.islands(mesh)[0]
+    count = len(mesh.vertices)
+    upper = paint.grow(
+        paint.uv_field(suit, [float(i in top) for i in range(count)], size), 6
+    ) > 0.5
+    yoke_at = [0.0] * count
+    for i in top:
+        co = mesh.vertices[i].co
+        yoke_at[i] = min(max((co.z - spec.YOKE_HEIGHT) / 0.006, 0), 1) * min(
+            max((spec.YOKE_REACH - abs(co.x)) / 0.006, 0), 1
         )
-    _store(image, px, 1024)
+    yoke = paint.uv_field(suit, yoke_at, size)
 
-    normal = _find("casualsuit04_normal")
-    normal.scale(1024, 1024)
+    # The sweater's orange piping and chest logo are not cloth: flatten them.
+    printed = paint.grow(
+        ((rgb[..., 2] - rgb[..., 0] < 0.17) & upper).astype(np.float32), 3
+    ) > 0.5
+    knit = _shade(lum, 24, 2.0, -0.22, 0.18)
+    # The logo's ring is printed in the cloth's own blue: flatten its patch.
+    rows = np.arange(size)[:, None] / size
+    cols = np.arange(size)[None, :] / size
+    logo = (np.abs(cols - 0.56) < 0.11) & (np.abs(rows - 0.83) < 0.11)
+    knit = np.where(printed | (logo & upper), 1.0, knit)
+    seam = (yoke > 0.42) & (yoke < 0.58)
+    knit = np.where(seam, knit * 0.8, knit)
+    # The twill is left out: only seams and folds come through.
+    denim = _shade(paint.blur(lum, 7), 28, 0.9, -0.22, 0.1)
+    for c in range(3):
+        cloth = np.where(yoke > 0.5, spec.TOP_YOKE[c], spec.TOP[c]) * knit
+        legs = spec.TROUSERS[c] * denim
+        rgb[..., c] = np.clip(np.where(upper, cloth, legs), 0, 1)
+    paint.store(image, px, 2048)
+
+    normal = paint.find(f"{spec.SUIT}_normal")
+    normal.scale(2048, 2048)
     normal.pack()
+    _principled(suit).inputs["Roughness"].default_value = 0.88
 
 
-def skin_tone(spec):
-    image = _find(spec.SKIN_IMAGE)
-    px = _pixels(image)
+def shoes(obj, spec):
+    image = paint.find(f"{spec.SHOES}_diffuse")
+    size = image.size[0]
+    px = paint.pixels(image)
+    rgb = px[..., :3]
+    lum = paint.luma(rgb)
+    mesh = obj.data
+    pieces = paint.islands(mesh)
+    # The two small pieces are the socks.
+    ankle = set().union(*pieces[2:])
+    socks = paint.grow(
+        paint.uv_field(
+            obj, [float(i in ankle) for i in range(len(mesh.vertices))], size
+        ),
+        4,
+    ) > 0.5
+    blue = rgb[..., 2] > rgb[..., 0] + 0.06
+    # The maker's mark on the outside of the shoe goes.
+    rows = np.arange(size)[:, None] / size
+    cols = np.arange(size)[None, :] / size
+    mark = (np.abs(cols - 0.48) < 0.07) & (np.abs(rows - 0.13) < 0.04)
+    for c in range(3):
+        knit = np.clip(spec.SHOE[c] * (0.55 + lum * 2.4), 0, 1)
+        channel = np.where(blue, knit, rgb[..., c])
+        channel = np.where(mark, spec.SHOE[c], channel)
+        channel = np.where(socks, spec.SOCK[c] * (0.6 + lum * 0.6), channel)
+        rgb[..., c] = channel
+    paint.store(image, px, 1024)
+    _principled(obj).inputs["Roughness"].default_value = 0.75
+
+
+def eyes(spec):
+    image = paint.find("brown_eye")
+    px = paint.pixels(image)
+    rgb = px[..., :3]
+    iris = np.clip((rgb[..., 0] - rgb[..., 2] - 0.12) / 0.1, 0, 1)[..., None]
+    lum = paint.luma(rgb)[..., None]
+    px[..., :3] = rgb * (1 - iris) + np.array(spec.IRIS) * lum * 3.4 * iris
+    paint.store(image, px, 512)
+
+
+def skin(body, spec):
+    image = paint.find(spec.SKIN_IMAGE)
+    px = paint.pixels(image)
     rgb = px[..., :3]
     # Scale each channel so the texture's typical skin lands on the tone.
-    body = _luma(rgb) > 0.25
+    lit = paint.luma(rgb) > 0.25
     for c in range(3):
-        typical = np.median(rgb[..., c][body])
+        typical = np.median(rgb[..., c][lit])
         rgb[..., c] = np.clip(rgb[..., c] * (spec.SKIN_TONE[c] / typical), 0, 1)
-    _store(image, px, 2048)
+    rgb *= (1 - spec.STUBBLE * _stubble(body, rgb))[..., None]
+    # Pores and creases as relief, taken from the fine detail of the texture.
+    lum = paint.luma(rgb)
+    detail = np.clip((lum - paint.blur(lum, 3)) * 6, -1, 1)
+    relief = paint.new_image(
+        "skin_normal", paint.normal_from_height(detail, 1.6), colour=False
+    )
+    relief.scale(1024, 1024)
+    relief.pack()
+    paint.store(image, px, 2048)
+    mat = body.data.materials[0]
+    paint.add_normal(mat, relief, 0.8)
+    _principled(body).inputs["Roughness"].default_value = spec.SKIN_ROUGHNESS
+
+
+def _stubble(body, rgb):
+    """Where short hair darkens the skin: beard and moustache, running up
+    the sideburns into the cropped hair that shows below the hat."""
+    mesh = body.data
+    size = rgb.shape[0]
+    head = paint.islands(mesh)[0]
+    co = {i: mesh.vertices[i].co for i in head}
+    crown = [c for c in co.values() if c.z > 1.70]
+    middle = (min(c.y for c in crown) + max(c.y for c in crown)) / 2
+    profile = [c for c in co.values() if abs(c.x) < 0.012 and c.y < middle]
+    nose = min(profile, key=lambda c: c.y)
+    chin = min(c.z for c in profile if c.y < nose.y + 0.04)
+    ear = max((c for c in co.values() if c.z > 1.6), key=lambda c: abs(c.x))
+
+    def ramp(value, width):
+        return min(max(value / width, 0), 1)
+
+    field = [0.0] * len(mesh.vertices)
+    for i, c in co.items():
+        if c.y < ear.y - 0.012:
+            # The beard's top edge climbs from under the nose to the ear.
+            top = nose.z - 0.016 + max(abs(c.x) - 0.04, 0) * 1.0
+            field[i] = ramp(top - c.z, 0.012) * ramp(c.z - chin + 0.04, 0.025)
+        elif c.y > ear.y + 0.014:
+            field[i] = ramp(c.z - 1.61, 0.02)
+        if c.z > ear.z + 0.045:
+            field[i] = 1.0
+    painted = paint.blur(paint.uv_field(body, field, size), 8)
+    # Lips stay clear, and the hair has grain.
+    pink = rgb[..., 0] - rgb[..., 1]
+    lips = np.clip((pink - np.median(pink[painted > 0.5]) - 0.05) / 0.04, 0, 1)
+    grain = np.random.default_rng(7).random((size, size)).astype(np.float32)
+    return painted * (1 - lips) * (0.7 + 0.3 * paint.blur(grain, 1) * 2)
+
+
+def _principled(obj):
+    return next(
+        n
+        for n in obj.data.materials[0].node_tree.nodes
+        if n.type == "BSDF_PRINCIPLED"
+    )
 
 
 def darken(fragment, amount, size):
-    image = _find(fragment)
-    px = _pixels(image)
+    image = paint.find(fragment)
+    px = paint.pixels(image)
     px[..., :3] *= amount
-    _store(image, px, size)
+    paint.store(image, px, size)
 
 
 def run(human, spec):
-    golf_clothes(spec)
-    skin_tone(spec)
+    outfit(bpy.data.objects[f"body.{spec.SUIT}"], spec)
+    shoes(bpy.data.objects[f"body.{spec.SHOES}"], spec)
+    eyes(spec)
+    skin(human, spec)
     darken("eyebrow", 0.35, 512)
-    darken("short01_diffuse", 0.8, 1024)
-    for name, size in (("shoes05", 1024), ("teeth", 512), ("eye", 512)):
-        for image in bpy.data.images:
-            if name in image.name and image.size[0] > size:
-                image.scale(size, size)
-                image.pack()
+    for image in bpy.data.images:
+        if "teeth" in image.name and image.size[0] > 512:
+            image.scale(512, 512)
     for image in bpy.data.images:
         if image.size[0] and not image.packed_file:
             image.pack()

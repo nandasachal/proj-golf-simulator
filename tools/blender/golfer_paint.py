@@ -130,7 +130,9 @@ def material(name, colour, roughness, metallic=0.0, diffuse=None, normal=None):
     mat.use_nodes = True
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
     bsdf = next(n for n in nodes if n.type == "BSDF_PRINCIPLED")
-    bsdf.inputs["Base Color"].default_value = (*colour, 1)
+    # Colours are given as sRGB; the shader wants linear.
+    linear = [((c + 0.055) / 1.055) ** 2.4 for c in colour]
+    bsdf.inputs["Base Color"].default_value = (*linear, 1)
     bsdf.inputs["Roughness"].default_value = roughness
     bsdf.inputs["Metallic"].default_value = metallic
     if diffuse:

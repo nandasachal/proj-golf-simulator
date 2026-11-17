@@ -101,6 +101,30 @@ def _outside(tree, point, out, clearance):
     return point if depth >= clearance else hit[0] + out * clearance
 
 
+def _tuck(body, neck, centre):
+    """Removes the skin of the shoulders and neck base that the pullover
+    covers: left in, it shows through the cloth when the shoulders turn."""
+
+    def bearing(co):
+        return math.atan2(co.x - centre.x, co.y - centre.y)
+
+    edge = sorted((bearing(p), p.z) for p in neck)
+    angles = [a for a, _ in edge]
+    heights = [z for _, z in edge]
+    bm = bmesh.new()
+    bm.from_mesh(body.data)
+    covered = {
+        v
+        for v in bm.verts
+        if 1.3 < v.co.z
+        < np.interp(bearing(v.co), angles, heights, period=2 * math.pi) - 0.01
+    }
+    doomed = [f for f in bm.faces if all(v in covered for v in f.verts)]
+    bmesh.ops.delete(bm, geom=doomed, context="FACES")
+    bm.to_mesh(body.data)
+    bm.free()
+
+
 def glove(body, spec):
     """The lead (left) hand becomes a glove: its own material, a touch
     fuller than the hand."""
@@ -111,7 +135,7 @@ def glove(body, spec):
         if mesh.vertices[next(iter(piece))].co.x > 0.3
         and min(mesh.vertices[i].co.z for i in piece) > 0.5
     )
-    mesh.materials.append(paint.material("glove", spec.GLOVE, 0.55))
+    mesh.materials.append(paint.material("glove", spec.GLOVE, 0.7))
     slot = len(mesh.materials) - 1
     for poly in mesh.polygons:
         if poly.vertices[0] in hand:
@@ -149,6 +173,7 @@ def collar(suit, body, rig, spec):
         ring.append(step[0])
     points = [bm.verts[i].co.copy() for i in ring]
     centre = sum(points, Vector()) / len(points)
+    _tuck(body, points, centre)
     tree = BVHTree.FromObject(body, bpy.context.evaluated_depsgraph_get())
 
     # (height, how far in from the neck's edge) up the outside, over the rim
@@ -230,7 +255,7 @@ def beanie(body, rig, spec):
         (0, (min(c.y for c in crown) + max(c.y for c in crown)) / 2, 1.715)
     )
     around, levels, rings = 56, 44, 12
-    elevations = np.linspace(math.radians(-40), math.radians(90), levels)
+    elevations = np.linspace(math.radians(-55), math.radians(90), levels)
     raw = np.zeros((around, levels))
     for a in range(around):
         theta = 2 * math.pi * a / around
@@ -245,7 +270,7 @@ def beanie(body, rig, spec):
             )
             hit = tree.ray_cast(centre + direction * 0.5, -direction)
             raw[a, e] = 0.5 - hit[3] if hit[0] is not None else raw[a, e - 1]
-    smooth = sum(np.roll(raw, s, axis=0) for s in range(-3, 4)) / 7
+    smooth = sum(np.roll(raw, s, axis=0) for s in range(-5, 6)) / 11
     radius = np.maximum(smooth, raw + 0.003) + spec.BEANIE_THICKNESS
 
     verts, uvs_at = [], []
@@ -316,12 +341,12 @@ def beanie(body, rig, spec):
         2 * math.pi * (y * 16 + 0.35 * np.abs(((x * 8) % 1) - 0.5))
     )
     height = rib * (0.8 + 0.2 * stitch)
-    shade = 0.62 + 0.38 * height
+    shade = 0.84 + 0.16 * height
     diffuse = paint.new_image(
         "beanie_diffuse", np.array(spec.BEANIE)[None, None, :] * shade[..., None]
     )
     normal = paint.new_image(
-        "beanie_normal", paint.normal_from_height(height, 14), colour=False
+        "beanie_normal", paint.normal_from_height(height, 6), colour=False
     )
     mat = paint.material("beanie", (1, 1, 1), 0.95, diffuse=diffuse, normal=normal)
     return _skinned(

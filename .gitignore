@@ -25,3 +25,4 @@ yarn-error.log*
 TODO.md
 # Reference photos and video for the golfer: never committed (public repo).
 tools/blender/reference/
+__pycache__/

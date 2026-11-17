@@ -7,7 +7,11 @@ rebuilt and changed from this folder.
 |---|---|
 | `golfer_spec.py` | What the golfer is: body sliders, face targets, skin, clothes, colours. Edit this to change him. |
 | `build_golfer.py` | Builds the character with MPFB, rigs it, and exports it. |
-| `golfer_finish.py` | Texture work before export: polo and trousers painted over the casual suit, skin tone, texture sizes. |
+| `golfer_outfit.py` | What MakeHuman has no asset for: stand collar and zip, beanie, glove; also measures the bare body's girth. |
+| `golfer_finish.py` | Texture work before export: pullover and trousers painted over the sweater and jeans, trainers, eyes, skin relief and stubble, texture sizes. |
+| `golfer_paint.py` | Helpers the two above share: image access, painting a per-vertex value into a UV layout, materials. |
+| `golfer_measure.json` | Written by the build: chest, waist and hip girth over height. `src/simulate/golfer-build.test.js` fails if he gets heavier. |
+| `reference/` | Reference photos and video for the design. Git-ignored: the repo is public. |
 | `preview.py` | Renders review stills of the built file. |
 | `golfer.blend` | The built working file (textures packed). Open it in Blender to look or adjust by hand. |
 
@@ -44,5 +48,13 @@ straight from the exported file.
   baked before either is added, and `detailed_helpers` must stay on: MPFB
   places joints from helper geometry and silently falls back to default
   positions without it.
+- Colours in the spec are sRGB. Painted into a texture they are used as they
+  are; given to a material they must be converted to linear first
+  (`golfer_paint.material` does it), or they come out pale.
+- MPFB removes the body under the clothes, but not the neck base and shoulder
+  tops under a sweater's collar. Left in, that skin shows through the cloth
+  when the shoulders turn, so `golfer_outfit._tuck` removes it.
+- Asset textures can carry real brand marks (the trainers did). Look at a
+  texture before shipping it.
 - Hand-edits to `golfer.blend` are overwritten by the next build. Put lasting
   changes in the scripts.

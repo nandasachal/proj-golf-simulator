@@ -1,6 +1,6 @@
 # Phase: Sharper golfer, designed from a reference video
 
-Status: proposed 2026-11-16
+Status: built 2026-11-16 (Sachal supplied the video and said to go; open items listed under "As built")
 Tier: 1
 Spec: none (continues [modelled-golfer.md](modelled-golfer.md); roadmap "Visual fidelity pass, remainder")
 
@@ -70,43 +70,66 @@ shoulder width); girth stays under the cap in decision 4.
 
 **Part D: ship.** Independent review, browser check, docs, deploy.
 
-## Acceptance criteria
+## Character sheet (from the video, 2026-11-16)
 
-- [ ] AC1 — Budget held: `golfer.glb` under 8 MB and under 60k triangles (build
-      prints both); frame rate during a swing on this machine not below 55 fps.
-- [ ] AC2 — Eyes: iris and pupil read as dark brown with a white sclera in the
-      face still; no red cast.
-- [ ] AC3 — Skin and hair: skin has visible roughness variation (not uniformly
-      glossy) and the hairline has no hard edge or loose strands in the face and
-      face-side stills.
-- [ ] AC4 — Scene lighting: the golfer is lit by an environment map taken from
-      the sky, and his shadow on the mat has a clean edge at the address camera.
-- [ ] AC5 — Polo: a folded collar and a buttoned placket exist as geometry, and
-      no texture edge on the shirt is stair-stepped in the face still.
-- [ ] AC6 — Trousers and belt: no denim seams, rivets or jean pockets; a belt
-      with a buckle at the waist.
-- [ ] AC7 — Cap: fitted to the head with a curved peak; no hair or scalp pokes
-      through at any keyed position P1 to P10.
-- [ ] AC8 — Glove and shoes: a glove on the lead hand only (left for a
-      right-hander, and it swaps for a left-hander); shoes read as golf shoes.
-- [ ] AC9 — Nothing tears: address, top, impact and finish, face-on and
-      down-the-line, driver and lob wedge, both hands, show no clothing poking
-      through skin and no stretched collar, belt or cap.
-- [ ] AC10 — Character sheet written into this plan from the video, with the
-      stills kept outside git.
-- [ ] AC11 — Design matches the sheet: garment colours within a small tolerance
-      of the sheet's hex values, hair and cap as described, skin tone matched,
-      height and limb ratios within 3% of the sheet.
-- [ ] AC12 — Not fatter: a Jest test reads waist, chest and hip girth over height
-      from the exported file and fails if any exceeds today's value by more
-      than 2%.
-- [ ] AC13 — Side by side sent to Sachal: before and after at the address camera
-      and the 1.5 yard close-up, next to a still from the video.
-- [ ] AC14 — README, `public/models/LICENSE.md`, `tools/blender/README.md` and
-      the knowledge-base describe the golfer as shipped.
+Down-the-line phone video at a floodlit range at dusk; the stills stay in
+`tools/blender/reference/` (git-ignored). Colours are sampled from frames the
+phone had brightened, then darkened by eye, so they are estimates.
 
-Order: AC12's baseline measurement first (it must be taken before anything
-changes), then AC1 to AC9, then AC10 to AC14.
+| Part | In the video | As built (`golfer_spec.py`) |
+|---|---|---|
+| Hat | Slate-blue knitted beanie, no cuff, covers the hair and ear tops | `BEANIE` (0.36, 0.42, 0.60), ribbed knit, built by script |
+| Top | Dark navy quarter-zip pullover, stand collar with a lighter lining, lighter panel over the shoulders | `TOP`, `TOP_YOKE`, `TOP_LINING`; MakeHuman sweater repainted, collar and zip built by script |
+| Trousers | Warm grey, tapered, plain | `TROUSERS`; MakeHuman jeans with the denim removed |
+| Shoes | Dark knit trainers, white sole | `SHOE`; MakeHuman trainers recoloured, maker's mark painted out |
+| Glove | White, lead (left) hand | `GLOVE`; the hand itself, re-skinned |
+| Face | Medium-brown skin, short dark stubble | existing skin tone, `STUBBLE` painted on, dark brown irises |
+| Build | Heavier round the middle | **not followed**: girth unchanged from the golfer before this work |
+
+Not taken from the video: height and limb lengths (a phone video is too
+distorted to measure from, and changing them moves the grip for little gain),
+the watch, the shirt tail under the pullover, the shoe's three stripes.
+
+## Acceptance criteria (revised once the video was readable)
+
+The plan as proposed assumed a polo, cap and belt. The video shows a pullover
+and beanie, so AC5 to AC8 were rewritten to match it.
+
+- [x] AC1 — Budget held: `golfer.glb` is 1.83 MB and 32,074 triangles. Frame
+      rate was **not** re-measured (see As built).
+- [x] AC2 — Eyes: dark brown iris, white sclera, no red cast (face still).
+- [x] AC3 — Skin has relief from a normal map and is less glossy; the hair is
+      under the hat, with stubble and cropped hair painted below it.
+- [ ] AC4 — Dropped: an environment map would relight the whole scene for a
+      small gain on rough cloth and skin. The existing shadow was left as is.
+- [x] AC5 — Pullover: stand collar and zip exist as geometry; the sweater's
+      logo and piping are gone.
+- [x] AC6 — Trousers: denim fade, colour and twill removed. Seams and pockets
+      remain (the video's trousers have pockets). No belt: the pullover covers it.
+- [x] AC7 — Beanie fitted to the skull by ray casting; no scalp shows at
+      address, top or finish.
+- [x] AC8 — Glove on the lead hand; it swaps for a left-hander because the
+      whole figure is mirrored. Shoes are dark trainers, as in the video.
+- [ ] AC9 — Partly checked: address (close up), top and finish (face-on,
+      driver, right-handed) show no tearing. Down-the-line, lob wedge and
+      left-handed were not looked at.
+- [x] AC10 — Character sheet above.
+- [x] AC11 — Garments, hat, skin and stubble follow the sheet. Proportions
+      deliberately unchanged.
+- [x] AC12 — Not fatter: `src/simulate/golfer-build.test.js` reads
+      `tools/blender/golfer_measure.json` (chest 0.5207, waist 0.4384, hips
+      0.5274 of height, measured on the bare body) and fails above 2% over.
+- [x] AC13 — Before and after sent to Sachal with the summary.
+- [x] AC14 — README, licence file, Blender README and roadmap updated. The
+      knowledge-base does not describe the golfer's appearance.
+
+## As built: open items
+
+- AC9's unchecked poses, and a frame-rate reading during a swing.
+- The independent `loop-evaluator` review was not run.
+- The beard's edge in front of the ear is a little square in profile.
+- The yoke's seam follows the mesh and wanders slightly across the back.
+- The trainers still carry MakeHuman's own white side stripes.
 
 ## Verify
 
