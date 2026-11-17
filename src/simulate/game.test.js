@@ -196,7 +196,7 @@ describe("air targets", () => {
   });
 });
 
-test("the goal is 5 of 10 in normal and 8 of 10 in advanced", () => {
-  expect(GOALS.normal).toEqual({ targets: 10, toWin: 5 });
-  expect(GOALS.advanced).toEqual({ targets: 10, toWin: 8 });
+test("the goal is 3 of 5 in normal and 4 of 5 in advanced", () => {
+  expect(GOALS.normal).toEqual({ targets: 5, toWin: 3 });
+  expect(GOALS.advanced).toEqual({ targets: 5, toWin: 4 });
 });

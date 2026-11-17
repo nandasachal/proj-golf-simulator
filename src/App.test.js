@@ -1040,8 +1040,8 @@ describe("game mode", () => {
     expect(lastTarget().z).toBeGreaterThanOrEqual(140);
     expect(lastTarget().air).toBeUndefined();
     expect(game()).toHaveTextContent("Normal game");
-    expect(game()).toHaveTextContent("Target 1 of 10");
-    expect(game()).toHaveTextContent("0 hit / 5 to win");
+    expect(game()).toHaveTextContent("Target 1 of 5");
+    expect(game()).toHaveTextContent("0 hit / 3 to win");
     expect(modeButton("Normal")).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -1068,7 +1068,7 @@ describe("game mode", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("advanced puts the targets in the air and asks for 8 of 10", () => {
+  test("advanced puts the targets in the air and asks for 4 of 5", () => {
     renderApp("/?mode=practice");
     fireEvent.click(modeButton("Advanced"));
 
@@ -1077,7 +1077,7 @@ describe("game mode", () => {
     expect(target.y).toBeGreaterThan(target.radius);
     expect(game()).toHaveTextContent("Advanced game");
     expect(game()).toHaveTextContent(`${target.heightYards} yd up`);
-    expect(game()).toHaveTextContent("0 hit / 8 to win");
+    expect(game()).toHaveTextContent("0 hit / 4 to win");
 
     play({ air: true, hit: false, highYards: -5.2, rightYards: 3.1 });
     expect(game()).toHaveTextContent("Missed: 5 yd low, 3 yd right");
@@ -1099,17 +1099,17 @@ describe("game mode", () => {
     expect(game()).toHaveTextContent(
       `${first.distanceYards} ydMissed: 9 yd short, 4 yd left`,
     );
-    expect(game()).toHaveTextContent("0 hit / 5 to win");
+    expect(game()).toHaveTextContent("0 hit / 3 to win");
     expect(lastTarget()).toBe(first);
 
     act(() => callbacks.onState("address"));
     expect(lastTarget()).not.toBe(first);
-    expect(game()).toHaveTextContent("Target 2 of 10");
+    expect(game()).toHaveTextContent("Target 2 of 5");
 
     play(HIT);
-    expect(game()).toHaveTextContent("1 hit / 5 to win");
-    expect(game()).toHaveTextContent("4 more to win · 8 left");
-    expect(game()).toHaveTextContent("Target 3 of 10");
+    expect(game()).toHaveTextContent("1 hit / 3 to win");
+    expect(game()).toHaveTextContent("2 more to win · 3 left");
+    expect(game()).toHaveTextContent("Target 3 of 5");
     expect(
       within(game()).getByRole("listitem", { name: "Target 1: missed" }),
     ).toBeInTheDocument();
@@ -1129,51 +1129,51 @@ describe("game mode", () => {
     hit();
     expect(lastTarget()).not.toBe(first);
     land(HIT);
-    expect(game()).toHaveTextContent("2 hit / 5 to win");
+    expect(game()).toHaveTextContent("2 hit / 3 to win");
   });
 
-  test("5 of 10 wins a normal game; Play again starts another and the session keeps count", () => {
+  test("3 of 5 wins a normal game; Play again starts another and the session keeps count", () => {
     renderApp();
-    for (let i = 0; i < 5; i++) play(HIT);
+    for (let i = 0; i < 3; i++) play(HIT);
     expect(game()).toHaveTextContent("Goal reached");
-    for (let i = 0; i < 5; i++) play(MISS);
+    for (let i = 0; i < 2; i++) play(MISS);
 
     expect(game()).toHaveTextContent("You win!");
-    expect(game()).toHaveTextContent("5 of 10 hit · 5 to win");
+    expect(game()).toHaveTextContent("3 of 5 hit · 3 to win");
     expect(game()).toHaveTextContent("Games won 1 of 1");
     // the range is clear until the next game
     expect(lastTarget()).toBeNull();
     hit();
-    expect(game()).toHaveTextContent("5 of 10 hit");
+    expect(game()).toHaveTextContent("3 of 5 hit");
 
     fireEvent.click(screen.getByRole("button", { name: "Play again" }));
     expect(lastTarget()).not.toBeNull();
-    expect(game()).toHaveTextContent("Target 1 of 10");
-    expect(game()).toHaveTextContent("0 hit / 5 to win");
+    expect(game()).toHaveTextContent("Target 1 of 5");
+    expect(game()).toHaveTextContent("0 hit / 3 to win");
     expect(game()).toHaveTextContent("Games won 1 of 1");
   });
 
-  test("4 of 10 loses a normal game, and says so once it is out of reach", () => {
+  test("2 of 5 loses a normal game, and says so once it is out of reach", () => {
     renderApp();
-    for (let i = 0; i < 6; i++) play(MISS);
-    expect(game()).toHaveTextContent("Out of reach: needed 5");
-    for (let i = 0; i < 4; i++) play(HIT);
+    for (let i = 0; i < 3; i++) play(MISS);
+    expect(game()).toHaveTextContent("Out of reach: needed 3");
+    for (let i = 0; i < 2; i++) play(HIT);
     expect(game()).toHaveTextContent("Not this time");
     expect(game()).toHaveTextContent("Games won 0 of 1");
   });
 
-  test("7 of 10 is not enough in advanced; 8 is", () => {
+  test("3 of 5 is not enough in advanced; 4 is", () => {
     renderApp("/?mode=advanced");
     const airHit = { air: true, hit: true };
     const airMiss = { air: true, hit: false, shortYards: 40 };
-    for (let i = 0; i < 7; i++) play(airHit);
-    for (let i = 0; i < 3; i++) play(airMiss);
+    for (let i = 0; i < 3; i++) play(airHit);
+    for (let i = 0; i < 2; i++) play(airMiss);
     expect(game()).toHaveTextContent("Not this time");
     expect(game()).toHaveTextContent("Missed: fell 40 yd short");
 
     fireEvent.click(screen.getByRole("button", { name: "Play again" }));
-    for (let i = 0; i < 8; i++) play(airHit);
-    for (let i = 0; i < 2; i++) play(airMiss);
+    for (let i = 0; i < 4; i++) play(airHit);
+    play(airMiss);
     expect(game()).toHaveTextContent("You win!");
     expect(game()).toHaveTextContent("Games won 1 of 2");
   });
@@ -1184,8 +1184,8 @@ describe("game mode", () => {
     const before = lastTarget();
     fireEvent.click(screen.getByRole("button", { name: "Restart" }));
     expect(lastTarget()).not.toBe(before);
-    expect(game()).toHaveTextContent("Target 1 of 10");
-    expect(game()).toHaveTextContent("0 hit / 5 to win");
+    expect(game()).toHaveTextContent("Target 1 of 5");
+    expect(game()).toHaveTextContent("0 hit / 3 to win");
   });
 });
 
@@ -1361,7 +1361,7 @@ describe("club selection", () => {
       }),
     );
     const game = screen.getByRole("status", { name: "Game", hidden: true });
-    expect(game).toHaveTextContent("0 hit / 5 to win");
+    expect(game).toHaveTextContent("0 hit / 3 to win");
     expect(game).not.toHaveTextContent("Missed");
 
     // the next shot, hit at the new target, counts
@@ -1377,7 +1377,7 @@ describe("club selection", () => {
         target: { hit: true, longYards: 1, rightYards: 0 },
       }),
     );
-    expect(game).toHaveTextContent("1 hit / 5 to win");
+    expect(game).toHaveTextContent("1 hit / 3 to win");
   });
 
   test("Escape in a distance field puts the number back and leaves Settings open", () => {

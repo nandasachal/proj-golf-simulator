@@ -29,7 +29,7 @@ const ButtonRow = ({ mode, onMode, simulate, bar = false }) => (
     <div
       className={bar ? "min-w-0 flex-1" : undefined}
       data-tooltip-id="main-tooltip"
-      data-tooltip-content="A game is 10 targets, one shot at each. Normal: rings on the ground, hit 5 to win. Advanced: targets in the air, hit 8."
+      data-tooltip-content="A game is 5 targets, one shot at each. Normal: rings on the ground, hit 3 to win. Advanced: targets in the air, hit 4."
     >
       <Segmented
         label="Mode"

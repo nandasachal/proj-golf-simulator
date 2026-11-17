@@ -8,10 +8,10 @@ import { Shot } from "./shot";
 import { toYards } from "./conversions-lib";
 
 // A round is this many targets, one shot at each; hit `toWin` of them to win.
-export const ROUND_TARGETS = 10;
+export const ROUND_TARGETS = 5;
 export const GOALS = {
-  normal: { targets: ROUND_TARGETS, toWin: 5 },
-  advanced: { targets: ROUND_TARGETS, toWin: 8 },
+  normal: { targets: ROUND_TARGETS, toWin: 3 },
+  advanced: { targets: ROUND_TARGETS, toWin: 4 },
 };
 
 const NEAREST = 140;
