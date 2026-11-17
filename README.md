@@ -229,10 +229,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
   button (bottom right, shown only then) or the next hit hands it back to the
   camera director, so a shot is always followed from the address view. Behind the tee line stands a grey wall with the motto and
   the Saanchal mark (`scenery/wall.js`), there to be found by turning round.
-- **Address camera** — straight behind the golfer, who is in the middle of the
-  frame with the ball beside them, looking parallel to the target line so the
-  range runs square away from the camera. The scene is centred on the whole
-  window (the control panel overlaps its left edge).
+- **Address camera** — straight behind the ball, looking down the target
+  line, so a straight shot leaves straight up the middle of the picture; the
+  golfer stands beside it. The scene is centred on the whole window (the
+  control panel overlaps its left edge).
 - **A shot** moves through four states owned by `main.js`: `address` → `swing`
   (the golfer's swing plays; the ball launches on the frame the clubhead returns
   to it, 1.15 s in) → `flight` (ball follows the precomputed trajectory in real
@@ -283,6 +283,17 @@ React UI (App.js, components/)          src/simulate/ (no React)
   passive effects, so the scene can lag the UI (a new target not yet set, a
   scored shot looking unscored): click something first (e.g. Restart) to flush
   them before hitting.
+
+### Load time
+
+- The modelled golfer (`public/models/golfer.glb`) is preloaded from
+  `index.html`, so it downloads alongside the script. The figure built in
+  code takes about four seconds of main-thread time to make, so it is only
+  built if the model fails to load (`createGolfer({ figure: false })`,
+  `golfer.buildFigure()`).
+- After every Blender export run `python3 tools/model/shrink_textures.py`: it
+  re-encodes the model's largest textures in place (normal maps to 1024 px,
+  colour maps to 2048 px). Needs `cwebp`/`dwebp`.
 
 ### Hosting
 

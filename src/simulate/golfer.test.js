@@ -521,3 +521,25 @@ describe("createGolfer", () => {
     }
   });
 });
+
+describe("the figure built in code is optional", () => {
+  const meshes = (golfer) => {
+    let count = 0;
+    golfer.group.traverse((object) => {
+      if (object.isMesh && object.visible) count++;
+    });
+    return count;
+  };
+
+  test("without it there is only the club, and the swing still runs", () => {
+    const golfer = createGolfer({ figure: false });
+    const clubOnly = meshes(golfer);
+    expect(() => golfer.setTime(CONTACT_TIME)).not.toThrow();
+    expect(() => golfer.setIdle(3)).not.toThrow();
+
+    // asked for later, when a model fails to load
+    golfer.buildFigure();
+    expect(meshes(golfer)).toBeGreaterThan(clubOnly + 10);
+    expect(() => golfer.setTime(CONTACT_TIME)).not.toThrow();
+  });
+});

@@ -61,7 +61,10 @@ export function clubheadPosition(pose, side = "Right") {
 
 // --- meshes ---
 
-export function createGolfer() {
+// `figure: false` leaves out the figure built in code, which takes seconds to
+// make: the range does that while a modelled character is on its way, and
+// calls buildFigure() only if it never arrives.
+export function createGolfer({ figure = true } = {}) {
   const group = new THREE.Group();
   group.name = "golfer";
   const look = golferLook(SKIN_COLOR);
@@ -92,72 +95,98 @@ export function createGolfer() {
     return mesh;
   };
 
-  const spineLength = bind.bones[BONE.chest].position.distanceTo(
-    bind.bones[BONE.pelvis].position,
-  );
-  skinned(buildTorso(binds, spineLength), look.shirt);
-  const limbs = [
-    [
-      false,
-      BONE.leadUpperArm,
-      BONE.leadForearm,
-      BONE.leadThigh,
-      BONE.leadShin,
-      BONE.leadClavicle,
-    ],
-    [
-      true,
-      BONE.trailUpperArm,
-      BONE.trailForearm,
-      BONE.trailThigh,
-      BONE.trailShin,
-      BONE.trailClavicle,
-    ],
-  ];
-  for (const [mirror, upperArm, forearm, thigh, shin, clavicle] of limbs) {
-    skinned(buildSleeve(binds, upperArm, mirror, clavicle), look.sleeve);
-    skinned(buildArm(binds, upperArm, forearm, mirror), look.arm);
-    skinned(buildTrouserLeg(binds, { thigh, shin }, mirror), look.trousers);
-    skinned(buildSock(binds, shin), look.sock);
-  }
-  for (const [foot, toe] of [
-    [BONE.leadFoot, BONE.leadToe],
-    [BONE.trailFoot, BONE.trailToe],
-  ]) {
-    // The shoe bends at the ball of the foot: its upper and sole are skinned
-    // between the foot and the toes.
-    const shoe = buildShoe(
-      { upper: look.shoe, sole: look.sole, lace: look.lace, tread: look.tread },
-      { binds, foot, toe },
+  let head = null;
+  let grip = null;
+  let builtFigure = [];
+  function buildFigure() {
+    if (builtFigure.length) return;
+    const before = new Set(group.children);
+    const spineLength = bind.bones[BONE.chest].position.distanceTo(
+      bind.bones[BONE.pelvis].position,
     );
-    bones[foot].add(shoe);
-    bones[toe].add(shoe.userData.toes);
-    for (const [geometry, material] of shoe.userData.skins) {
-      skinned(geometry, material);
-    }
+    buildBody(spineLength);
+    // Bones carry the shoes, belt and collar, so they are hidden with it.
+    builtFigure = [
+      ...bones,
+      ...group.children.filter((part) => !before.has(part)),
+    ];
+    if (model) for (const part of builtFigure) part.visible = false;
+    setTime(time);
   }
-  bones[BONE.pelvis].add(
-    buildBelt({ leather: look.belt, metal: look.buckle, cloth: look.trousers }),
-  );
-  bones[BONE.chest].add(buildCollar(look.collar), buildChain(look.gold));
+  function buildBody(spineLength) {
+    skinned(buildTorso(binds, spineLength), look.shirt);
+    const limbs = [
+      [
+        false,
+        BONE.leadUpperArm,
+        BONE.leadForearm,
+        BONE.leadThigh,
+        BONE.leadShin,
+        BONE.leadClavicle,
+      ],
+      [
+        true,
+        BONE.trailUpperArm,
+        BONE.trailForearm,
+        BONE.trailThigh,
+        BONE.trailShin,
+        BONE.trailClavicle,
+      ],
+    ];
+    for (const [mirror, upperArm, forearm, thigh, shin, clavicle] of limbs) {
+      skinned(buildSleeve(binds, upperArm, mirror, clavicle), look.sleeve);
+      skinned(buildArm(binds, upperArm, forearm, mirror), look.arm);
+      skinned(buildTrouserLeg(binds, { thigh, shin }, mirror), look.trousers);
+      skinned(buildSock(binds, shin), look.sock);
+    }
+    for (const [foot, toe] of [
+      [BONE.leadFoot, BONE.leadToe],
+      [BONE.trailFoot, BONE.trailToe],
+    ]) {
+      // The shoe bends at the ball of the foot: its upper and sole are skinned
+      // between the foot and the toes.
+      const shoe = buildShoe(
+        {
+          upper: look.shoe,
+          sole: look.sole,
+          lace: look.lace,
+          tread: look.tread,
+        },
+        { binds, foot, toe },
+      );
+      bones[foot].add(shoe);
+      bones[toe].add(shoe.userData.toes);
+      for (const [geometry, material] of shoe.userData.skins) {
+        skinned(geometry, material);
+      }
+    }
+    bones[BONE.pelvis].add(
+      buildBelt({
+        leather: look.belt,
+        metal: look.buckle,
+        cloth: look.trousers,
+      }),
+    );
+    bones[BONE.chest].add(buildCollar(look.collar), buildChain(look.gold));
 
-  const head = buildGolferHead();
-  group.add(head, buildNeck(look.skin, bones[BONE.chest], head));
+    head = buildGolferHead();
+    group.add(head, buildNeck(look.skin, bones[BONE.chest], head));
 
-  // The hands hold the grip in an overlapping grip: the lead hand, gloved,
-  // nearer the butt, the trail hand below with its little finger riding on
-  // the lead forefinger.
-  const grip = new THREE.Group();
-  const leadHand = buildHand(look.glove, {
-    glove: { tab: look.gloveTab, trim: look.gloveTrim },
-  });
-  leadHand.position.y = LEAD_HAND;
-  leadHand.scale.setScalar(HAND_SCALE);
-  const trailHand = buildHand(look.hand, { overlap: true, nail: look.nail });
-  trailHand.position.y = TRAIL_HAND;
-  trailHand.scale.set(HAND_SCALE, HAND_SCALE, -HAND_SCALE);
-  grip.add(leadHand, trailHand);
-  group.add(grip);
+    // The hands hold the grip in an overlapping grip: the lead hand, gloved,
+    // nearer the butt, the trail hand below with its little finger riding on
+    // the lead forefinger.
+    grip = new THREE.Group();
+    const leadHand = buildHand(look.glove, {
+      glove: { tab: look.gloveTab, trim: look.gloveTrim },
+    });
+    leadHand.position.y = LEAD_HAND;
+    leadHand.scale.setScalar(HAND_SCALE);
+    const trailHand = buildHand(look.hand, { overlap: true, nail: look.nail });
+    trailHand.position.y = TRAIL_HAND;
+    trailHand.scale.set(HAND_SCALE, HAND_SCALE, -HAND_SCALE);
+    grip.add(leadHand, trailHand);
+    group.add(grip);
+  }
 
   // Origin at the hands, -y down the shaft, +z the way the face looks.
   const clubMount = new THREE.Group();
@@ -198,7 +227,6 @@ export function createGolfer() {
   let rig = createRig();
   // A modelled character, once one has loaded, in place of the built figure.
   let model = null;
-  const builtFigure = group.children.filter((part) => part !== clubMount);
 
   function setTime(t) {
     time = t;
@@ -215,11 +243,12 @@ export function createGolfer() {
 
     clubMount.position.copy(rig.handPoint);
     clubMount.quaternion.copy(rig.mount);
-    grip.position.copy(rig.handPoint);
-    grip.quaternion.copy(rig.mount);
-
-    head.position.copy(rig.headCenter);
-    head.quaternion.copy(rig.head);
+    if (grip) {
+      grip.position.copy(rig.handPoint);
+      grip.quaternion.copy(rig.mount);
+      head.position.copy(rig.headCenter);
+      head.quaternion.copy(rig.head);
+    }
   }
 
   function setSide(side) {
@@ -254,7 +283,17 @@ export function createGolfer() {
   }
 
   setClub(getClub(DEFAULT_CLUB_ID));
+  if (figure) buildFigure();
   // For posing the figure by hand when checking it in the browser.
   group.userData.setTime = setTime;
-  return { group, setTime, setSide, setAim, setClub, setIdle, setModel };
+  return {
+    group,
+    setTime,
+    setSide,
+    setAim,
+    setClub,
+    setIdle,
+    setModel,
+    buildFigure,
+  };
 }

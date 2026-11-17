@@ -454,9 +454,7 @@ const FlightIcon = ({ sketch }) => (
 const ClubMenu = ({ club, onClub }) => (
   <Listbox value={club.id} onChange={onClub}>
     <div className="relative min-w-0 flex-[1.35]">
-      <Listbox.Button
-        className="flex h-12 w-full items-center gap-1.5 rounded-lg bg-white/[0.07] px-2.5 text-left transition-colors hover:bg-white/20 md:h-11"
-      >
+      <Listbox.Button className="flex h-12 w-full items-center gap-1.5 rounded-lg bg-white/[0.07] px-2.5 text-left transition-colors hover:bg-white/20 md:h-11">
         <span className="min-w-0 flex-1">
           <span className="block text-[11px] font-normal leading-tight text-white/60">
             Club

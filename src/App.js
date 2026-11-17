@@ -48,6 +48,9 @@ const clamp = (value, range) =>
     : range.DEFAULT;
 
 // Shot controls and the query param each is saved under.
+// Right edge of the shot panel on laptops: left-4 plus its 340px width.
+const PANEL_RIGHT_PIXELS = 356;
+
 const SHOT_PARAMS = {
   clubFaceAngle: "face",
   clubPathAngle: "path",
@@ -322,6 +325,12 @@ function App() {
   useEffect(() => {
     simulator.current.setSide(side);
   }, [side]);
+
+  // On laptops the shot panel lies over the left of the picture: tell the
+  // scene how much, so it can keep the golfer clear of it.
+  useEffect(() => {
+    simulator.current.setViewInset(isDesktop ? PANEL_RIGHT_PIXELS : 0);
+  }, [isDesktop]);
 
   useEffect(() => {
     simulator.current.setAim(aim);

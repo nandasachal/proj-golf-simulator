@@ -53,6 +53,11 @@ function labelTexture(text) {
   return texture;
 }
 
+// How far the golfer's far shoulder is from the target line, and how far the
+// address camera is behind the ball, in yards.
+const GOLFER_CLEARANCE = 1.35;
+const ADDRESS_DISTANCE = 6;
+
 export function createSimulator(container, callbacks = {}) {
   const { onState, onProgress, onResult, onOrbit, fleet } = callbacks;
 
@@ -294,14 +299,17 @@ export function createSimulator(container, callbacks = {}) {
 
   // --- shot state ---
   let side = callbacks.side || "Right";
-  const golfer = createGolfer();
+  // The modelled golfer is on its way; the figure built in code is slow to
+  // make, so it is only built if the model never arrives.
+  const golfer = createGolfer({ figure: false });
   golfer.setSide(side);
   scene.add(golfer.group);
   loadGolferModel()
     .then((model) => golfer.setModel(model))
-    .catch(() =>
-      console.warn("Golfer model did not load; keeping the built-in figure."),
-    );
+    .catch(() => {
+      console.warn("Golfer model did not load; building the built-in figure.");
+      golfer.buildFigure();
+    });
   let swingSeconds = 0;
   let aim = 0;
   let state = ADDRESS;
@@ -438,6 +446,7 @@ export function createSimulator(container, callbacks = {}) {
       director.reset(side);
       golfer.setSide(side);
     }
+    resize();
   }
 
   // In the air: follow the precomputed trajectory point for this moment.
@@ -588,10 +597,21 @@ export function createSimulator(container, callbacks = {}) {
     camera.aspect = width / height;
     // On tall, narrow screens widen the lens so the range still reads.
     camera.fov = camera.aspect < 1 ? 62 : 48;
-    // Shift the picture right by half the covered strip so the scene is
-    // centred in the uncovered part of the container.
-    if (viewInset) {
-      camera.setViewOffset(width, height, -viewInset / 2, 0, width, height);
+    // The camera is behind the ball, so a right-hander stands left of the
+    // middle, where the shot panel may lie over the picture. Slide the
+    // picture right (a lens shift: straight lines stay straight) just far
+    // enough to keep the golfer clear of the covered strip.
+    const focal = height / 2 / Math.tan((camera.fov * Math.PI) / 360);
+    const golferPixels = (focal * GOLFER_CLEARANCE) / ADDRESS_DISTANCE;
+    const shift =
+      side === "Left"
+        ? 0
+        : Math.min(
+            width * 0.3,
+            Math.max(0, viewInset + golferPixels + 8 - width / 2),
+          );
+    if (shift) {
+      camera.setViewOffset(width, height, -shift, 0, width, height);
     } else {
       camera.clearViewOffset();
     }

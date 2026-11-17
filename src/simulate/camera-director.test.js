@@ -19,16 +19,16 @@ const ballAt = (t) =>
 const velocityAt = (t) => new Vector3(-2, 22 - 8 * t, 60);
 
 describe("address view", () => {
-  test("sits behind the ball looking downrange, on the golfer's side", () => {
-    const right = addressView("Right");
-    expect(right.position.z).toBeLessThan(-3);
-    expect(right.position.y).toBeGreaterThan(1);
-    expect(right.target.z).toBeGreaterThan(10);
-    expect(right.position.x).toBeGreaterThan(0);
-
-    const left = addressView("Left");
-    expect(left.position.x).toBeCloseTo(-right.position.x);
-    expect(left.position.z).toBeCloseTo(right.position.z);
+  test("sits straight behind the ball looking down the target line, either hand", () => {
+    for (const side of ["Right", "Left"]) {
+      const view = addressView(side);
+      expect(view.position.z).toBeLessThan(-3);
+      expect(view.position.y).toBeGreaterThan(1);
+      expect(view.target.z).toBeGreaterThan(10);
+      // on the ball's line, so a straight shot goes straight up the picture
+      expect(view.position.x).toBe(0);
+      expect(view.target.x).toBe(0);
+    }
   });
 
   test("a new director starts there", () => {
