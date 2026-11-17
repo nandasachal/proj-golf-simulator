@@ -262,8 +262,6 @@ const SettingsModal = ({
         aria-haspopup="dialog"
         className="hud-panel flex h-10 w-10 items-center justify-center !rounded-full text-white/90 transition-colors hover:text-white"
         onClick={() => setOpen(true)}
-        data-tooltip-id="main-tooltip"
-        data-tooltip-content="Settings: clubs and distances, handedness, turf, feedback"
       >
         <GearFill size={18} />
       </button>
