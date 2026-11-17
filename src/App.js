@@ -7,6 +7,7 @@ import ButtonRow, { HitButton } from "./components/simulator/button-row";
 import ShotReadout from "./components/simulator/shot-readout";
 import SettingsModal from "./components/simulator/settings-modal";
 import GameCard from "./components/simulator/game-card";
+import FlightMap from "./components/simulator/flight-map";
 import { useQueryState, useSetQueries } from "./hooks/use-query";
 import { ArrowCounterclockwise } from "react-bootstrap-icons";
 import { createSimulator } from "./simulate/main";
@@ -538,6 +539,9 @@ function App() {
                 onRestart={startGame}
               />
             )}
+            {/* Folded away to start with on phones, where the picture is
+                small. */}
+            <FlightMap result={result} startOpen={isDesktop} />
           </div>
         </div>
         {/* Along the bottom: the result bar with Hit to its right, the pair

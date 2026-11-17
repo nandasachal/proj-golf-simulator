@@ -284,6 +284,16 @@ React UI (App.js, components/)          src/simulate/ (no React)
   scored shot looking unscored): click something first (e.g. Restart) to flush
   them before hitting.
 
+### Bird's-eye view
+
+Once a shot has stopped, a card under the game card shows it from straight
+above (`components/simulator/flight-map.jsx`): the range with its 50 yd
+lines, the flight (solid), the run (dotted), where it landed and stopped,
+and the target it was hit at. The heading folds it away; it starts folded on
+phones. The points come with the shot result as `track`
+(`simulate/shot-track.js`, pure and tested), and the card goes away when the
+next shot is hit.
+
 ### Load time
 
 - The modelled golfer (`public/models/golfer.glb`) is preloaded from

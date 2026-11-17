@@ -4,6 +4,7 @@ import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { buildRange, groundOverlay, FOG } from "./range";
 import { FLEET_FAR } from "./scenery/fleet";
+import { shotTrack } from "./shot-track";
 import {
   CameraDirector,
   ADDRESS,
@@ -406,6 +407,13 @@ export function createSimulator(container, callbacks = {}) {
         .multiplyScalar(YARDS_PER_METER)
         .add(new THREE.Vector3(0, BALL_RADIUS, 0)),
     }));
+    // The same shot from straight above, for the bird's-eye map.
+    analysis.track = shotTrack(
+      shot.points.map((point) => point.position),
+      run.points.map((point) => point.position),
+      YARDS_PER_METER,
+      target,
+    );
     runIndex = 0;
     for (const { position } of runPath) {
       positions.push(position.x, position.y, position.z);

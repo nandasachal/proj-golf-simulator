@@ -1391,3 +1391,66 @@ describe("club selection", () => {
     expect(carryInput(settings, "7 iron").value).toBe(before);
   });
 });
+
+describe("bird's-eye view", () => {
+  const landed = {
+    shape: "Fade",
+    carryYards: 200,
+    runYards: 20,
+    totalYards: 220,
+    offlineYards: 12,
+    apexYards: 25,
+    track: {
+      air: [
+        [0, 0],
+        [4, 100],
+        [10, 200],
+      ],
+      run: [
+        [10, 200],
+        [12, 220],
+      ],
+      target: null,
+    },
+  };
+  const map = () => screen.queryByRole("region", { name: "Bird's-eye view" });
+
+  test("is not there until a shot has finished", () => {
+    renderApp("/?mode=practice");
+    expect(map()).not.toBeInTheDocument();
+    act(() => callbacks.onResult(landed));
+    expect(map()).toBeInTheDocument();
+    expect(map()).toHaveTextContent("220 yd");
+  });
+
+  test("folds open and shut, and draws the flight and the run", () => {
+    renderApp("/?mode=practice");
+    act(() => callbacks.onResult(landed));
+    // phones start with it folded away
+    const toggle = within(map()).getByRole("button");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(map().querySelector("svg[role=img]")).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(
+      within(map()).getByRole("img", {
+        name: "Fade: 220 yards, 12 yards right",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      map().querySelector('[data-map="flight"]').getAttribute("points"),
+    ).toBe("0,0 4,-100 10,-200");
+    expect(map().querySelector('[data-map="run"]')).not.toBeNull();
+
+    fireEvent.click(toggle);
+    expect(map().querySelector("svg[role=img]")).toBeNull();
+  });
+
+  test("goes away when the next shot is hit", () => {
+    renderApp("/?mode=practice");
+    act(() => callbacks.onResult(landed));
+    fireEvent.click(screen.getByRole("button", { name: /^hit$/i }));
+    expect(map()).not.toBeInTheDocument();
+  });
+});
