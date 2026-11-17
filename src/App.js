@@ -14,7 +14,12 @@ import { createSimulator } from "./simulate/main";
 import { launchConditions } from "./simulate/launch-conditions";
 import { previewShot } from "./simulate/shot-preview";
 import { GRASSES, TURF_LIMITS, TURF_PRESETS } from "./simulate/ground";
-import { randomTarget } from "./simulate/game";
+import {
+  randomTarget,
+  randomAirTarget,
+  describeMiss,
+  GOALS,
+} from "./simulate/game";
 import { getClub, swingSpeedRange, DEFAULT_CLUB_ID } from "./simulate/clubs";
 import { standardAttackAngle } from "./simulate/launch-conditions";
 import { carryLimits, speedForCarry } from "./simulate/club-distances";
@@ -78,7 +83,7 @@ const TURF_PARAMS = {
 };
 const CLEAR_TURF_OVERRIDES = { cut: null, firm: null, wet: null, grass: null };
 const TURF_FIELDS = ["mowHeightInches", "firmness", "leafWetness"];
-const NO_SCORE = { hits: 0, attempts: 0, streak: 0 };
+const NO_SESSION = { played: 0, won: 0 };
 
 // A preset with any custom values from the URL laid over it.
 function turfConditions(presetKey, query) {
@@ -150,8 +155,8 @@ function App() {
     grass,
   });
   const turfPreset = matchingPreset(turf);
-  // Game mode unless the URL says practice.
-  const mode = rawMode === "practice" ? "practice" : "game";
+  // A normal game unless the URL says practice or advanced.
+  const mode = ["practice", "advanced"].includes(rawMode) ? rawMode : "normal";
   const side = rawSide === "Left" ? "Left" : "Right";
   // Shot controls change many times a second while a handle is dragged or a
   // key is held. Those changes live here first and are written to the URL
@@ -233,8 +238,6 @@ function App() {
     ],
   );
 
-  // The simulator's callbacks are created once, so they read the reach here.
-  const reachNow = useRef(undefined);
   // Set when the club (and so the target) changes, until the next hit: a
   // ball already in the air was not aimed at the new target.
   const staleShot = useRef(false);
@@ -245,11 +248,15 @@ function App() {
   // True once the view has been dragged round, until it is reset.
   const [orbiting, setOrbiting] = useState(false);
   const [target, setTarget] = useState(null);
-  const [score, setScore] = useState(NO_SCORE);
-  // How the last shot did against the target that is still up.
-  const [outcome, setOutcome] = useState(null);
-  // Set when a target is hit, so the next one appears once the camera is back.
-  const targetHit = useRef(false);
+  // The shots of the game being played, one per target, oldest first.
+  const [round, setRound] = useState([]);
+  // Games finished and won since the mode or club was chosen.
+  const [session, setSession] = useState(NO_SESSION);
+  // The simulator's callbacks are created once, so they read these here.
+  const game = useRef({ target: null, shots: [], goal: null, next: null });
+  // Set when a shot has been scored, so the next target appears once the
+  // camera is back.
+  const targetDone = useRef(false);
 
   useEffect(() => {
     const sim = createSimulator(stage.current, {
@@ -261,23 +268,43 @@ function App() {
         setLive(null);
         // A shot only counts against the target it was hit at: changing club
         // mid-flight puts up a new one.
-        if (shotResult.target && !staleShot.current) {
+        const { target: aimedAt, goal } = game.current;
+        if (
+          shotResult.target &&
+          !staleShot.current &&
+          aimedAt &&
+          !targetDone.current
+        ) {
           const { hit } = shotResult.target;
-          setOutcome(shotResult.target);
-          targetHit.current = hit;
-          setScore((previous) => ({
-            hits: previous.hits + (hit ? 1 : 0),
-            attempts: previous.attempts + 1,
-            streak: hit ? previous.streak + 1 : 0,
-          }));
+          const shots = [
+            ...game.current.shots,
+            {
+              hit,
+              distanceYards: aimedAt.distanceYards,
+              heightYards: aimedAt.heightYards,
+              miss: hit ? null : describeMiss(shotResult.target),
+            },
+          ];
+          game.current.shots = shots;
+          setRound(shots);
+          targetDone.current = true;
+          if (shots.length === goal.targets) {
+            const won = shots.filter((shot) => shot.hit).length >= goal.toWin;
+            setSession((previous) => ({
+              played: previous.played + 1,
+              won: previous.won + (won ? 1 : 0),
+            }));
+          }
         }
       },
       onState: (state) => {
-        if (state === "address" && targetHit.current) {
-          targetHit.current = false;
-          setOutcome(null);
+        if (state === "address" && targetDone.current) {
+          targetDone.current = false;
+          const { shots, goal, next } = game.current;
+          // The game is over after the last target: the range is cleared
+          // until a new game is started.
           setTarget((previous) =>
-            randomTarget(Math.random, previous, reachNow.current),
+            shots.length >= goal.targets ? null : next(previous),
           );
         }
       },
@@ -305,23 +332,35 @@ function App() {
   // Entering game mode puts up a first target; leaving it clears the range.
   // A change of club starts again too, with targets that club can reach.
   const reach = useMemo(() => targetReach(club.id), [club]);
-  reachNow.current = reach;
+  const goal = GOALS[mode] || null;
+  // Normal targets are on the ground, advanced ones in the air.
+  const nextTarget = useMemo(
+    () =>
+      mode === "advanced"
+        ? (previous) => randomAirTarget(Math.random, previous, club.id)
+        : (previous) => randomTarget(Math.random, previous, reach),
+    [mode, club, reach],
+  );
+  const startGame = () => {
+    targetDone.current = false;
+    // A ball already in the air was not hit at the new game's first target.
+    staleShot.current = true;
+    game.current.shots = [];
+    setRound([]);
+    setTarget((previous) => (goal ? nextTarget(previous) : null));
+  };
+  game.current.goal = goal;
+  game.current.next = nextTarget;
+  game.current.target = target;
   useEffect(() => {
-    targetHit.current = false;
-    setScore(NO_SCORE);
-    setOutcome(null);
-    setTarget(mode === "game" ? randomTarget(Math.random, null, reach) : null);
-  }, [mode, reach]);
+    setSession(NO_SESSION);
+    startGame();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nextTarget]);
 
   useEffect(() => {
     simulator.current.setTarget(target);
   }, [target]);
-
-  const handleNewTarget = () => {
-    targetHit.current = false;
-    setOutcome(null);
-    setTarget((previous) => randomTarget(Math.random, previous, reach));
-  };
 
   const handleTurfPreset = (key) =>
     setQueries({ turf: key, ...CLEAR_TURF_OVERRIDES });
@@ -379,7 +418,7 @@ function App() {
       setDraft((previous) => ({ ...previous, [type]: newValue }));
     else if (type === "turf") handleTurfPreset(newValue);
     else if (type === "mode")
-      setQueries({ mode: newValue === "practice" ? "practice" : null });
+      setQueries({ mode: newValue === "normal" ? null : newValue });
   };
 
   // Back to the default shot. Settings (mode, side, turf) stay as they are.
@@ -408,8 +447,17 @@ function App() {
   const handleHit = () => {
     setResult(null);
     setLive(null);
-    setOutcome(null);
     staleShot.current = false;
+    // Hitting again before the camera is back still moves on to the next
+    // target: every target gets one shot.
+    if (targetDone.current) {
+      targetDone.current = false;
+      const { shots, next } = game.current;
+      const upNext = shots.length >= goal.targets ? null : next(target);
+      game.current.target = upNext;
+      simulator.current.setTarget(upNext);
+      setTarget(upNext);
+    }
     simulator.current.hit(
       launchConditions({
         faceAngle,
@@ -478,12 +526,14 @@ function App() {
 
         <div className="pointer-events-none absolute inset-0 flex items-start justify-between gap-3 p-3 md:p-4">
           <div className="pointer-events-auto ml-auto flex flex-col items-end gap-2">
-            {target && (
+            {goal && (
               <GameCard
+                mode={mode}
+                goal={goal}
                 target={target}
-                score={score}
-                outcome={outcome}
-                onNewTarget={handleNewTarget}
+                round={round}
+                session={session}
+                onRestart={startGame}
               />
             )}
           </div>

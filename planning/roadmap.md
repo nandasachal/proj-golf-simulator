@@ -54,6 +54,10 @@
 - Free-look close-up: the orbiting, enlargeable 3D view was removed when the
   controls became 3D. The scene still supports it; bring it back as an
   "expand" on a control view if it is missed.
+- [done] **Game rounds and advanced mode** (2026-11-16) — Practice / Normal /
+  Advanced; a game is 10 targets (5 to win in normal, 8 in advanced); advanced
+  targets float in the air; scoreboard with a per-shot log. Open: tune the air
+  target size against real play, a win/lose moment in the scene, saved best scores.
 - **More shot controls**, in rough order of value: high/low strike on the face
   (changes launch and spin); wind; tee height; ball position in the stance.
   Altitude/temperature and slope are lower value.

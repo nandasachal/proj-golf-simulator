@@ -252,7 +252,7 @@ const SettingsModal = ({
         className="hud-panel flex h-10 w-10 items-center justify-center !rounded-full text-white/90 transition-colors hover:text-white"
         onClick={() => setOpen(true)}
         data-tooltip-id="main-tooltip"
-        data-tooltip-content="Settings: club, game mode, handedness, turf, feedback"
+        data-tooltip-content="Settings: club, practice or game, handedness, turf, feedback"
       >
         <GearFill size={18} />
       </button>
@@ -295,14 +295,15 @@ const SettingsModal = ({
 
               <Section
                 title="Mode"
-                hint="Game mode puts a target on the range and keeps score."
+                hint="A game is 10 targets, one shot at each. Normal: rings on the ground, hit 5 to win. Advanced: targets in the air, hit 8."
               >
                 <Segmented
                   label="Mode"
                   accent
                   options={[
                     ["practice", "Practice"],
-                    ["game", "Game mode"],
+                    ["normal", "Normal"],
+                    ["advanced", "Advanced"],
                   ]}
                   value={mode}
                   onChange={onMode}

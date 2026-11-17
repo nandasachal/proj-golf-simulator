@@ -19,13 +19,23 @@ than abstract.
   The tilt is atan(tan(face-to-path) / tan(spin loft)) with a 12.5° driver spin
   loft: about 4.5° of axis tilt per degree, in line with TrackMan's published
   driver examples.
-- **Game mode** (`src/simulate/game.js`) — a random target ring appears 140–330 yd
-  out with the driver (between a soft and a full swing's carry with any other
-  club) and up to 40 yd either side, bigger the farther it is (13–20 yd radius). It is
-  the default mode (`?mode=practice` turns it off). A shot scores if the ball
-  touches the ground inside the ring at any point:
-  landing, bouncing, rolling through or stopping. A hit brings a new target; a
-  miss keeps it and reports how far short/long and left/right the ball finished.
+- **Game mode** (`src/simulate/game.js`) — a game is 10 targets with one shot at
+  each, chosen in Settings as Normal or Advanced (`?mode=practice` turns the game
+  off, `?mode=advanced` picks advanced; normal is the default).
+  - **Normal**: a random target ring on the ground, 140–330 yd out with the driver
+    (between a soft and a full swing's carry with any other club) and up to 40 yd
+    either side, bigger the farther it is (13–20 yd radius). A shot scores if the
+    ball touches the ground inside the ring at any point: landing, bouncing,
+    rolling through or stopping. Hit 5 of 10 to win.
+  - **Advanced**: a sphere floating in the air that the ball has to fly through
+    (7 yd radius at 100 yd, 9 at 200). Each one is placed on the flight of a random
+    swing with the club in hand, 30–85% of the way along it, so it is always
+    reachable and turns up low and early, at the apex, or late on the way down. A
+    miss reports how far high/low and left/right the ball passed it, or how far
+    short it fell. Hit 8 of 10 to win.
+  - The card top right shows the target that is up, a pip per target, hits against
+    the goal, a log of every shot in the game and the games won this session
+    (reset by changing mode or club, and by a reload).
 - **Strike location** — where on the face the ball is hit, up to 1 in toward the
   toe or heel. A toe strike starts the ball on the open side (3.5° per inch, from
   the face's bulge and the head twisting) and gear effect tilts the spin axis
@@ -112,7 +122,7 @@ React UI (App.js, components/)          src/simulate/ (no React)
   Hit button                          shot.js                launch → trajectory points
   ⋯ settings modal (club)             clubs.js               the bag: loft, lie, tour delivery
   ⋯ settings modal (turf)             ground.js              touchdown → bounces + roll
-  ⋯ settings modal (mode), score      game.js                random target, hit or miss
+  ⋯ settings modal (mode), score      game.js                ground and air targets, hit or miss
   shot readout  ◄── callbacks ──────  shot-analysis.js       trajectory → carry, total, shape…
   URL query state (hooks/use-query)   main.js                scene, render loop, shot states
                                         ├─ range.js          assembles scenery/ (below)

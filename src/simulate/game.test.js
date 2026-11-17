@@ -1,4 +1,13 @@
-import { randomTarget, evaluateTarget, describeMiss } from "./game";
+import {
+  randomTarget,
+  randomAirTarget,
+  evaluateTarget,
+  describeMiss,
+  GOALS,
+} from "./game";
+import { Shot } from "./shot";
+import { launchConditions } from "./launch-conditions";
+import { toYards } from "./conversions-lib";
 
 // A repeatable stand-in for Math.random.
 const sequence = (...values) => {
@@ -104,4 +113,90 @@ describe("evaluateTarget", () => {
     expect(describeMiss({ longYards: 0.2, rightYards: -7 })).toBe("7 yd left");
     expect(describeMiss({ longYards: 0, rightYards: 0 })).toBe("dead centre");
   });
+});
+
+describe("air targets", () => {
+  const flightOf = (swing) =>
+    new Shot({
+      dt: 0.01,
+      ...launchConditions({ side: "Right", ...swing }),
+    }).points.map(({ position }) => ({
+      x: toYards(position.x),
+      y: toYards(position.y),
+      z: toYards(position.z),
+    }));
+
+  test("float clear of the ground, downrange, in different parts of the air", () => {
+    const heights = [];
+    const sides = new Set();
+    for (let i = 0; i < 80; i++) {
+      const target = randomAirTarget();
+      expect(target.air).toBe(true);
+      expect(target.y - target.radius).toBeGreaterThanOrEqual(1);
+      expect(target.z).toBeGreaterThan(30);
+      expect(target.z).toBeLessThan(330);
+      expect(target.radius).toBeGreaterThan(5.5);
+      expect(target.heightYards).toBe(Math.round(target.y));
+      heights.push(target.y);
+      sides.add(Math.sign(Math.round(target.x)));
+    }
+    expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThan(15);
+    expect(sides.has(1) && sides.has(-1)).toBe(true);
+  });
+
+  test("can be reached: the swing a target was taken from flies through it", () => {
+    // speed 0.6 of the way up the usable range, 1.5 deg open face, square path
+    const random = sequence(0.6, 0.75, 0.5, 0.5);
+    const target = randomAirTarget(random);
+    const flight = flightOf({
+      swingSpeedMPH: 80 + (0.25 + 0.75 * 0.6) * 60,
+      faceAngle: 1.5,
+      pathAngle: 0,
+    });
+    const outcome = evaluateTarget(target, [flight.at(-1)], flight);
+    expect(outcome.hit).toBe(true);
+    expect(outcome.closestYards).toBeLessThan(1);
+  });
+
+  test("a short club gets targets it can reach", () => {
+    for (let i = 0; i < 40; i++) {
+      expect(randomAirTarget(Math.random, null, "lw").z).toBeLessThan(120);
+    }
+  });
+
+  const target = { air: true, x: 0, y: 20, z: 150, radius: 8 };
+  const line = (y, x = 0, endZ = 300) => [
+    { x, y, z: 0 },
+    { x, y, z: endZ },
+  ];
+
+  test("flying through the sphere is a hit, between sampled points too", () => {
+    expect(evaluateTarget(target, [], line(24)).hit).toBe(true);
+    expect(evaluateTarget(target, [], line(20, 7.9)).hit).toBe(true);
+  });
+
+  test("passing under it is a miss, described by height and side", () => {
+    const outcome = evaluateTarget(target, [], line(8, -5));
+    expect(outcome.hit).toBe(false);
+    expect(describeMiss(outcome)).toBe("12 yd low, 5 yd right");
+    expect(describeMiss(evaluateTarget(target, [], line(31, 2)))).toBe(
+      "11 yd high, 2 yd left",
+    );
+  });
+
+  test("a ball that never gets there fell short", () => {
+    const outcome = evaluateTarget(target, [], line(1, 0, 110));
+    expect(outcome.hit).toBe(false);
+    expect(describeMiss(outcome)).toBe("fell 40 yd short");
+  });
+
+  test("a ball rolling along the ground under it does not count", () => {
+    const outcome = evaluateTarget(target, line(0.02), line(30, 0, 100));
+    expect(outcome.hit).toBe(false);
+  });
+});
+
+test("the goal is 5 of 10 in normal and 8 of 10 in advanced", () => {
+  expect(GOALS.normal).toEqual({ targets: 10, toWin: 5 });
+  expect(GOALS.advanced).toEqual({ targets: 10, toWin: 8 });
 });

@@ -199,13 +199,49 @@ export function createSimulator(container, callbacks = {}) {
   const targetLabel = new THREE.Sprite(
     new THREE.SpriteMaterial({ depthTest: false, fog: false }),
   );
-  targetGroup.add(
-    targetDisc,
-    targetEdge,
-    targetBullseye,
-    targetBeacon,
-    targetLabel,
+  const groundTarget = new THREE.Group();
+  groundTarget.add(targetDisc, targetEdge, targetBullseye, targetBeacon);
+
+  // An advanced target: a sphere in the air with hoops round it, a tether
+  // down to a mark on the turf so its distance can be read.
+  const airTarget = new THREE.Group();
+  const airBall = new THREE.Group();
+  const airShell = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 32, 20),
+    targetMaterial,
   );
+  airBall.add(airShell);
+  for (const [x, y] of [
+    [0, 0],
+    [Math.PI / 2, 0],
+    [0, Math.PI / 2],
+  ]) {
+    const hoop = new THREE.Mesh(
+      new THREE.TorusGeometry(1, 0.035, 8, 64),
+      targetEdgeMaterial,
+    );
+    hoop.rotation.set(x, y, 0);
+    airBall.add(hoop);
+  }
+  const airCore = new THREE.Mesh(
+    new THREE.SphereGeometry(0.16, 16, 12),
+    targetEdgeMaterial,
+  );
+  airBall.add(airCore);
+  const airTether = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.12, 0.12, 1, 8, 1, true),
+    targetBeaconMaterial,
+  );
+  const airMark = new THREE.Mesh(
+    new THREE.RingGeometry(0.86, 1, 48),
+    targetEdgeMaterial,
+  );
+  airMark.rotation.x = -Math.PI / 2;
+  groundOverlay(airMark, 5);
+  airMark.position.y = 0.07;
+  airTarget.add(airBall, airTether, airMark);
+
+  targetGroup.add(groundTarget, airTarget, targetLabel);
   scene.add(targetGroup);
   let target = null;
 
@@ -223,13 +259,25 @@ export function createSimulator(container, callbacks = {}) {
     targetGroup.visible = Boolean(next);
     if (!next) return;
     targetGroup.position.set(next.x, 0, next.z);
-    targetDisc.scale.setScalar(next.radius);
-    targetEdge.scale.setScalar(next.radius);
-    targetBullseye.scale.setScalar(next.radius);
+    const air = Boolean(next.air);
+    groundTarget.visible = !air;
+    airTarget.visible = air;
     // Sized by distance so the label reads the same from the tee.
-    const labelWidth = next.z * 0.085;
+    const labelWidth = Math.max(next.z, 60) * 0.085;
     targetLabel.scale.set(labelWidth, labelWidth * 0.375, 1);
-    targetLabel.position.y = 6 + next.z * 0.05;
+    if (air) {
+      airBall.position.y = next.y;
+      airBall.scale.setScalar(next.radius);
+      airTether.scale.y = next.y - next.radius;
+      airTether.position.y = (next.y - next.radius) / 2;
+      airMark.scale.setScalar(next.radius * 0.5);
+      targetLabel.position.y = next.y + next.radius + labelWidth * 0.25;
+    } else {
+      targetDisc.scale.setScalar(next.radius);
+      targetEdge.scale.setScalar(next.radius);
+      targetBullseye.scale.setScalar(next.radius);
+      targetLabel.position.y = 6 + next.z * 0.05;
+    }
     const material = targetLabel.material;
     if (material.map) material.map.dispose();
     material.map = labelTexture(`${next.distanceYards} yd`);
@@ -349,6 +397,11 @@ export function createSimulator(container, callbacks = {}) {
       analysis.target = evaluateTarget(
         target,
         runPath.map((point) => point.position),
+        shot.points.map(({ position: p }) => ({
+          x: p.x * YARDS_PER_METER,
+          y: p.y * YARDS_PER_METER + restPosition.y,
+          z: p.z * YARDS_PER_METER,
+        })),
       );
     }
     paintTarget(false);
@@ -431,6 +484,19 @@ export function createSimulator(container, callbacks = {}) {
       });
     }
 
+    // An air target lights up as the ball goes through it.
+    if (
+      target?.air &&
+      analysis.target?.hit &&
+      Math.hypot(
+        ball.position.x - target.x,
+        ball.position.y - target.y,
+        ball.position.z - target.z,
+      ) <= target.radius
+    ) {
+      paintTarget(true);
+    }
+
     if (stopped) {
       landing.copy(ball.position).setY(0);
       tracer.geometry.instanceCount = Infinity;
@@ -453,6 +519,7 @@ export function createSimulator(container, callbacks = {}) {
   function update(dt) {
     scenerySeconds += dt;
     range.userData.update(scenerySeconds, camera);
+    if (airTarget.visible) airBall.rotation.y = scenerySeconds * 0.4;
     if (state !== ADDRESS) {
       // The swing keeps running into its follow-through after the ball has gone.
       swingSeconds = Math.min(swingSeconds + dt, SWING_DURATION);
