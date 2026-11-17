@@ -30,8 +30,12 @@ def outfit(suit, spec):
     yoke_at = [0.0] * count
     for i in top:
         co = mesh.vertices[i].co
-        yoke_at[i] = min(max((co.z - spec.YOKE_HEIGHT) / 0.006, 0), 1) * min(
-            max((spec.YOKE_REACH - abs(co.x)) / 0.006, 0), 1
+        # A wide ramp per vertex: interpolated across the faces, its halfway
+        # line is straight however coarse the mesh is.
+        yoke_at[i] = min(
+            max((co.z - spec.YOKE_HEIGHT) / 0.08 + 0.5, 0.01),
+            max((spec.YOKE_REACH - abs(co.x)) / 0.08 + 0.5, 0.01),
+            1,
         )
     yoke = paint.uv_field(suit, yoke_at, size)
 
@@ -45,7 +49,7 @@ def outfit(suit, spec):
     cols = np.arange(size)[None, :] / size
     logo = (np.abs(cols - 0.56) < 0.11) & (np.abs(rows - 0.83) < 0.11)
     knit = np.where(printed | (logo & upper), 1.0, knit)
-    seam = (yoke > 0.42) & (yoke < 0.58)
+    seam = np.abs(yoke - 0.5) < 0.025
     knit = np.where(seam, knit * 0.8, knit)
     # The twill is left out: only seams and folds come through.
     denim = _shade(paint.blur(lum, 7), 28, 0.9, -0.22, 0.1)
@@ -104,6 +108,10 @@ def eyes(spec):
 
 def skin(body, spec):
     image = paint.find(spec.SKIN_IMAGE)
+    # The face is seen close up: work at twice the asset's resolution and
+    # put back the fine detail an enlargement lacks.
+    size = 4096
+    image.scale(size, size)
     px = paint.pixels(image)
     rgb = px[..., :3]
     # Scale each channel so the texture's typical skin lands on the tone.
@@ -111,26 +119,45 @@ def skin(body, spec):
     for c in range(3):
         typical = np.median(rgb[..., c][lit])
         rgb[..., c] = np.clip(rgb[..., c] * (spec.SKIN_TONE[c] / typical), 0, 1)
-    rgb *= (1 - spec.STUBBLE * _stubble(body, rgb))[..., None]
-    # Pores and creases as relief, taken from the fine detail of the texture.
+    # Lips nearer the skin's own colour than the asset's pink.
+    pink = rgb[..., 0] - rgb[..., 1]
+    lips = np.clip((pink - np.median(pink[lit]) - 0.05) / 0.04, 0, 1)
+    for c in range(3):
+        rgb[..., c] *= 1 - 0.3 * lips * (1 - spec.SKIN_TONE[c])
+    # Sharpen what is there, then add pores: fine mottling in the colour and
+    # the same pattern as relief.
+    for c in range(3):
+        rgb[..., c] += 0.7 * (rgb[..., c] - paint.blur(rgb[..., c], 2))
+    rng = np.random.default_rng(11)
+    grain = rng.random((size, size)).astype(np.float32)
+    pores = paint.blur(grain, 1) - paint.blur(grain, 4)
+    pores /= np.abs(pores).max()
+    rgb *= (1 + 0.07 * pores)[..., None]
+
+    hair, strands = _hair(body, spec, size, lips, rng)
+    for c in range(3):
+        rgb[..., c] = rgb[..., c] * (1 - hair) + spec.HAIR_COLOUR[c] * hair
+    np.clip(rgb, 0, 1, out=rgb)
+
     lum = paint.luma(rgb)
-    detail = np.clip((lum - paint.blur(lum, 3)) * 6, -1, 1)
+    detail = np.clip((lum - paint.blur(lum, 4)) * 5, -1, 1)
     relief = paint.new_image(
-        "skin_normal", paint.normal_from_height(detail, 1.6), colour=False
+        "skin_normal",
+        paint.normal_from_height(0.6 * detail + 0.2 * pores + 0.5 * strands, 1.2),
+        colour=False,
     )
-    relief.scale(1024, 1024)
+    relief.scale(2048, 2048)
     relief.pack()
-    paint.store(image, px, 2048)
-    mat = body.data.materials[0]
-    paint.add_normal(mat, relief, 0.8)
+    paint.store(image, px)
+    paint.add_normal(body.data.materials[0], relief, 0.6)
     _principled(body).inputs["Roughness"].default_value = spec.SKIN_ROUGHNESS
 
 
-def _stubble(body, rgb):
-    """Where short hair darkens the skin: beard and moustache, running up
-    the sideburns into the cropped hair that shows below the hat."""
+def _hair(body, spec, size, lips, rng):
+    """Where hair covers the skin, as (cover, strands): a short beard and
+    moustache, and cropped hair on the scalp, drawn as fine strokes rather
+    than a flat shade."""
     mesh = body.data
-    size = rgb.shape[0]
     head = paint.islands(mesh)[0]
     co = {i: mesh.vertices[i].co for i in head}
     crown = [c for c in co.values() if c.z > 1.70]
@@ -143,22 +170,42 @@ def _stubble(body, rgb):
     def ramp(value, width):
         return min(max(value / width, 0), 1)
 
-    field = [0.0] * len(mesh.vertices)
+    beard = [0.0] * len(mesh.vertices)
+    scalp = [0.0] * len(mesh.vertices)
     for i, c in co.items():
+        ahead = (ear.y - c.y) / (ear.y - nose.y)
         if c.y < ear.y - 0.012:
-            # The beard's top edge climbs from under the nose to the ear.
+            # The beard's top edge climbs from under the nose to the ear,
+            # and it thins out toward the ear instead of stopping at a line.
             top = nose.z - 0.016 + max(abs(c.x) - 0.04, 0) * 1.0
-            field[i] = ramp(top - c.z, 0.012) * ramp(c.z - chin + 0.04, 0.025)
-        elif c.y > ear.y + 0.014:
-            field[i] = ramp(c.z - 1.61, 0.02)
-        if c.z > ear.z + 0.045:
-            field[i] = 1.0
-    painted = paint.blur(paint.uv_field(body, field, size), 8)
-    # Lips stay clear, and the hair has grain.
-    pink = rgb[..., 0] - rgb[..., 1]
-    lips = np.clip((pink - np.median(pink[painted > 0.5]) - 0.05) / 0.04, 0, 1)
-    grain = np.random.default_rng(7).random((size, size)).astype(np.float32)
-    return painted * (1 - lips) * (0.7 + 0.3 * paint.blur(grain, 1) * 2)
+            beard[i] = (
+                ramp(top - c.z, 0.012)
+                * ramp(c.z - chin + 0.04, 0.025)
+                * (0.45 + 0.55 * ramp(ear.y - 0.012 - c.y, 0.035))
+            )
+        # The hairline: high over the forehead, down past the temples to the
+        # top of the ear, then a fade down the back of the head.
+        if ahead > 0.12:
+            line = ear.z + 0.012 + max(min(ahead, 1) - 0.35, 0) * 0.16
+            scalp[i] = ramp(c.z - line, 0.012)
+        elif ahead < -0.1:
+            scalp[i] = ramp(c.z - 1.625, 0.05)
+        else:
+            scalp[i] = ramp(c.z - ear.z - 0.036, 0.01)
+    beard = paint.blur(paint.uv_field(body, beard, size), 12)
+    scalp = paint.blur(paint.uv_field(body, scalp, size), 10)
+    # Strokes: noise drawn out along the way the hair lies.
+    grain = rng.random((size, size)).astype(np.float32)
+    streaks = grain
+    for shift in range(1, 7):
+        streaks = streaks + np.roll(grain, shift, axis=0)
+    streaks = paint.blur(streaks / 7, 1)
+    streaks = np.clip((streaks - streaks.mean()) / (3 * streaks.std()) + 0.5, 0, 1)
+    cover = np.maximum(
+        scalp * spec.HAIR * (0.75 + 0.25 * streaks),
+        beard * (1 - lips) * spec.BEARD * (0.45 + 0.55 * streaks),
+    )
+    return np.clip(cover, 0, 1), (streaks - 0.5) * np.maximum(beard, scalp)
 
 
 def _principled(obj):
@@ -180,6 +227,8 @@ def run(human, spec):
     outfit(bpy.data.objects[f"body.{spec.SUIT}"], spec)
     shoes(bpy.data.objects[f"body.{spec.SHOES}"], spec)
     eyes(spec)
+    low = bpy.data.objects["body.low-poly"]
+    _principled(low).inputs["Roughness"].default_value = spec.EYE_ROUGHNESS
     skin(human, spec)
     darken("eyebrow", 0.35, 512)
     for image in bpy.data.images:
@@ -188,9 +237,3 @@ def run(human, spec):
     for image in bpy.data.images:
         if image.size[0] and not image.packed_file:
             image.pack()
-    triangles = 0
-    for obj in bpy.data.objects:
-        if obj.type == "MESH":
-            obj.data.calc_loop_triangles()
-            triangles += len(obj.data.loop_triangles)
-    print("TRIANGLES", triangles)

@@ -36,12 +36,17 @@ SKIN = "young_caucasian_male"
 SKIN_IMAGE = "young_lightskinned_male_diffuse"
 SKIN_TONE = (0.66, 0.48, 0.37)
 SKIN_ROUGHNESS = 0.66
-# How dark the stubble and the cropped hair below the hat go (0 is none).
-STUBBLE = 0.3
+# Short beard and cropped hair, painted as strokes: how solid each is (0 is
+# none, 1 hides the skin), and their colour.
+BEARD = 0.6
+HAIR = 0.92
+HAIR_COLOUR = (0.06, 0.05, 0.045)
+EYE_ROUGHNESS = 0.06
 IRIS = (0.5, 0.33, 0.22)
 
 # The outfit follows Sachal's reference video (tools/blender/reference, not
-# in git): slate beanie, dark quarter-zip pullover with a lighter yoke, grey
+# in git): cap (he wears a beanie in the video; Sachal asked for
+# a golf cap instead), dark quarter-zip pullover with a lighter yoke, grey
 # tapered trousers, dark knit trainers, white glove on the lead hand.
 SUIT = "male_casualsuit02"
 SHOES = "shoes06"
@@ -57,17 +62,21 @@ TROUSERS = (0.38, 0.375, 0.39)
 SHOE = (0.15, 0.16, 0.2)
 SOCK = (0.13, 0.13, 0.15)
 GLOVE = (0.86, 0.87, 0.87)
-BEANIE = (0.36, 0.42, 0.6)
-BEANIE_THICKNESS = 0.015
-BEANIE_SLOUCH = 0.03
-BEANIE_RIBS = 18
-# Where the hat's rim sits (metres up): mid forehead, over the top of the
-# ears, down to the nape.
-BEANIE_RIM_FRONT = 1.722
-BEANIE_RIM_SIDE = 1.672
-BEANIE_RIM_BACK = 1.625
+CAP = (0.2, 0.24, 0.36)
+CAP_UNDER = (0.1, 0.12, 0.18)
+CAP_THICKNESS = 0.008
+CAP_FRONT_RISE = 0.02
+CAP_PEAK_LENGTH = 0.085
+# Half the arc of the rim the peak is sewn to, degrees.
+CAP_PEAK_SPREAD = 56
+# Where the cap's rim sits (metres up): on the forehead, clear of the ears,
+# a little lower at the back.
+CAP_RIM_FRONT = 1.724
+CAP_RIM_SIDE = 1.708
+CAP_RIM_BACK = 1.688
 
-# (asset folder, asset name, MPFB asset type). No hair: the hat covers it.
+# (asset folder, asset name, MPFB asset type). No hair asset: the hair is
+# cropped short and painted on the scalp, which sits cleanly under a cap.
 ASSETS = [
     ("clothes", SUIT, "Clothes"),
     ("clothes", SHOES, "Clothes"),

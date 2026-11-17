@@ -15,10 +15,7 @@ export const FLEET_FAR = 4600;
 // start: where along the crossing it begins; z downrange, y up; length in yards
 export const SHIPS = [
   { start: 500, z: 1900, y: 450, length: 1700 },
-  { start: -900, z: 1450, y: 350, length: 800 },
-  { start: 1500, z: 1550, y: 300, length: 750 },
-  { start: -2100, z: 2250, y: 560, length: 1000 },
-  { start: 2600, z: 2100, y: 420, length: 900 },
+  { start: -2500, z: 1500, y: 350, length: 900 },
 ];
 
 // How far a ship has sunk into the haze, 0 to 1, by how far downrange it is:
@@ -162,27 +159,210 @@ function buildShip(length, haze, plating) {
   return ship;
 }
 
+// --- fighters ---
+// Small twin-panel fighters, drawn many times their real size so they can be
+// seen at all: flights of three circle each capital ship, and more patrol the
+// sky all round the range.
+
+const ESCORT_FLIGHTS = 5; // per capital ship
+const ESCORT_SIZE = 46; // yards, panel tip to panel tip
+const FLIGHT = [
+  [0, 0],
+  [1.7, -1.6],
+  [-1.7, -1.6],
+]; // [right, ahead] of the leader, in fighter sizes
+
+// Patrols: flights flying level circles over the range, some far out and
+// some nearly overhead, in both directions. The circles are centred off the
+// tee so the fighters are seen from every side, not always panel-on. All are
+// well above any ball flight.
+export const PATROLS = (() => {
+  const random = seededRandom(4077);
+  return Array.from({ length: 14 }, (_, i) => {
+    const overhead = i % 4 === 3;
+    return {
+      radius: overhead ? 160 + random() * 260 : 480 + random() * 820,
+      height: overhead ? 300 + random() * 220 : 150 + random() * 380,
+      centreX: (random() - 0.5) * 700,
+      centreZ: (random() - 0.5) * 700,
+      phase: random() * Math.PI * 2,
+      direction: random() < 0.5 ? -1 : 1,
+      speed: 55 + random() * 30, // yards a second
+      size: 20 + random() * 12,
+    };
+  });
+})();
+
+// Where a patrol's leader is after `seconds`.
+export function patrolPlace(patrol, seconds) {
+  const angle =
+    patrol.phase + (patrol.direction * patrol.speed * seconds) / patrol.radius;
+  return {
+    x: patrol.centreX + Math.cos(angle) * patrol.radius,
+    y: patrol.height,
+    z: patrol.centreZ + Math.sin(angle) * patrol.radius,
+  };
+}
+
+// Where an escort flight's leader is: a long loop round its ship, out past
+// the nose and stern and wide of the hull, rising and falling as it goes.
+export function escortPlace(flight, seconds, ship) {
+  const { length } = ship.spec;
+  const angle = flight * 1.9 + (seconds * 70) / (length * 0.5);
+  const lift = Math.sin(angle * 0.6 + flight) * 0.09 + 0.06 * (flight % 3);
+  return {
+    x: ship.x + Math.cos(angle) * length * (0.62 + 0.05 * (flight % 2)),
+    y: ship.spec.y + lift * length,
+    z: ship.spec.z + Math.sin(angle) * length * (0.4 + 0.04 * flight),
+  };
+}
+
+// One fighter, one yard across, flying toward +z: a ball cockpit between two
+// upright six-sided panels.
+function fighterGeometry() {
+  const parts = [];
+  const part = (geometry, shade, place) => {
+    place(geometry);
+    const flat = geometry.toNonIndexed();
+    const count = flat.getAttribute("position").count;
+    parts.push({ flat, colors: new Array(count * 3).fill(shade) });
+  };
+  part(new THREE.SphereGeometry(0.17, 10, 8), 0.72, () => {});
+  part(new THREE.BoxGeometry(0.9, 0.06, 0.1), 0.6, () => {});
+  for (const side of [-1, 1]) {
+    const onPanel = (geometry) => geometry.translate(side * 0.47, 0, 0);
+    part(new THREE.CylinderGeometry(0.5, 0.5, 0.03, 6), 0.1, (geometry) => {
+      geometry.rotateZ(Math.PI / 2);
+      onPanel(geometry);
+    });
+    // The frame on each panel: a hub and six spokes out to the corners.
+    part(new THREE.CylinderGeometry(0.11, 0.11, 0.06, 6), 0.62, (geometry) => {
+      geometry.rotateZ(Math.PI / 2);
+      onPanel(geometry);
+    });
+    for (let spoke = 0; spoke < 3; spoke++) {
+      part(new THREE.BoxGeometry(0.05, 0.035, 0.98), 0.62, (geometry) => {
+        geometry.rotateX((spoke * Math.PI) / 3);
+        onPanel(geometry);
+      });
+    }
+  }
+  const join = (name) =>
+    parts.flatMap(({ flat }) => Array.from(flat.getAttribute(name).array));
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(join("position"), 3),
+  );
+  geometry.setAttribute(
+    "normal",
+    new THREE.Float32BufferAttribute(join("normal"), 3),
+  );
+  geometry.setAttribute(
+    "color",
+    new THREE.Float32BufferAttribute(
+      parts.flatMap(({ colors }) => colors),
+      3,
+    ),
+  );
+  return geometry;
+}
+
+// `count` fighters drawn as one mesh, hazed like the hulls.
+function fighterSwarm(geometry, count, haze) {
+  const horizon = new THREE.Color(HORIZON_COLOR);
+  const material = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0xffffff).multiplyScalar(1 - haze),
+    emissive: horizon.multiplyScalar(haze * 0.8),
+    vertexColors: true,
+    roughness: 0.8,
+    metalness: 0,
+    flatShading: true,
+    fog: false,
+    side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.InstancedMesh(geometry, material, count);
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
+const pose = new THREE.Object3D();
+const ahead = new THREE.Vector3();
+// Put a flight of three in a swarm, starting at `index`: the leader at
+// `place(seconds)`, heading where it will be a moment later, wingmen behind
+// and to either side, all banked by `bank`.
+function setFlight(swarm, index, place, seconds, size, bank) {
+  const here = place(seconds);
+  const next = place(seconds + 0.4);
+  pose.position.set(here.x, here.y, here.z);
+  pose.lookAt(ahead.set(next.x, next.y, next.z));
+  pose.rotateZ(bank);
+  pose.scale.setScalar(size);
+  pose.updateMatrix();
+  const leader = pose.matrix.clone();
+  FLIGHT.forEach(([right, forward], member) => {
+    pose.matrix.copy(leader);
+    // Offsets are in the leader's own frame, in fighter sizes.
+    pose.matrix.multiply(
+      new THREE.Matrix4().makeTranslation(-right, 0.3 * member, forward),
+    );
+    swarm.setMatrixAt(index + member, pose.matrix);
+  });
+  swarm.instanceMatrix.needsUpdate = true;
+}
+
 export function buildFleet() {
   const object = new THREE.Group();
   object.name = "fleet";
   const plating = platingTexture();
+  const fighter = fighterGeometry();
   const ships = SHIPS.map((spec) => {
     const ship = buildShip(spec.length, hazeAt(spec.z), plating);
     ship.position.set(0, spec.y, spec.z);
-    object.add(ship);
-    return { spec, ship };
+    const escorts = fighterSwarm(
+      fighter,
+      ESCORT_FLIGHTS * FLIGHT.length,
+      hazeAt(spec.z) * 0.8,
+    );
+    object.add(ship, escorts);
+    return { spec, ship, escorts, x: 0 };
   });
+  const patrols = fighterSwarm(fighter, PATROLS.length * FLIGHT.length, 0.12);
+  object.add(patrols);
+
   function update(seconds) {
-    for (const { spec, ship } of ships) {
+    for (const entry of ships) {
+      const { spec, ship, escorts } = entry;
       const { x, opacity } = shipPlace(spec.start, seconds);
+      entry.x = x;
       ship.position.x = x;
-      ship.visible = opacity > 0;
-      for (const material of ship.userData.materials) {
+      ship.visible = escorts.visible = opacity > 0;
+      for (const material of [...ship.userData.materials, escorts.material]) {
         // Only see-through while fading at the ends of the crossing.
         material.transparent = opacity < 1;
         material.opacity = opacity;
       }
+      for (let flight = 0; flight < ESCORT_FLIGHTS; flight++) {
+        setFlight(
+          escorts,
+          flight * FLIGHT.length,
+          (at) => escortPlace(flight, at, entry),
+          seconds,
+          ESCORT_SIZE,
+          0.25,
+        );
+      }
     }
+    PATROLS.forEach((patrol, i) =>
+      setFlight(
+        patrols,
+        i * FLIGHT.length,
+        (at) => patrolPlace(patrol, at),
+        seconds,
+        patrol.size,
+        patrol.direction * 0.45,
+      ),
+    );
   }
   update(0);
   return { object, update };

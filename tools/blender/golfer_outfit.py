@@ -1,5 +1,5 @@
 """The parts of the outfit MakeHuman has no asset for, built on the assembled
-character: the pullover's stand collar and quarter zip, the beanie, and the
+character: the pullover's stand collar and quarter zip, the cap, and the
 glove. The figure stands facing -y, z up, its left side +x, in metres."""
 import math
 
@@ -245,80 +245,73 @@ def collar(suit, body, rig, spec):
     return obj
 
 
-def beanie(body, rig, spec):
-    """A knitted hat fitted over the skull: rays find the head's surface, the
-    hat sits a knit's thickness outside it, smoothed so the ears don't show
-    through as bumps."""
+def cap(body, rig, spec):
+    """A six-panel golf cap fitted over the skull: rays find the head's
+    surface, the crown sits a cloth's thickness outside it, and a curved peak
+    runs forward from the front of the rim."""
     tree = BVHTree.FromObject(body, bpy.context.evaluated_depsgraph_get())
     crown = [v.co for v in body.data.vertices if v.co.z > 1.70]
     centre = Vector(
         (0, (min(c.y for c in crown) + max(c.y for c in crown)) / 2, 1.715)
     )
-    around, levels, rings = 56, 44, 12
-    elevations = np.linspace(math.radians(-55), math.radians(90), levels)
+    around, levels, rings = 60, 44, 12
+    elevations = np.linspace(math.radians(-40), math.radians(90), levels)
     raw = np.zeros((around, levels))
+
+    def aim(theta, elevation):
+        # theta 0 is the front (-y), turning toward the left side.
+        return Vector(
+            (
+                math.sin(theta) * math.cos(elevation),
+                -math.cos(theta) * math.cos(elevation),
+                math.sin(elevation),
+            )
+        )
+
     for a in range(around):
         theta = 2 * math.pi * a / around
         for e, elevation in enumerate(elevations):
-            # theta 0 is the front (-y), turning toward the left side.
-            direction = Vector(
-                (
-                    math.sin(theta) * math.cos(elevation),
-                    -math.cos(theta) * math.cos(elevation),
-                    math.sin(elevation),
-                )
-            )
+            direction = aim(theta, elevation)
             hit = tree.ray_cast(centre + direction * 0.5, -direction)
             raw[a, e] = 0.5 - hit[3] if hit[0] is not None else raw[a, e - 1]
-    smooth = sum(np.roll(raw, s, axis=0) for s in range(-5, 6)) / 11
-    radius = np.maximum(smooth, raw + 0.003) + spec.BEANIE_THICKNESS
+    smooth = sum(np.roll(raw, s, axis=0) for s in range(-4, 5)) / 9
+    radius = np.maximum(smooth, raw + 0.002) + spec.CAP_THICKNESS
 
-    verts, uvs_at = [], []
-    for a in range(around):
-        theta = 2 * math.pi * a / around
+    def rim_height(theta):
         ahead = math.cos(theta)
-        rim = spec.BEANIE_RIM_SIDE + ahead * (
-            spec.BEANIE_RIM_FRONT - spec.BEANIE_RIM_SIDE
-            if ahead > 0
-            else spec.BEANIE_RIM_SIDE - spec.BEANIE_RIM_BACK
+        return spec.CAP_RIM_SIDE + abs(ahead) * (
+            (spec.CAP_RIM_FRONT if ahead > 0 else spec.CAP_RIM_BACK)
+            - spec.CAP_RIM_SIDE
         )
+
+    def rim_elevation(a):
         heights = centre.z + radius[a] * np.sin(elevations)
-        start = float(np.interp(rim, heights, elevations))
+        return float(np.interp(rim_height(2 * math.pi * a / around), heights, elevations))
+
+    def shell(a, t):
+        """A point on the crown: t runs from the rim (0) to the top (1)."""
+        theta = 2 * math.pi * a / around
+        start = rim_elevation(a)
+        elevation = start + t * (math.pi / 2 - start)
+        r = float(np.interp(elevation, elevations, radius[a]))
+        # The front panels are stiffened and stand a little proud.
+        r += spec.CAP_FRONT_RISE * max(math.cos(theta), 0) * math.sin(math.pi * t)
+        return centre + aim(theta, elevation) * r + Vector((0, 0, 0.006 * t))
+
+    verts, faces, slots, uvs = [], [], [], []
+    for a in range(around):
         for ring in range(rings):
-            t = ring / rings
-            elevation = start + t * (math.pi / 2 - start)
-            r = float(np.interp(elevation, elevations, radius[a]))
+            point = shell(a, ring / rings)
             if ring == 0:
                 # The rim turns in to meet the head.
-                r -= spec.BEANIE_THICKNESS - 0.002
-            slouch = math.sin(max(elevation, 0)) ** 3
-            verts.append(
-                centre
-                + Vector(
-                    (
-                        math.sin(theta) * math.cos(elevation) * r,
-                        -math.cos(theta) * math.cos(elevation) * r
-                        + slouch * spec.BEANIE_SLOUCH * 0.6,
-                        math.sin(elevation) * r + slouch * spec.BEANIE_SLOUCH,
-                    )
-                )
-            )
-            uvs_at.append((a, t))
+                inward = Vector((centre.x - point.x, centre.y - point.y, 0))
+                point = point + inward.normalized() * (spec.CAP_THICKNESS - 0.001)
+            verts.append(point)
     top = len(verts)
-    verts.append(
-        centre
-        + Vector(
-            (
-                0,
-                spec.BEANIE_SLOUCH * 0.6,
-                float(radius[:, -1].mean()) + spec.BEANIE_SLOUCH,
-            )
-        )
-    )
-    faces, uvs = [], []
+    verts.append(shell(0, 1))
 
     def uv(a, t):
-        return (a / around * spec.BEANIE_RIBS, t * 3)
+        return (a / around, 0.02 + 0.96 * t)
 
     for a in range(around):
         b = (a + 1) % around
@@ -329,27 +322,130 @@ def beanie(body, rig, spec):
             )
             t0, t1 = ring / rings, (ring + 1) / rings
             uvs += [uv(a, t0), uv(a + 1, t0), uv(a + 1, t1), uv(a, t1)]
+            slots.append(0)
         last = rings - 1
         faces.append((a * rings + last, b * rings + last, top))
         uvs += [uv(a, last / rings), uv(a + 1, last / rings), uv(a + 0.5, 1)]
+        slots.append(0)
 
-    # Knit: ribs running up the hat, each a column of stitches.
-    size = 256
+    # The button on top.
+    button = len(verts)
+    peak = verts[top] + Vector((0, 0, 0.0005))
+    sides = 10
+    for k in range(sides):
+        turn = 2 * math.pi * k / sides
+        verts.append(peak + Vector((math.cos(turn) * 0.008, math.sin(turn) * 0.008, 0)))
+    verts.append(peak + Vector((0, 0, 0.005)))
+    for k in range(sides):
+        faces.append((button + k, button + (k + 1) % sides, button + sides))
+        uvs += [(0.5, 0.5)] * 3
+        slots.append(0)
+
+    # The peak: a plate running forward from the front of the rim, curved
+    # across and drooping at the sides. Top face, then the underside.
+    across, along = 20, 6
+    spread = math.radians(spec.CAP_PEAK_SPREAD)
+    start = len(verts)
+    for under in (0, 1):
+        for i in range(across + 1):
+            s = 2 * i / across - 1
+            theta = s * spread
+            a = (theta / (2 * math.pi) * around) % around
+            lo = int(math.floor(a)) % around
+            hi = (lo + 1) % around
+            mix = a - math.floor(a)
+            root = shell(lo, 0.03).lerp(shell(hi, 0.03), mix)
+            reach = spec.CAP_PEAK_LENGTH * math.cos(s * math.pi / 2 * 0.8)
+            for j in range(along + 1):
+                d = j / along
+                verts.append(
+                    root
+                    + Vector(
+                        (
+                            math.sin(theta) * 0.012 * d,
+                            -reach * d,
+                            -reach * d * 0.2 - 0.018 * s * s * d
+                            - 0.004 * d * d - under * 0.003,
+                        )
+                    )
+                )
+    row = along + 1
+    half = (across + 1) * row
+    for under in (0, 1):
+        base = start + under * half
+        for i in range(across):
+            for j in range(along):
+                quad = (
+                    base + i * row + j, base + (i + 1) * row + j,
+                    base + (i + 1) * row + j + 1, base + i * row + j + 1,
+                )
+                faces.append(quad if under else quad[::-1])
+                # The peak takes its cloth from one panel of the crown.
+                corners = [
+                    (0.02 + 0.12 * (i + di) / across, 0.3 + 0.4 * (j + dj) / along)
+                    for di, dj in ((0, 0), (1, 0), (1, 1), (0, 1))
+                ]
+                uvs += corners if under else corners[::-1]
+                slots.append(under)
+    # Close the peak's edge.
+    edge = [(i, along) for i in range(across + 1)]
+    edge = [(0, j) for j in range(along)] + edge + [(across, j) for j in range(along - 1, -1, -1)]
+    for (i0, j0), (i1, j1) in zip(edge, edge[1:]):
+        a0, a1 = start + i0 * row + j0, start + i1 * row + j1
+        faces.append((a0, a1, a1 + half, a0 + half))
+        uvs += [(0.05, 0.5)] * 4
+        slots.append(1)
+
+    # Cotton twill, with the six panel seams and the stitching round the rim.
+    size = 1024
     y, x = np.mgrid[0:size, 0:size] / size
-    rib = 0.5 + 0.5 * np.cos(2 * math.pi * x * 4)
-    stitch = 0.5 + 0.5 * np.cos(
-        2 * math.pi * (y * 16 + 0.35 * np.abs(((x * 8) % 1) - 0.5))
-    )
-    height = rib * (0.8 + 0.2 * stitch)
-    shade = 0.84 + 0.16 * height
+    twill = 0.5 + 0.5 * np.cos(2 * math.pi * (x * 200 + y * 140))
+    seam = np.clip(1 - np.abs(((x * 6 + 0.5) % 1) - 0.5) / 0.012, 0, 1)
+    band = np.clip(1 - np.abs(y - 0.07) / 0.004, 0, 1)
+    groove = np.maximum(seam, band)
+    height = twill * 0.25 - groove
+    shade = (0.93 + 0.07 * twill) * (1 - 0.3 * groove)
     diffuse = paint.new_image(
-        "beanie_diffuse", np.array(spec.BEANIE)[None, None, :] * shade[..., None]
+        "cap_diffuse", np.array(spec.CAP)[None, None, :] * shade[..., None]
     )
     normal = paint.new_image(
-        "beanie_normal", paint.normal_from_height(height, 6), colour=False
+        "cap_normal", paint.normal_from_height(height, 5), colour=False
     )
-    mat = paint.material("beanie", (1, 1, 1), 0.95, diffuse=diffuse, normal=normal)
+    cloth = paint.material("cap", (1, 1, 1), 0.9, diffuse=diffuse, normal=normal)
+    under = paint.material("cap_under", spec.CAP_UNDER, 0.9)
+    under.use_backface_culling = False
     return _skinned(
-        "beanie", verts, faces, [{"head": 1.0}] * len(verts), rig, [mat],
-        [0] * len(faces), uvs,
+        "cap", verts, faces, [{"head": 1.0}] * len(verts), rig, [cloth, under],
+        slots, uvs,
     )
+
+
+def refine_head(body, rig):
+    """Splits the head off the body mesh and subdivides it once, so the
+    profile of the nose, lips, jaw and ears is round close up. Only the head:
+    the hands hold up as they are and the triangles are better spent here."""
+    head = paint.islands(body.data)[0]
+    mesh = body.data.copy()
+    for data, keep in ((mesh, True), (body.data, False)):
+        bm = bmesh.new()
+        bm.from_mesh(data)
+        gone = [v for v in bm.verts if (v.index in head) != keep]
+        bmesh.ops.delete(bm, geom=gone, context="VERTS")
+        bm.to_mesh(data)
+        bm.free()
+    obj = bpy.data.objects.new("head", mesh)
+    rig.users_collection[0].objects.link(obj)
+    for group in body.vertex_groups:
+        obj.vertex_groups.new(name=group.name)
+    obj.modifiers.new("Subdivide", "SUBSURF").levels = 1
+    graph = bpy.context.evaluated_depsgraph_get()
+    graph.update()
+    smooth = bpy.data.meshes.new_from_object(
+        obj.evaluated_get(graph), preserve_all_data_layers=True, depsgraph=graph
+    )
+    obj.modifiers.clear()
+    obj.data = smooth
+    bpy.data.meshes.remove(mesh)
+    obj.parent = rig
+    obj.modifiers.new("Armature", "ARMATURE").object = rig
+    return obj

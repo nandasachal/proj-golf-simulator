@@ -84,11 +84,18 @@ rig = human.parent
 suit = bpy.data.objects[f"body.{spec.SUIT}"]
 golfer_outfit.glove(human, spec)
 golfer_outfit.collar(suit, human, rig, spec)
-golfer_outfit.beanie(human, rig, spec)
+golfer_outfit.cap(human, rig, spec)
 
 import golfer_finish
 
 golfer_finish.run(human, spec)
+golfer_outfit.refine_head(human, rig)
+triangles = 0
+for obj in bpy.data.objects:
+    if obj.type == "MESH":
+        obj.data.calc_loop_triangles()
+        triangles += len(obj.data.loop_triangles)
+print("TRIANGLES", triangles)
 
 bpy.ops.wm.save_as_mainfile(filepath=BLEND, compress=True)
 os.makedirs(os.path.dirname(GLB), exist_ok=True)
