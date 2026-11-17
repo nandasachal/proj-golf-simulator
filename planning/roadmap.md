@@ -64,10 +64,13 @@
 - [done] Keyed swing rig (2026-11-16) — full-body swing keyed at P1–P10 against
   tour reference, per-club setup (stance, ball position, tilt, attack angle),
   shoulder and toe joints, breathing at address.
-- **Modelled golfer** (proposed 2026-11-16, awaiting approval) — replace the
-  code-built body with a professionally topologised character driven by the same
-  swing rig. Plan: [eng-plans/modelled-golfer.md](eng-plans/modelled-golfer.md).
-- **Golfer follow-ups**: shorter swing for wedges (every club makes a full
+- [done] Modelled golfer (2026-11-16) — a MakeHuman character (CC0), built by
+  script in `tools/blender`, driven by the same swing rig. Plan:
+  [eng-plans/modelled-golfer.md](eng-plans/modelled-golfer.md).
+- [done] Look round (2026-11-16) — drag to orbit the golfer, wheel to zoom, reset
+  button; grey wall behind the tee with the motto and Saanchal mark.
+- **Golfer follow-ups**: polo collar and golf glove; closer facial likeness
+  (needs a decision on a scanned head in a public repo); shorter swing for wedges (every club makes a full
   driver-length swing today); waggle; face-on comparison against real frames.
 - **Club follow-ups**: saved distance profiles; altitude,
   temperature and wind settings for the stock distances; a quicker way to change

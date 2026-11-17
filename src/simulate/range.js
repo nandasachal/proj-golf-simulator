@@ -4,6 +4,7 @@ import { buildSky, buildLights } from "./scenery/sky";
 import { buildTerrain } from "./scenery/terrain";
 import { buildTrees } from "./scenery/trees";
 import { buildProps } from "./scenery/props";
+import { buildWall } from "./scenery/wall";
 
 // Scene units are yards. The tee is at the origin and the range runs down +z;
 // -x is the right-hand side when looking downrange. Each part of the scenery
@@ -26,6 +27,7 @@ export function buildRange({ anisotropy = 1 } = {}) {
     buildSky({ random }),
     buildTerrain({ random, anisotropy }),
     buildProps({ random, anisotropy }),
+    buildWall({ anisotropy }),
     buildTrees({ random }),
     buildLights(),
   ];

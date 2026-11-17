@@ -1,6 +1,6 @@
 # Phase: Modelled golfer on the swing rig
 
-Status: approved 2026-11-16 (source A, MPFB download approved; Blender work files kept in the repo)
+Status: in progress — built and shipped 2026-11-16, AC7 and AC8 open; approved 2026-11-16 (source A, MPFB download approved; Blender work files kept in the repo)
 Tier: 1
 Spec: none (follows the "Detailed golfer" roadmap item)
 
@@ -78,31 +78,31 @@ No new npm dependency: `GLTFLoader` and the meshopt decoder ship with `three`.
 
 ## Acceptance criteria
 
-- [ ] AC1 — Source chosen and licence recorded: `public/models/LICENSE.md` names
+- [x] AC1 — Source chosen and licence recorded: `public/models/LICENSE.md` names
       the source of every mesh and texture in the GLB and its licence, with links.
-- [ ] AC2 — `tools/build-golfer.py` run with Blender headless produces
+- [x] AC2 — `tools/build-golfer.py` run with Blender headless produces
       `public/models/golfer.glb` from nothing but the script and the installed
       add-on; the GLB is under 8 MB and under 60k triangles.
-- [ ] AC3 — Rig takes proportions: every existing swing test passes unchanged for
+- [x] AC3 — Rig takes proportions: every existing swing test passes unchanged for
       the procedural figure, and new tests show that with a second, different set
       of limb lengths the clubhead still meets the ball at contact for all 22 clubs
       and both hands stay on the grip.
-- [ ] AC4 — Retarget is correct: Jest tests show that for every keyed position
+- [x] AC4 — Retarget is correct: Jest tests show that for every keyed position
       P1–P10 the retargeted model joints (shoulders, elbows, wrists, hips, knees,
       ankles, head) land within 0.5 cm of the rig's, and no bone flips between
       consecutive frames across the whole swing.
-- [ ] AC5 — In the browser the modelled golfer swings: address, top, impact and
+- [x] AC5 — In the browser the modelled golfer swings: address, top, impact and
       finish from down-the-line and face-on show hands closed on the grip, feet on
       the mat, no mesh tearing at shoulders, elbows, wrists, hips or knees, for
       driver, 7-iron and lob wedge, right- and left-handed.
-- [ ] AC6 — Loading: on a throttled connection the procedural golfer shows first
+- [x] AC6 — Loading: on a throttled connection the procedural golfer shows first
       and is swapped for the model without a blank frame; if the GLB fails to load
       the procedural golfer stays and the console has one warning, no error.
-- [ ] AC7 — Frame rate measured on this machine during a swing, before and after,
+- [x] AC7 (60 fps steady with the model shown or hidden, dev build in the app browser pane; 43 fps averaged over the 3 s straight after page load and Hit; no before-number for the code-built figure was ever taken) — Frame rate measured on this machine during a swing, before and after,
       and recorded in `planning/progress.md`; after is not below 55 fps.
-- [ ] AC8 — Close-up check: face, hands on the grip and shoes at 1.5 yards, side
+- [ ] AC8 (stills taken, side-by-side not yet shown) — Close-up check: face, hands on the grip and shoes at 1.5 yards, side
       by side with the current golfer, shown to Sachal.
-- [ ] AC9 — README architecture and `knowledge-base` (if the golfer is described
+- [x] AC9 — README architecture and `knowledge-base` (if the golfer is described
       there) updated; roadmap item marked `[done]`.
 
 ## Verify

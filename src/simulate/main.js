@@ -12,6 +12,7 @@ import {
 } from "./camera-director";
 import { createGolfer, CONTACT_TIME, SWING_DURATION } from "./golfer";
 import { loadGolferModel } from "./golfer-model";
+import { startOrbit, dragOrbit, zoomOrbit, orbitPosition } from "./orbit-view";
 import { Shot } from "./shot";
 import { analyzeShot } from "./shot-analysis";
 import { groundRun, turfParameters, TURF_PRESETS } from "./ground";
@@ -52,7 +53,7 @@ function labelTexture(text) {
 }
 
 export function createSimulator(container, callbacks = {}) {
-  const { onState, onProgress, onResult } = callbacks;
+  const { onState, onProgress, onResult, onOrbit } = callbacks;
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -529,12 +530,77 @@ export function createSimulator(container, callbacks = {}) {
   resizeObserver.observe(container);
   resize();
 
+  // --- looking round ---
+  // Dragging the picture swings the camera round the golfer, and the wheel
+  // moves it in and out; it stays there, through swings too, until reset.
+  let orbit = null;
+  let drag = null;
+  const DRAG_START_PIXELS = 4;
+  const canvas = renderer.domElement;
+  canvas.style.touchAction = "none";
+  canvas.style.cursor = "grab";
+  const orbitCenter = () =>
+    new THREE.Vector3(side === "Left" ? -0.6 : 0.6, 1, 0);
+  function beginOrbit() {
+    if (orbit) return;
+    orbit = startOrbit(camera.position, orbitCenter());
+    if (onOrbit) onOrbit(true);
+  }
+  function resetView() {
+    if (!orbit) return;
+    orbit = null;
+    if (onOrbit) onOrbit(false);
+  }
+  function onPointerDown(event) {
+    if (event.button !== 0) return;
+    drag = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      moved: false,
+    };
+    canvas.setPointerCapture?.(event.pointerId);
+  }
+  function onPointerMove(event) {
+    if (!drag || event.pointerId !== drag.id) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < DRAG_START_PIXELS) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      canvas.style.cursor = "grabbing";
+      beginOrbit();
+    }
+    dragOrbit(orbit, dx, dy);
+    drag.x = event.clientX;
+    drag.y = event.clientY;
+  }
+  function onPointerUp(event) {
+    if (!drag || event.pointerId !== drag.id) return;
+    drag = null;
+    canvas.style.cursor = "grab";
+  }
+  function onWheel(event) {
+    event.preventDefault();
+    beginOrbit();
+    zoomOrbit(orbit, Math.exp(event.deltaY * 0.0015));
+  }
+  canvas.addEventListener("pointerdown", onPointerDown);
+  canvas.addEventListener("pointermove", onPointerMove);
+  canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerUp);
+  canvas.addEventListener("wheel", onWheel, { passive: false });
+
   const clock = new THREE.Clock();
   let frameId = null;
   let inspectionView = null;
   function frame() {
     frameId = requestAnimationFrame(frame);
     update(Math.min(clock.getDelta(), MAX_FRAME_SECONDS));
+    if (orbit) {
+      orbitPosition(orbit, camera.position);
+      camera.lookAt(orbit.center);
+    }
     if (inspectionView) {
       camera.position.fromArray(inspectionView.position);
       camera.lookAt(new THREE.Vector3().fromArray(inspectionView.target));
@@ -547,6 +613,11 @@ export function createSimulator(container, callbacks = {}) {
   function dispose() {
     cancelAnimationFrame(frameId);
     resizeObserver.disconnect();
+    canvas.removeEventListener("pointerdown", onPointerDown);
+    canvas.removeEventListener("pointermove", onPointerMove);
+    canvas.removeEventListener("pointerup", onPointerUp);
+    canvas.removeEventListener("pointercancel", onPointerUp);
+    canvas.removeEventListener("wheel", onWheel);
     scene.traverse((object) => {
       if (object.geometry) object.geometry.dispose();
       const materials = [].concat(object.material || []);
@@ -566,6 +637,7 @@ export function createSimulator(container, callbacks = {}) {
     setTarget,
     setClub,
     setViewInset,
+    resetView,
     dispose,
     // Step the simulation by hand; used to verify behaviour without waiting
     // on real time.

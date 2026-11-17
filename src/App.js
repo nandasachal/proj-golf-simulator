@@ -9,6 +9,7 @@ import ShotReadout from "./components/simulator/shot-readout";
 import SettingsModal from "./components/simulator/settings-modal";
 import GameCard from "./components/simulator/game-card";
 import { useQueryState, useSetQueries } from "./hooks/use-query";
+import { ArrowCounterclockwise } from "react-bootstrap-icons";
 import { createSimulator } from "./simulate/main";
 import { launchConditions } from "./simulate/launch-conditions";
 import { previewShot } from "./simulate/shot-preview";
@@ -241,6 +242,8 @@ function App() {
   const stage = useRef(null);
   const [live, setLive] = useState(null);
   const [result, setResult] = useState(null);
+  // True once the view has been dragged round, until it is reset.
+  const [orbiting, setOrbiting] = useState(false);
   const [target, setTarget] = useState(null);
   const [score, setScore] = useState(NO_SCORE);
   // How the last shot did against the target that is still up.
@@ -251,6 +254,7 @@ function App() {
   useEffect(() => {
     const sim = createSimulator(stage.current, {
       side,
+      onOrbit: setOrbiting,
       onProgress: setLive,
       onResult: (shotResult) => {
         setResult(shotResult);
@@ -495,6 +499,21 @@ function App() {
             )}
           </div>
         </div>
+        {/* Back to the usual view, bottom right, once it has been dragged. */}
+        {orbiting && (
+          <div className="absolute bottom-[84px] right-3 z-20 md:bottom-4 md:right-4">
+            <button
+              type="button"
+              aria-label="Reset view"
+              className="hud-panel flex h-10 w-10 items-center justify-center !rounded-full text-white/90 transition-colors hover:text-white"
+              onClick={() => simulator.current.resetView()}
+              data-tooltip-id="main-tooltip"
+              data-tooltip-content="Reset view"
+            >
+              <ArrowCounterclockwise size={18} />
+            </button>
+          </div>
+        )}
         {/* Settings, bottom left (above the result bar on phones). */}
         <div className="absolute bottom-[84px] left-3 z-20 md:bottom-4 md:left-4">
           <SettingsModal
