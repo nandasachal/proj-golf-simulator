@@ -3,6 +3,7 @@ import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { buildRange, groundOverlay, FOG } from "./range";
+import { FLEET_FAR } from "./scenery/fleet";
 import {
   CameraDirector,
   ADDRESS,
@@ -71,7 +72,12 @@ export function createSimulator(container, callbacks = {}) {
   });
   scene.add(range);
 
-  const camera = new THREE.PerspectiveCamera(48, 1, 0.5, 2600);
+  const camera = new THREE.PerspectiveCamera(
+    48,
+    1,
+    0.5,
+    fleet ? FLEET_FAR : 2600,
+  );
 
   // --- ball, tee, shadow, tracer, landing marker ---
   const restPosition = new THREE.Vector3(

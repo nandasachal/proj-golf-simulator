@@ -190,7 +190,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
   `{ object, update(seconds, camera) }`; `main.js` calls the update every frame
   (clouds drift, trees sway, flags wave).
   - `fleet.js` — a hidden extra: `?empire` in the URL puts a fleet of
-    wedge-shaped capital ships slowly crossing the sky. Not in any menu.
+    wedge-shaped capital ships slowly crossing the sky. They are town-sized
+    (750 to 1700 yd long) and fly beyond the mountains, so they are hazed by
+    hand rather than by the scene fog, and the camera's far plane is pushed
+    out while they are on. Not in any menu.
   - `shared.js` — the contract the parts agree on: the sun direction and colour,
     the horizon/fog colour, `terrainHeight(x, z)` and the `FLAT` rectangle where
     the ground must stay at y = 0 because the ball physics assumes level ground.

@@ -797,7 +797,7 @@ const ClubPads = ({
         caption={`Above ×${GAIN.face}`}
         options={topOptions}
         setup={topSetup}
-        className="h-[clamp(200px,31dvh,280px)]"
+        className="h-[clamp(180px,27dvh,280px)]"
         onScene={onTopScene}
       >
         {inOrder(["strike", "clubPathAngle", "clubFaceAngle", "aim"]).map(
@@ -818,7 +818,7 @@ const ClubPads = ({
         caption={`Toe ×${GAIN.attack}`}
         options={sideOptions}
         setup={sideSetup}
-        className="h-[clamp(120px,19dvh,164px)]"
+        className="h-[clamp(110px,16dvh,164px)]"
         note={`launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
           launch.backspinRPM,
         )} rpm`}
