@@ -160,12 +160,13 @@ function buildShip(length, haze, plating) {
 }
 
 // --- fighters ---
-// Small twin-panel fighters, drawn many times their real size so they can be
-// seen at all: flights of three circle each capital ship, and more patrol the
+// Small twin-panel fighters, drawn a little over their real size so they can
+// be seen at all: flights of three circle each capital ship, and more patrol the
 // sky all round the range.
 
 const ESCORT_FLIGHTS = 5; // per capital ship
-const ESCORT_SIZE = 46; // yards, panel tip to panel tip
+// Yards, panel tip to panel tip: small against the hulls they fly beside.
+const ESCORT_SIZE = 12;
 const FLIGHT = [
   [0, 0],
   [1.7, -1.6],
@@ -188,7 +189,8 @@ export const PATROLS = (() => {
       phase: random() * Math.PI * 2,
       direction: random() < 0.5 ? -1 : 1,
       speed: 55 + random() * 30, // yards a second
-      size: 20 + random() * 12,
+      // Full size overhead, where they are close; smaller the farther out.
+      size: overhead ? 20 + random() * 12 : 9 + random() * 6,
     };
   });
 })();

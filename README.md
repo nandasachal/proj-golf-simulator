@@ -198,8 +198,8 @@ React UI (App.js, components/)          src/simulate/ (no React)
   - `fleet.js` — a hidden extra: `?empire` in the URL puts two
     wedge-shaped capital ships slowly crossing the sky, each circled by
     flights of twin-panel fighters, with more fighter patrols all round the
-    range (the fighters are drawn many times their real size so they can be
-    seen). The capital ships are town-sized (900 and 1700 yd long) and fly beyond the mountains, so they are hazed by
+    range (fighters near the capital ships and far out are small, in proportion
+    to the hulls; the ones overhead are larger). The capital ships are town-sized (900 and 1700 yd long) and fly beyond the mountains, so they are hazed by
     hand rather than by the scene fog, and the camera's far plane is pushed
     out while they are on. Not in any menu.
   - `shared.js` — the contract the parts agree on: the sun direction and colour,

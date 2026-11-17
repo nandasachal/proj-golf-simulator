@@ -19,15 +19,37 @@ TARGETS = {
     # MakeHuman's default upper arm is short for the height; this brings the
     # arm to the length the swing was keyed for.
     "measure-upperarm-length-incr": 0.5,
-    # The face: a broader jaw and nose, fuller mouth, lower brows.
-    "head-square": 0.25,
-    "chin-width-incr": 0.3,
-    "chin-bones-incr": 0.3,
+    # The face, matched by eye to a front and a side photo of Sachal
+    # (tools/blender/reference, not in git): a long oval head with a tall
+    # forehead, full cheeks, a rounded chin, a broad nose with a round tip,
+    # a wide mouth with a thin upper lip, low heavy brows, ears that stand
+    # out a little.
+    "head-oval": 0.7,
+    "head-scale-horiz-decr": 0.2,
+    "head-age-incr": 0.2,
+    "forehead-scale-vert-incr": 0.3,
+    "l-cheek-volume-incr": 0.15,
+    "r-cheek-volume-incr": 0.15,
+    "l-cheek-bones-incr": 0.2,
+    "r-cheek-bones-incr": 0.2,
+    "chin-height-incr": 0.3,
+    "chin-width-decr": 0.3,
+    "chin-bones-incr": 0.1,
     "nose-scale-horiz-incr": 0.35,
+    "nose-scale-vert-incr": 0.3,
+    "nose-scale-depth-incr": 0.2,
     "nose-width2-incr": 0.3,
-    "mouth-scale-horiz-incr": 0.3,
+    "nose-point-width-incr": 0.4,
+    "nose-nostrils-width-incr": 0.4,
+    "nose-point-down": 0.2,
+    "mouth-scale-horiz-incr": 0.5,
     "mouth-lowerlip-volume-incr": 0.3,
+    "mouth-upperlip-volume-decr": 0.2,
     "eyebrows-trans-down": 0.3,
+    "l-eye-scale-incr": 0.2,
+    "r-eye-scale-incr": 0.2,
+    "l-ear-wing-incr": 0.4,
+    "r-ear-wing-incr": 0.4,
 }
 
 SKIN = "young_caucasian_male"
@@ -38,7 +60,7 @@ SKIN_TONE = (0.66, 0.48, 0.37)
 SKIN_ROUGHNESS = 0.66
 # Short beard and cropped hair, painted as strokes: how solid each is (0 is
 # none, 1 hides the skin), and their colour.
-BEARD = 0.6
+BEARD = 0.38
 HAIR = 0.92
 HAIR_COLOUR = (0.06, 0.05, 0.045)
 EYE_ROUGHNESS = 0.06
@@ -81,7 +103,7 @@ ASSETS = [
     ("clothes", SUIT, "Clothes"),
     ("clothes", SHOES, "Clothes"),
     ("eyes", "low-poly", "Eyes"),
-    ("eyebrows", "eyebrow001", "Eyebrows"),
+    ("eyebrows", "eyebrow012", "Eyebrows"),
     ("eyelashes", "eyelashes01", "Eyelashes"),
     ("teeth", "teeth_base", "Teeth"),
 ]

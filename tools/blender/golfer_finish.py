@@ -177,7 +177,9 @@ def _hair(body, spec, size, lips, rng):
         if c.y < ear.y - 0.012:
             # The beard's top edge climbs from under the nose to the ear,
             # and it thins out toward the ear instead of stopping at a line.
-            top = nose.z - 0.016 + max(abs(c.x) - 0.04, 0) * 1.0
+            # Even stubble over the lip, chin, jaw and lower cheeks.
+            side = max(abs(c.x) - 0.035, 0)
+            top = nose.z - 0.016 - min(side * 1.2, 0.012) + max(side - 0.02, 0) * 1.2
             beard[i] = (
                 ramp(top - c.z, 0.012)
                 * ramp(c.z - chin + 0.04, 0.025)

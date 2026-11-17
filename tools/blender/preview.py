@@ -36,8 +36,16 @@ VIEWS = {
     "back": ((0, 4.2, 1.0), (0, 0, 0.92), 50),
     "face": ((0.12, -0.75, 1.68), (0, 0, 1.66), 60),
     "face_side": ((0.75, -0.2, 1.68), (0, 0, 1.66), 60),
+    "face_front": ((0, -0.9, 1.67), (0, 0, 1.665), 75),
+    "face_profile": ((0.9, -0.03, 1.67), (0, -0.03, 1.665), 75),
     "hand": ((0.75, -0.55, 0.95), (0.42, 0, 0.9), 60),
 }
+# BARE=1 takes the cap off and lights the face from the front, for comparing
+# it with a photo.
+if os.environ.get("BARE"):
+    bpy.data.objects["cap"].hide_render = True
+    sun.rotation_euler = (math.radians(75), 0, math.radians(10))
+    world.node_tree.nodes["Background"].inputs[1].default_value = 1.6
 only = os.environ.get("VIEWS")
 for name, (position, target, lens) in VIEWS.items():
     if only and name not in only.split(","):
