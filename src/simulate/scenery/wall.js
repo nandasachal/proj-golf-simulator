@@ -11,7 +11,7 @@ const SIGN = { width: 22, height: 7.2, bottom: 2.1 };
 export const MOTTOS = [
   ["In Every Experience", "You Either Win or You Learn"],
   ["Only Those With Big Wieners", "Can Drive the Ball 300+"],
-  ["The More I Practice", "The Luckier I Get"],
+  ["Do or Do Not", "There Is No Try"],
 ];
 export const MOTTO_SECONDS = 5;
 const FADE_SECONDS = 0.9;
