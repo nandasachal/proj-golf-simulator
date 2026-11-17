@@ -164,7 +164,7 @@ describe("shot controls", () => {
     ).not.toBeInTheDocument();
     // the mode is on the panel, below the controls
     expect(
-      screen.getByRole("button", { name: "Advanced" }),
+      screen.getByRole("button", { name: "Game Mode: Advanced" }),
     ).toBeInTheDocument();
   });
 
@@ -1024,7 +1024,7 @@ describe("game mode", () => {
   // Mode sits at the bottom of the shot panel.
   const modeButton = (name) =>
     within(screen.getByRole("group", { name: "Mode" })).getByRole("button", {
-      name,
+      name: name === "Practice" ? name : `Game Mode: ${name}`,
     });
   const HIT = { hit: true, longYards: 1, rightYards: 0 };
   const MISS = { hit: false, longYards: -9.2, rightYards: -4.1 };

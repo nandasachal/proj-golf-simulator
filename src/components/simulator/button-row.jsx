@@ -19,7 +19,7 @@ export const HitButton = ({ onClick, className = "" }) => (
 // Practice or a game, with Hit above it when it isn't shown beside the result
 // bar (phones).
 const ButtonRow = ({ mode, onMode, simulate, showHit = true }) => (
-  <div className="mt-3">
+  <div className="mt-2">
     {showHit && <HitButton onClick={simulate} className="mb-2 w-full py-2.5" />}
     <div
       data-tooltip-id="main-tooltip"
@@ -30,8 +30,8 @@ const ButtonRow = ({ mode, onMode, simulate, showHit = true }) => (
         accent
         options={[
           ["practice", "Practice"],
-          ["normal", "Normal"],
-          ["advanced", "Advanced"],
+          ["normal", "Normal", "Game Mode"],
+          ["advanced", "Advanced", "Game Mode"],
         ]}
         value={mode}
         onChange={onMode}

@@ -131,7 +131,7 @@ const ValueChip = ({
   return (
     <div
       className={classNames(
-        "flex h-11 items-center gap-2 rounded-lg px-2.5 ring-inset transition-colors md:h-10",
+        "flex h-12 items-center gap-2 rounded-lg px-2.5 ring-inset transition-colors md:h-11",
         active ? "bg-white/20" : "bg-white/[0.07]",
         selected && "ring-2 ring-lime-400",
       )}
@@ -170,7 +170,7 @@ const ValueChip = ({
             <button
               ref={button}
               type="button"
-              className="ml-auto shrink-0 rounded bg-white/10 px-1.5 text-right text-sm font-semibold tabular-nums leading-tight hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
+              className="ml-auto shrink-0 rounded bg-white/10 px-1.5 py-px text-center text-sm font-semibold tabular-nums leading-tight hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
               aria-label={`Edit ${name.toLowerCase()}: ${text}`}
               data-field="number"
               data-tooltip-id="main-tooltip"
@@ -453,17 +453,30 @@ const FlightIcon = ({ sketch }) => (
 // Settings.
 const ClubMenu = ({ club, onClub }) => (
   <Listbox value={club.id} onChange={onClub}>
-    <div className="relative">
+    <div className="relative min-w-0 flex-[1.35]">
       <Listbox.Button
-        className="flex items-center gap-1 whitespace-nowrap rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold text-white/80 transition-colors hover:bg-white/20 hover:text-white"
-        data-club
+        className="flex h-12 w-full items-center gap-1.5 rounded-lg bg-white/[0.07] px-2.5 text-left transition-colors hover:bg-white/20 md:h-11"
         data-tooltip-id="main-tooltip"
         data-tooltip-content="The club in hand. Click to change it; set each club's distance in Settings (the gear, bottom left)."
       >
-        {club.name} · {club.loftDegrees}°
-        <ChevronDown size={9} aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-normal leading-tight text-white/60">
+            Club
+          </span>
+          <span
+            className="block truncate text-sm font-semibold leading-tight"
+            data-club
+          >
+            {club.name} · {club.loftDegrees}°
+          </span>
+        </span>
+        <ChevronDown
+          size={11}
+          className="shrink-0 text-white/60"
+          aria-hidden="true"
+        />
       </Listbox.Button>
-      <Listbox.Options className="hud-panel hud-panel-solid absolute left-0 top-full z-40 mt-1 max-h-[min(60dvh,420px)] w-48 overflow-y-auto p-1 text-xs font-medium focus:outline-none">
+      <Listbox.Options className="hud-panel hud-panel-solid absolute right-0 top-full z-40 mt-1 max-h-[min(60dvh,420px)] w-48 overflow-y-auto p-1 text-xs font-medium focus:outline-none">
         {Object.entries(CATEGORIES).map(([category, label]) => (
           <React.Fragment key={category}>
             {category !== "driver" && (
@@ -749,29 +762,32 @@ const ClubPads = ({
     );
 
   return (
-    <div className="flex flex-col gap-1.5" aria-label="Shot controls">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex shrink-0 items-center gap-1.5 text-sm font-bold">
-          {preview && <FlightIcon sketch={preview.sketch} />}
-          {preview ? preview.shape : "Club at impact"}
-          <ClubMenu club={club} onClub={onClub} />
-        </div>
-        <p
-          className="ml-auto min-w-0 truncate text-[11px] text-white/55"
-          data-tooltip-id="main-tooltip"
-          data-tooltip-content="Drag a handle, or click a number to type it. Arrow keys move between the boxes; hold Command (Ctrl on Windows) and press ← → to change the selected box's number, or ↑ ↓ to step its word (closed, square, open). Angles are drawn several times their real size (the × in each view's corner) so a one-degree change is easy to see and grab. The numbers are the true values."
+    <div className="flex flex-col gap-2" aria-label="Shot controls">
+      <div className="flex items-stretch gap-2">
+        <div
+          className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-lg bg-white/[0.07] px-2.5 md:h-11"
+          data-shot-shape
         >
-          Drag or click
-        </p>
+          {preview && <FlightIcon sketch={preview.sketch} />}
+          <div className="min-w-0">
+            <div className="text-[11px] leading-tight text-white/60">
+              Shot Shape
+            </div>
+            <div className="truncate text-sm font-semibold leading-tight">
+              {preview ? preview.shape : "Club at impact"}
+            </div>
+          </div>
+        </div>
+        <ClubMenu club={club} onClub={onClub} />
         <button
           type="button"
           aria-label="Reset"
-          className="-my-1 -mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/[0.07] text-white/70 transition-colors hover:bg-white/20 hover:text-white md:h-11 md:w-11"
           onClick={onReset}
           data-tooltip-id="main-tooltip"
           data-tooltip-content="Back to the default shot for this club"
         >
-          <ArrowCounterclockwise size={15} />
+          <ArrowCounterclockwise size={16} />
         </button>
       </div>
 
@@ -789,7 +805,7 @@ const ClubPads = ({
         )}
       </Pad3D>
 
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="grid grid-cols-2 gap-2">
         <ValueChip {...chipProps("clubFaceAngle")} />
         <ValueChip {...chipProps("clubPathAngle")} />
         <ValueChip {...chipProps("strike")} />
@@ -814,14 +830,14 @@ const ClubPads = ({
           handle(control, boundsOf(scenes.current.side)),
         )}
       </Pad3D>
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="grid grid-cols-2 gap-2">
         <ValueChip {...chipProps("attackAngle")} />
         <ValueChip {...chipProps("loftChange")} />
       </div>
 
       {/* Speed: one wide bar. Click or drag anywhere on it. */}
-      <div className="flex items-center gap-1.5">
-        <div className="w-[calc(50%-0.1875rem)] shrink-0">
+      <div className="flex items-center gap-2">
+        <div className="w-[calc(50%-0.25rem)] shrink-0">
           <ValueChip {...chipProps("swingSpeed")} />
         </div>
         <div
@@ -834,7 +850,7 @@ const ClubPads = ({
           aria-valuemax={ranges.swingSpeed.MAX}
           aria-valuenow={swingSpeed}
           aria-valuetext={text.swingSpeed}
-          className="club-handle relative h-11 flex-1 cursor-pointer overflow-hidden rounded-lg bg-white/[0.07] md:h-10"
+          className="club-handle relative h-12 flex-1 cursor-pointer overflow-hidden rounded-lg bg-white/[0.07] md:h-11"
           style={{ touchAction: "none" }}
           onDoubleClick={() =>
             onChange("swingSpeed", ranges.swingSpeed.DEFAULT)
@@ -848,7 +864,7 @@ const ClubPads = ({
             className="absolute inset-y-0 left-0 bg-lime-400/80"
             style={{ width: `${speedFraction * 100}%` }}
           />
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2 text-[10px] font-semibold text-white/70">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-3 text-[10px] font-semibold text-white/70">
             <span>{ranges.swingSpeed.MIN}</span>
             <span>{ranges.swingSpeed.MAX}</span>
           </div>

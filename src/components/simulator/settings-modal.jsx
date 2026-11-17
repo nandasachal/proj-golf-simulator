@@ -30,13 +30,14 @@ export const Segmented = ({ label, options, value, onChange, accent }) => (
     role="group"
     aria-label={label}
   >
-    {options.map(([key, text]) => (
+    {options.map(([key, text, caption]) => (
       <button
         key={key}
         type="button"
         aria-pressed={value === key}
+        aria-label={caption ? `${caption}: ${text}` : undefined}
         className={classNames(
-          "rounded-md py-1.5 font-medium transition-colors",
+          "flex flex-col items-center justify-center rounded-md px-1 py-1.5 font-medium leading-tight transition-colors",
           value === key
             ? accent
               ? "bg-lime-400 text-slate-900"
@@ -45,6 +46,11 @@ export const Segmented = ({ label, options, value, onChange, accent }) => (
         )}
         onClick={() => onChange(key)}
       >
+        {caption && (
+          <span className="text-[9px] font-semibold uppercase tracking-wider opacity-60">
+            {caption}
+          </span>
+        )}
         {text}
       </button>
     ))}

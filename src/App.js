@@ -574,7 +574,7 @@ function App() {
 
       {/* Left column: the shot controls, then the club-at-impact views. */}
       <div className="z-10 m-3 flex flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-5.5rem)] md:w-[340px] md:overflow-y-auto">
-        <div className="hud-panel p-4 md:p-3">
+        <div className="hud-panel p-4">
           <ClubPads
             values={{
               clubFaceAngle: faceAngle,
