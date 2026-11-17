@@ -255,3 +255,4 @@ the motion agent (joint 0.012 to 0.02, clubhead 0.03 to 0.05) for the faster
 release; no waggle (clubhead would leave the ball before t=0) · next: face-on
 comparison against real frames, shorter swing for wedges, articulated fingers,
 face likeness, pose-driven cloth folds, frame rate measurement.
+2026-11-16 — modelled golfer, scoping — done: phase plan written at planning/eng-plans/modelled-golfer.md (MakeHuman/MPFB scripted in Blender recommended; Mixamo, Ready Player Me, MetaHuman ruled out on licence or shutdown; repo is public so only CC0/CC-BY assets) · check: green · decisions: none taken, three are Sachal's (asset source, likeness in a public repo, OK to download MPFB) · next: on approval start AC1, then AC3 (rig takes proportions) which needs no asset.

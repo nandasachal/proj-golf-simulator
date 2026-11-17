@@ -61,8 +61,15 @@
   editable stock carries; every club modelled in 3D in the control views.
 - [done] Detailed golfer (2026-11-15) — skinned, clothed figure with a sculpted
   head, two-hand grip, and the selected club's own model in the hands.
-- **Club follow-ups**: the golfer makes a driver swing and uses one club length
-  for every club; saved distance profiles; altitude,
+- [done] Keyed swing rig (2026-11-16) — full-body swing keyed at P1–P10 against
+  tour reference, per-club setup (stance, ball position, tilt, attack angle),
+  shoulder and toe joints, breathing at address.
+- **Modelled golfer** (proposed 2026-11-16, awaiting approval) — replace the
+  code-built body with a professionally topologised character driven by the same
+  swing rig. Plan: [eng-plans/modelled-golfer.md](eng-plans/modelled-golfer.md).
+- **Golfer follow-ups**: shorter swing for wedges (every club makes a full
+  driver-length swing today); waggle; face-on comparison against real frames.
+- **Club follow-ups**: saved distance profiles; altitude,
   temperature and wind settings for the stock distances; a quicker way to change
   club than opening Settings; a putter.
 - [done] Target challenge (2026-11-15) — Game mode: random target rings, hit/miss
