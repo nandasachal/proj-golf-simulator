@@ -168,7 +168,7 @@ React UI (App.js, components/)          src/simulate/ (no React)
     right of the result bar.
   - Shot setup, the club (`club`), turf (`turf` preset plus `cut`/`firm`/`wet`/`grass` overrides)
     and `mode` live in the query string (`hooks/use-query.js`), so a setup is
-    shareable via URL; the game score and current target are not.
+    kept in the URL; the game score and current target are not.
   - The UI talks to the scene only through `createSimulator(container,
     callbacks)` in `main.js`.
 - **Simulation** (`src/simulate/`) — framework-agnostic. `launch-conditions.js`,
@@ -203,9 +203,9 @@ React UI (App.js, components/)          src/simulate/ (no React)
     bunkers are visual only.
 - **Looking round** — dragging the picture swings the camera round the golfer
   and the wheel moves it in and out (`orbit-view.js`, pure and tested; pointer
-  handling in `main.js`). The view stays where it was put, through swings too,
-  until the reset button (bottom right, shown only then) hands it back to the
-  camera director. Behind the tee line stands a grey wall with the motto and
+  handling in `main.js`). The view stays where it was put until the reset
+  button (bottom right, shown only then) or the next hit hands it back to the
+  camera director, so a shot is always followed from the address view. Behind the tee line stands a grey wall with the motto and
   the Saanchal mark (`scenery/wall.js`), there to be found by turning round.
 - **Address camera** — straight behind the golfer, who is in the middle of the
   frame with the ball beside them, looking parallel to the target line so the

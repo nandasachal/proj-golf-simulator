@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./App.scss";
-import { Toaster } from "react-hot-toast";
 import { Tooltip } from "react-tooltip";
 
 import ClubPads from "./components/simulator/club-pads";
@@ -435,15 +434,6 @@ function App() {
     });
   };
 
-  // The link for Share: the address bar plus anything not yet written to it.
-  const shareUrl = () => {
-    const url = new URL(window.location.href);
-    for (const [control, value] of Object.entries(draft)) {
-      url.searchParams.set(SHOT_PARAMS[control], value);
-    }
-    return url.toString();
-  };
-
   const handleHit = () => {
     setResult(null);
     setLive(null);
@@ -518,7 +508,6 @@ function App() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-slate-950 text-white md:block">
-      <Toaster />
       <Tooltip id="main-tooltip" style={{ maxWidth: "280px", zIndex: 50 }} />
 
       <div className="relative h-[50dvh] md:h-[100dvh]">
@@ -606,7 +595,6 @@ function App() {
             onChange={handleValueChange}
           />
           <ButtonRow
-            getShareUrl={shareUrl}
             handleReset={handleReset}
             simulate={handleHit}
             showHit={!isDesktop}

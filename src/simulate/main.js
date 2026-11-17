@@ -352,7 +352,9 @@ export function createSimulator(container, callbacks = {}) {
     aimDegrees = 0,
   ) {
     side = hitSide;
-    // A new shot always starts from the address view, even mid-flight.
+    // A new shot always starts from the address view, even mid-flight, and
+    // lets go of a view the player dragged round so the camera follows the ball.
+    resetView();
     director.reset(side);
     golfer.setSide(side);
     swingSeconds = 0;
@@ -599,7 +601,7 @@ export function createSimulator(container, callbacks = {}) {
 
   // --- looking round ---
   // Dragging the picture swings the camera round the golfer, and the wheel
-  // moves it in and out; it stays there, through swings too, until reset.
+  // moves it in and out; it stays there until reset or the next hit.
   let orbit = null;
   let drag = null;
   const DRAG_START_PIXELS = 4;
