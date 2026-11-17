@@ -14,7 +14,7 @@ import {
 
 // Everything man-made on the range: yardage signs, yard lines, target greens
 // and flags, the hitting bays, and the furniture that makes it a driving range
-// (range balls, target nets, boundary netting, the picker cart). Units are
+// (range balls, boundary netting, the picker cart). Units are
 // yards, the tee is at the origin and the range runs down +z.
 
 // --- tunables ---------------------------------------------------------------
@@ -42,11 +42,6 @@ const BAG_BAYS = [1, -1, 3, -4];
 
 const SCATTERED_BALLS = 1500;
 const SCATTERED_BALL_RADIUS = 0.036; // a touch oversized so they read at range
-const TARGET_NETS = [
-  { x: -52, z: 75, color: 0xd8343f },
-  { x: 52, z: 125, color: 0xf2c230 },
-  { x: -53, z: 225, color: 0x2a6fdb },
-];
 const BOUNDARY_NETTING = false;
 const NET_X = CLEAR_HALF_WIDTH + 2;
 const NET_HEIGHT = 15;
@@ -1448,102 +1443,6 @@ function netPanel(width, height, tile) {
   return geometry;
 }
 
-// A colour-coded catch net with a bullseye, leaning back and facing the tee.
-function addTargetNet(batch, net, shadows, { x, z, color }) {
-  const scale = 0.75 + z / 450;
-  const heading = Math.atan2(-x, -z);
-  const base = place(x, 0, z, heading);
-  const lean = 0.22;
-  const frame = base.clone().multiply(place(0, 0.3, 0, 0, -lean));
-  const width = 6 * scale;
-  const height = 5 * scale;
-  const bar = 0.09 * scale;
-  const skirt = 0.4 * scale;
-
-  for (const side of [-1, 1]) {
-    const px = (side * width) / 2;
-    tube(batch, frame, vec(px, -0.32, 0), vec(px, height, 0), bar, color, 8);
-    batch.add(
-      new THREE.SphereGeometry(bar * 1.2, 8, 6),
-      frame.clone().multiply(place(px, height, 0)),
-      color,
-    );
-    // A stay running back to the ground.
-    const topY = 0.3 + 0.85 * height * Math.cos(lean);
-    const topZ = -0.85 * height * Math.sin(lean);
-    tube(
-      batch,
-      base,
-      vec(px, topY, topZ),
-      vec(px, 0, topZ - height * 0.5),
-      bar * 0.7,
-      0x2a2e33,
-      6,
-    );
-    poleShadow(
-      shadows,
-      x + px * Math.cos(heading),
-      z - px * Math.sin(heading),
-      bar * 1.5,
-      height,
-    );
-  }
-  tube(
-    batch,
-    frame,
-    vec(-width / 2, height, 0),
-    vec(width / 2, height, 0),
-    bar,
-    color,
-    8,
-  );
-  tube(
-    batch,
-    frame,
-    vec(-width / 2, skirt, 0),
-    vec(width / 2, skirt, 0),
-    bar * 0.7,
-    color,
-    8,
-  );
-  net.add(
-    netPanel(width, height - skirt, NET_TILE * 0.8),
-    frame.clone().multiply(place(0, (height + skirt) / 2, 0)),
-    0xe6e9e2,
-  );
-
-  // The bullseye, front and back.
-  const centreY = height * 0.56;
-  const rings = [
-    [0, 0.8, color],
-    [0.8, 1.5, 0xf4f4ee],
-    [1.5, 2.2, color],
-  ];
-  for (const turn of [0, Math.PI]) {
-    const face = frame
-      .clone()
-      .multiply(place(0, centreY, turn ? -0.04 : 0.04, turn));
-    for (const [inner, outer, hex] of rings) {
-      batch.add(
-        inner === 0
-          ? new THREE.CircleGeometry(outer * scale, 28)
-          : new THREE.RingGeometry(inner * scale, outer * scale, 28),
-        face,
-        hex,
-      );
-    }
-  }
-  castShadow(
-    shadows,
-    x,
-    z,
-    Math.cos(heading) * 2 * scale,
-    -Math.sin(heading) * 2 * scale,
-    0.3 + centreY - 2.2 * scale,
-    0.3 + centreY + 2.2 * scale,
-  );
-}
-
 // The ball picker: a caged cart pushing a gang of collector discs.
 function addPickerCart(batch, net, shadows, { x, z, heading }) {
   const base = place(x, 0, z, heading);
@@ -1660,7 +1559,6 @@ function buildFurniture({ random, anisotropy, paint, shadows }) {
   const batch = createBatch();
   const net = createBatch();
 
-  for (const target of TARGET_NETS) addTargetNet(batch, net, shadows, target);
   addPickerCart(batch, net, shadows, CART);
 
   if (BOUNDARY_NETTING) {
