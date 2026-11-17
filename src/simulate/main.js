@@ -53,7 +53,7 @@ function labelTexture(text) {
 }
 
 export function createSimulator(container, callbacks = {}) {
-  const { onState, onProgress, onResult, onOrbit } = callbacks;
+  const { onState, onProgress, onResult, onOrbit, fleet } = callbacks;
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -67,6 +67,7 @@ export function createSimulator(container, callbacks = {}) {
   scene.fog = new THREE.Fog(FOG.color, FOG.near, FOG.far);
   const range = buildRange({
     anisotropy: renderer.capabilities.getMaxAnisotropy(),
+    fleet,
   });
   scene.add(range);
 

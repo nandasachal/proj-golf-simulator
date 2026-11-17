@@ -20,6 +20,9 @@
   properly modelled golfer, postprocessing (bloom, depth of field), ball/club
   materials. Scenery follow-ups: finer foliage on trees seen up close, real
   shadows beyond the tee, a frame-rate check on an integrated GPU and a phone.
+  - **Sharper golfer from a reference video** (proposed 2026-11-16) — real golf
+    clothes, better skin, eyes and hair, design matched to Sachal's video without
+    the heavier build. See [eng-plans/golfer-definition.md](eng-plans/golfer-definition.md).
 - **Move golfswingsimulator.com to Render** — the domain still serves the
   pre-redesign GitHub Pages build; needs a DNS change and a custom domain on the
   Render static site.

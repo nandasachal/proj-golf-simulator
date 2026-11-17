@@ -189,6 +189,8 @@ React UI (App.js, components/)          src/simulate/ (no React)
   code (no downloaded assets). `range.js` assembles five parts, each returning
   `{ object, update(seconds, camera) }`; `main.js` calls the update every frame
   (clouds drift, trees sway, flags wave).
+  - `fleet.js` — a hidden extra: `?empire` in the URL puts a fleet of
+    wedge-shaped capital ships slowly crossing the sky. Not in any menu.
   - `shared.js` — the contract the parts agree on: the sun direction and colour,
     the horizon/fog colour, `terrainHeight(x, z)` and the `FLAT` rectangle where
     the ground must stay at y = 0 because the ball physics assumes level ground.

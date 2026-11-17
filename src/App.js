@@ -110,6 +110,8 @@ function App() {
   const [rawFace] = useQueryState("face", CLUB_FACE_ANGLE_VALUES.DEFAULT, true);
   const [rawPath] = useQueryState("path", CLUB_PATH_ANGLE_VALUES.DEFAULT, true);
   const [rawClub] = useQueryState("club", DEFAULT_CLUB_ID, false);
+  // Hidden: ?empire puts a fleet in the sky. Read once, when the scene is built.
+  const [empire] = useQueryState("empire", null, false);
   const club = getClub(rawClub);
   // Swing speeds set for this session by editing a club's distance in
   // Settings. Not saved anywhere: a reload goes back to the stock distances.
@@ -260,6 +262,7 @@ function App() {
   useEffect(() => {
     const sim = createSimulator(stage.current, {
       side,
+      fleet: empire != null,
       onOrbit: setOrbiting,
       onProgress: setLive,
       onResult: (shotResult) => {
