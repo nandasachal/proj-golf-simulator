@@ -34,6 +34,7 @@ import {
   solveRig,
 } from "./swing-rig";
 import { buildNeck } from "./golfer-body-neck";
+import { createRetarget, jointsFromScene } from "./golfer-retarget";
 
 // A golfer modelled and animated by hand (no imported model or rig): a
 // skinned body on a handful of bones. swing-keys.js holds the swing as keyed
@@ -194,14 +195,22 @@ export function createGolfer() {
     return keyed;
   }
 
-  const rig = createRig();
+  let rig = createRig();
+  // A modelled character, once one has loaded, in place of the built figure.
+  let model = null;
+  const builtFigure = group.children.filter((part) => part !== clubMount);
 
   function setTime(t) {
     time = t;
     solveRig(idle(swing.pose(t, pose), t), rig);
-    for (let i = 0; i < bones.length; i++) {
-      bones[i].position.copy(rig.bones[i].position);
-      bones[i].quaternion.copy(rig.bones[i].quaternion);
+    if (model) {
+      model.solve(rig);
+      model.apply();
+    } else {
+      for (let i = 0; i < bones.length; i++) {
+        bones[i].position.copy(rig.bones[i].position);
+        bones[i].quaternion.copy(rig.bones[i].quaternion);
+      }
     }
 
     clubMount.position.copy(rig.handPoint);
@@ -229,8 +238,23 @@ export function createGolfer() {
     setTime(0);
   }
 
+  // Swap the built figure for a loaded character (golfer-model.js). The
+  // swing is re-solved for its measurements, so its own joints close.
+  function setModel(scene) {
+    model = createRetarget(jointsFromScene(scene));
+    rig = createRig(model.body);
+    const holder = new THREE.Group();
+    holder.name = "golfer-model";
+    holder.quaternion.copy(model.stand);
+    holder.scale.setScalar(model.scale);
+    holder.add(scene);
+    for (const part of builtFigure) part.visible = false;
+    group.add(holder);
+    setTime(time);
+  }
+
   setClub(getClub(DEFAULT_CLUB_ID));
   // For posing the figure by hand when checking it in the browser.
   group.userData.setTime = setTime;
-  return { group, setTime, setSide, setAim, setClub, setIdle };
+  return { group, setTime, setSide, setAim, setClub, setIdle, setModel };
 }

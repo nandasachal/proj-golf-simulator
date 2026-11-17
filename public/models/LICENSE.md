@@ -1,0 +1,20 @@
+# golfer.glb
+
+Built by `tools/blender/build_golfer.py` from MakeHuman assets using the MPFB
+Blender extension. Every mesh and texture in the file comes from MakeHuman's
+core assets or its system asset pack, all released under CC0 1.0 (no rights
+reserved, no attribution required). The textures were then repainted by
+`tools/blender/golfer_finish.py`.
+
+| Part | MakeHuman asset | Licence |
+|---|---|---|
+| Body mesh, skeleton ("game engine" rig) and weights | base mesh, bundled with MPFB | CC0 |
+| Skin texture | `skins/young_caucasian_male` | CC0 |
+| Shirt and trousers | `clothes/male_casualsuit04` | CC0 |
+| Shoes | `clothes/shoes05` | CC0 |
+| Hair | `hair/short01` | CC0 |
+| Eyes, eyebrows, eyelashes, teeth | `eyes/low-poly`, `eyebrows/eyebrow001`, `eyelashes/eyelashes01`, `teeth/teeth_base` | CC0 |
+
+- Asset licence: <https://static.makehumancommunity.org/about/license.html>
+- System asset pack listing: <https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html>
+- MPFB itself is GPL software used as a tool; none of its code is in this repo.

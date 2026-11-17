@@ -1,6 +1,6 @@
 # Phase: Modelled golfer on the swing rig
 
-Status: proposed 2026-11-16
+Status: approved 2026-11-16 (source A, MPFB download approved; Blender work files kept in the repo)
 Tier: 1
 Spec: none (follows the "Detailed golfer" roadmap item)
 

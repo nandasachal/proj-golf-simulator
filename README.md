@@ -119,8 +119,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
                                         ├─ golfer.js         hangs the meshes on the rig
                                         │    swing-keys.js     the swing keyed at P1-P10 (tour reference)
                                         │    swing-rig.js      spine chain, leg and arm IK, grip
-                                        │    golfer-body-*.js  skinned body, hands, clothing textures
-                                        │    golfer-head.js    sculpted, painted head
+                                        │    golfer-model.js   loads the modelled character (public/models/golfer.glb)
+                                        │    golfer-retarget.js  drives its skeleton from the rig
+                                        │    golfer-body-*.js  stand-in figure built in code, shown until the model loads
+                                        │    golfer-head.js    the stand-in's head
                                         │    golfer-club.js    the selected club, fitted to the hands
                                         └─ camera-director.js address → swing → flight → landed
 ```
@@ -163,6 +165,14 @@ React UI (App.js, components/)          src/simulate/ (no React)
   `shot.js`, `ground.js`, `game.js`, `shot-analysis.js`, `camera-director.js`, and the pose math in
   `golfer.js` are pure and unit-tested; `main.js` and `range.js` need WebGL and are
   verified in the browser.
+- **Golfer** — the one imported asset. `public/models/golfer.glb` is a MakeHuman
+  character (CC0, see `public/models/LICENSE.md`) built by script in
+  `tools/blender/` (its README covers setup and rebuilding). The swing is not
+  baked into it: `swing-keys.js` and `swing-rig.js` pose a 17-bone rig each
+  frame, and `golfer-retarget.js` maps that onto the model's own skeleton,
+  re-solving the arms and legs for the model's measurements so its hands close
+  on the grip and its feet stay planted. A figure built in code stands in while
+  the file loads, and stays if it fails to.
 - **Scenery** (`src/simulate/scenery/`) — everything but the golfer, generated in
   code (no downloaded assets). `range.js` assembles five parts, each returning
   `{ object, update(seconds, camera) }`; `main.js` calls the update every frame

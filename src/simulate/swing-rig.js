@@ -22,44 +22,72 @@ import { DRIVER_SETUP, shaftDirection } from "./swing-keys";
 // +y up, +z the lead side. Yards.
 
 const MAT_TOP = 0.06;
-const ANKLE_Y = MAT_TOP + ANKLE_HEIGHT;
 // Where the driver is played from; other clubs move the stance (their setup).
 const FEET_X = 0.97;
 const LEAD_FLARE = 22;
 const TRAIL_FLARE = -6;
-// Hips hinged back: the hip joints just behind the heels, the seat well
-// behind them.
-const PELVIS_ADDRESS = new THREE.Vector3(1.03, 1.083, 0);
-const SPINE_LENGTH = 0.622;
-// The base of the neck in the chest's frame, and how far up it the skull's
-// centre sits: part of the way along the chest's line, the rest the head's.
-const NECK_BASE = new THREE.Vector3(0, 0.045, 0);
-const NECK_RISE = 0.045;
-const SKULL_RISE = 0.115;
+// A shoe only bends so far at the ball: past this the toes come up too.
+const TOE_BREAK = 55;
 
 // Where each hand holds the grip, along the mount's y from the hand point.
 export const LEAD_HAND = 0.055;
 export const TRAIL_HAND = -0.02;
 export const HAND_SCALE = 1.12;
-const wristOn = (holdAt, side) =>
-  new THREE.Vector3(
-    WRIST.x * HAND_SCALE,
-    holdAt + WRIST.y * HAND_SCALE,
-    side * WRIST.z * HAND_SCALE,
-  );
-const LEAD_WRIST = wristOn(LEAD_HAND, 1);
-const TRAIL_WRIST = wristOn(TRAIL_HAND, -1);
-const ARM = UPPER_ARM + FOREARM;
-const STRAIGHT_ARM = ARM * 0.985;
+
+// The measurements of the body being posed. The figure built in code
+// (golfer-body-figure.js) has these; a modelled character brings its own
+// (golfer-retarget.js), so its arms and legs close on its own joints.
+export const FIGURE_BODY = {
+  upperArm: UPPER_ARM,
+  forearm: FOREARM,
+  thigh: THIGH,
+  shin: SHIN,
+  hip: HIP_JOINT,
+  shoulder: SHOULDER_JOINT,
+  clavicle: CLAVICLE_JOINT,
+  spineJoint: SPINE_JOINT,
+  spineLength: 0.622,
+  toe: TOE_JOINT,
+  ankleHeight: ANKLE_HEIGHT,
+  // Wrist from the point on the grip a hand holds, in the grip's frame.
+  wrist: {
+    x: WRIST.x * HAND_SCALE,
+    y: WRIST.y * HAND_SCALE,
+    z: WRIST.z * HAND_SCALE,
+  },
+  // The base of the neck in the chest's frame, and how far up it the skull's
+  // centre sits: part of the way along the chest's line, the rest the head's.
+  neckBase: 0.045,
+  neckRise: 0.045,
+  skullRise: 0.115,
+  // Hips hinged back: the hip joints just behind the heels, the seat well
+  // behind them.
+  pelvisHeight: 1.083,
+};
+
+// Everything the solver wants worked out once from a body's measurements.
+function fitBody(body) {
+  const wristOn = (holdAt, side) =>
+    new THREE.Vector3(body.wrist.x, holdAt + body.wrist.y, side * body.wrist.z);
+  const arm = body.upperArm + body.forearm;
+  return {
+    ...body,
+    pelvisAddress: new THREE.Vector3(1.03, body.pelvisHeight, 0),
+    ankleY: MAT_TOP + body.ankleHeight,
+    leadWrist: wristOn(LEAD_HAND, 1),
+    trailWrist: wristOn(TRAIL_HAND, -1),
+    arm,
+    straightArm: arm * 0.985,
+    // The points the feet turn about: the ball of the trail foot, and the
+    // outside edge of the lead one.
+    ballOfFoot: new THREE.Vector3(body.toe.x, body.toe.y, 0),
+    outsideEdge: new THREE.Vector3(-0.06, -body.ankleHeight, 0.05),
+  };
+}
+
 // The shoulder blades let a shoulder reach toward its hand or draw back.
 const LEAD_GIVE = [-0.03, 0.09];
 const TRAIL_GIVE = [0, 0.085];
-// The points the feet turn about: the ball of the trail foot, and the
-// outside edge of the lead one.
-const BALL_OF_FOOT = new THREE.Vector3(TOE_JOINT.x, TOE_JOINT.y, 0);
-// A shoe only bends so far at the ball: past this the toes come up too.
-const TOE_BREAK = 55;
-const OUTSIDE_EDGE = new THREE.Vector3(-0.06, -ANKLE_HEIGHT, 0.05);
 
 const RADIANS = Math.PI / 180;
 const X_AXIS = new THREE.Vector3(1, 0, 0);
@@ -121,10 +149,11 @@ const pastBreak = (lift) => {
 const softMax = (a, b) => 0.5 * (a + b + Math.sqrt((a - b) * (a - b) + 4e-4));
 const softMin = (a, b) => 0.5 * (a + b - Math.sqrt((a - b) * (a - b) + 4e-4));
 
-export function createRig() {
+export function createRig(body = FIGURE_BODY) {
   const V = () => new THREE.Vector3();
   const Q = () => new THREE.Quaternion();
   return {
+    body: fitBody(body),
     bones: Array.from({ length: BONE_COUNT }, () => ({
       position: V(),
       quaternion: Q(),
@@ -169,7 +198,7 @@ const toes = new THREE.Vector3();
 const point = new THREE.Vector3();
 
 export function solveRig(pose, rig = createRig()) {
-  const { bones } = rig;
+  const { bones, body } = rig;
   const setup = pose.setup || DRIVER_SETUP;
   // The whole stance moves in toward the ball for a shorter club.
   const closer = setup.hands.x - DRIVER_SETUP.hands.x;
@@ -182,20 +211,20 @@ export function solveRig(pose, rig = createRig()) {
       pose.pelvisUp,
       pose.pelvisToward + setup.stanceZ,
     )
-    .add(PELVIS_ADDRESS);
+    .add(body.pelvisAddress);
   orient(pelvisQ, pose.pelvisTurn, pose.pelvisBend, pose.pelvisLean);
   pelvis.quaternion.copy(pelvisQ);
   orient(chestQ, pose.chestTurn, pose.chestBend, pose.chestLean);
   spineQ.copy(pelvisQ).slerp(chestQ, 0.5);
   const spine = bones[BONE.spine];
   spine.position
-    .set(0, SPINE_JOINT, 0)
+    .set(0, body.spineJoint, 0)
     .applyQuaternion(pelvisQ)
     .add(pelvis.position);
   spine.quaternion.copy(spineQ);
   const chest = bones[BONE.chest];
   chest.position
-    .set(0, SPINE_LENGTH - SPINE_JOINT, 0)
+    .set(0, body.spineLength - body.spineJoint, 0)
     .applyQuaternion(spineQ)
     .add(spine.position);
   chest.quaternion.copy(chestQ);
@@ -211,7 +240,7 @@ export function solveRig(pose, rig = createRig()) {
   shaftDirection(pose.theta, pose.phi, shaft, setup);
   butt.copy(shaft).negate();
   shoulder
-    .set(0, SHOULDER_JOINT.y, SHOULDER_JOINT.z)
+    .set(0, body.shoulder.y, body.shoulder.z)
     .applyQuaternion(chestQ)
     .add(chest.position);
   reach.subVectors(hands, shoulder).normalize();
@@ -223,11 +252,15 @@ export function solveRig(pose, rig = createRig()) {
   rig.mount.setFromRotationMatrix(m1.makeBasis(toe, butt, face));
   // Hold the lead arm straight: push the hands out along it.
   if (pose.straight > 0) {
-    point.copy(LEAD_WRIST).applyQuaternion(rig.mount).add(hands).sub(shoulder);
+    point
+      .copy(body.leadWrist)
+      .applyQuaternion(rig.mount)
+      .add(hands)
+      .sub(shoulder);
     const length = point.length();
     hands.addScaledVector(
       point,
-      (pose.straight * (STRAIGHT_ARM + 0.03 - length)) / length,
+      (pose.straight * (body.straightArm + 0.03 - length)) / length,
     );
   }
   rig.clubhead.copy(hands).addScaledVector(shaft, setup.length);
@@ -241,27 +274,30 @@ export function solveRig(pose, rig = createRig()) {
   for (let i = 0; i < 2; i++) {
     const side = i === 0 ? 1 : -1;
     const wrist = rig.wrists[i]
-      .copy(i === 0 ? LEAD_WRIST : TRAIL_WRIST)
+      .copy(i === 0 ? body.leadWrist : body.trailWrist)
       .applyQuaternion(rig.mount)
       .add(hands);
     shoulder
-      .set(0, SHOULDER_JOINT.y, side * SHOULDER_JOINT.z)
+      .set(0, body.shoulder.y, side * body.shoulder.z)
       .applyQuaternion(chestQ)
       .add(chest.position);
     reach.subVectors(wrist, shoulder);
     const [draw, stretch] = i === 0 ? LEAD_GIVE : TRAIL_GIVE;
-    const give = softMin(stretch, softMax(draw, reach.length() - STRAIGHT_ARM));
+    const give = softMin(
+      stretch,
+      softMax(draw, reach.length() - body.straightArm),
+    );
     shoulder.addScaledVector(reach.normalize(), give);
-    if (shoulder.distanceTo(wrist) > ARM + 0.004) rig.reached = false;
+    if (shoulder.distanceTo(wrist) > body.arm + 0.004) rig.reached = false;
     pole
       .set(0, -1, 0)
       .addScaledVector(chestBack, i === 0 ? 0.3 - 0.5 * through : 0.4 - through)
       .addScaledVector(chestLead, side * 0.25);
-    midJoint(elbow, shoulder, wrist, UPPER_ARM, FOREARM, pole);
+    midJoint(elbow, shoulder, wrist, body.upperArm, body.forearm, pole);
     // The collar bone swings from the breastbone to wherever the shoulder is.
     const clavicle = bones[i === 0 ? BONE.leadClavicle : BONE.trailClavicle];
-    v1.set(CLAVICLE_JOINT.x, CLAVICLE_JOINT.y, side * CLAVICLE_JOINT.z);
-    v2.set(0, SHOULDER_JOINT.y, side * SHOULDER_JOINT.z)
+    v1.set(body.clavicle.x, body.clavicle.y, side * body.clavicle.z);
+    v2.set(0, body.shoulder.y, side * body.shoulder.z)
       .sub(v1)
       .normalize();
     clavicle.position.copy(v1).applyQuaternion(chestQ).add(chest.position);
@@ -280,7 +316,11 @@ export function solveRig(pose, rig = createRig()) {
   // Legs, from the hips down to feet that stay where they were planted.
   for (let i = 0; i < 2; i++) {
     const side = i === 0 ? 1 : -1;
-    ankle.set(FEET_X + closer, ANKLE_Y, setup.stanceZ + side * setup.halfWidth);
+    ankle.set(
+      FEET_X + closer,
+      body.ankleY,
+      setup.stanceZ + side * setup.halfWidth,
+    );
     let yaw;
     if (i === 0) {
       yaw = LEAD_FLARE + pose.leadSpin;
@@ -288,20 +328,20 @@ export function solveRig(pose, rig = createRig()) {
       footQ
         .setFromAxisAngle(Y_AXIS, yaw * RADIANS)
         .multiply(q1.setFromAxisAngle(X_AXIS, pose.leadRoll * RADIANS));
-      point.copy(OUTSIDE_EDGE);
+      point.copy(body.outsideEdge);
     } else {
       yaw = TRAIL_FLARE + pose.trailTurn;
       plantedQ.setFromAxisAngle(Y_AXIS, TRAIL_FLARE * RADIANS);
       footQ
         .setFromAxisAngle(Y_AXIS, yaw * RADIANS)
         .multiply(q1.setFromAxisAngle(Z_AXIS, pose.trailLift * RADIANS));
-      point.copy(BALL_OF_FOOT);
+      point.copy(body.ballOfFoot);
       ankle.z += pose.trailSlide;
     }
     ankle.add(v1.copy(point).applyQuaternion(plantedQ));
     ankle.sub(v1.copy(point).applyQuaternion(footQ));
     hip
-      .set(0, HIP_JOINT.y, side * HIP_JOINT.z)
+      .set(0, body.hip.y, side * body.hip.z)
       .applyQuaternion(pelvisQ)
       .add(pelvis.position);
     // The knee points between where the toes and the hips do.
@@ -310,7 +350,7 @@ export function solveRig(pose, rig = createRig()) {
     pole.y = 0;
     pole.z -= side * (i === 0 ? pose.leadKneeIn : pose.trailKneeIn);
     pole.normalize();
-    midJoint(knee, hip, ankle, THIGH, SHIN, pole);
+    midJoint(knee, hip, ankle, body.thigh, body.shin, pole);
     const thigh = bones[i === 0 ? BONE.leadThigh : BONE.trailThigh];
     thigh.position.copy(hip);
     frameYX(
@@ -331,7 +371,7 @@ export function solveRig(pose, rig = createRig()) {
     // The toes stay down while the heel comes up, until the shoe can bend
     // no further; they roll less than the rest of the foot does.
     const toeBone = bones[i === 0 ? BONE.leadToe : BONE.trailToe];
-    toeBone.position.copy(BALL_OF_FOOT).applyQuaternion(footQ).add(ankle);
+    toeBone.position.copy(body.ballOfFoot).applyQuaternion(footQ).add(ankle);
     toeBone.quaternion.setFromAxisAngle(Y_AXIS, yaw * RADIANS);
     if (i === 0) {
       toeBone.quaternion.multiply(
@@ -349,10 +389,13 @@ export function solveRig(pose, rig = createRig()) {
 
   // Head: a short neck carrying on up the spine, the skull over the top of it.
   orient(rig.head, pose.headTurn, pose.headPitch, pose.headLean);
-  rig.neckBase.copy(NECK_BASE).applyQuaternion(chestQ).add(chest.position);
+  rig.neckBase
+    .set(0, body.neckBase, 0)
+    .applyQuaternion(chestQ)
+    .add(chest.position);
   rig.headCenter
     .copy(rig.neckBase)
-    .addScaledVector(chestUp, NECK_RISE)
-    .addScaledVector(v1.copy(Y_AXIS).applyQuaternion(rig.head), SKULL_RISE);
+    .addScaledVector(chestUp, body.neckRise)
+    .addScaledVector(v1.copy(Y_AXIS).applyQuaternion(rig.head), body.skullRise);
   return rig;
 }

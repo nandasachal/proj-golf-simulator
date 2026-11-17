@@ -11,6 +11,7 @@ import {
   LANDED,
 } from "./camera-director";
 import { createGolfer, CONTACT_TIME, SWING_DURATION } from "./golfer";
+import { loadGolferModel } from "./golfer-model";
 import { Shot } from "./shot";
 import { analyzeShot } from "./shot-analysis";
 import { groundRun, turfParameters, TURF_PRESETS } from "./ground";
@@ -240,6 +241,11 @@ export function createSimulator(container, callbacks = {}) {
   const golfer = createGolfer();
   golfer.setSide(side);
   scene.add(golfer.group);
+  loadGolferModel()
+    .then((model) => golfer.setModel(model))
+    .catch(() =>
+      console.warn("Golfer model did not load; keeping the built-in figure."),
+    );
   let swingSeconds = 0;
   let aim = 0;
   let state = ADDRESS;
