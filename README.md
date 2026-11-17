@@ -257,7 +257,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
   with `advance(seconds)` (step the simulation without waiting on real time),
   `inspect()` (current state, ball, camera, clubhead) and `view(position, target)`
   (hold the camera somewhere to look at scenery; `view(null)` releases it). Use it when a background
-  tab is throttling animation frames.
+  tab is throttling animation frames. A hidden preview pane also delays React's
+  passive effects, so the scene can lag the UI (a new target not yet set, a
+  scored shot looking unscored): click something first (e.g. Restart) to flush
+  them before hitting.
 
 ### Hosting
 
