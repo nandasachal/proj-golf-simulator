@@ -165,7 +165,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
     `src/utils/club-handles.js`, in the scene's own centimetres.
   - The shot panel carries the club in hand (the chip in its header opens the
     bag), Reset (the icon top right) and the mode (Practice, Normal, Advanced,
-    along the bottom). Club distances, dominant side, turf and the feedback
+    along the bottom). On phones the mode and Hit are a bar fixed to the
+    bottom of the screen, the game card shrinks to the target, pips and
+    score, and Settings and Reset view sit in the bottom corners of the
+    picture. Club distances, dominant side, turf and the feedback
     link are in a modal behind the gear button, bottom left. On laptops Hit sits to the
     right of the result bar.
   - Shot setup, the club (`club`), turf (`turf` preset plus `cut`/`firm`/`wet`/`grass` overrides)

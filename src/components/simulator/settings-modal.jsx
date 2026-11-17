@@ -23,9 +23,16 @@ const firmnessWord = (value) =>
 const wetnessWord = (value) =>
   value < 0.2 ? "dry" : value > 0.7 ? "wet" : "damp";
 
-export const Segmented = ({ label, options, value, onChange, accent }) => (
+export const Segmented = ({
+  label,
+  options,
+  value,
+  onChange,
+  accent,
+  size = "text-sm",
+}) => (
   <div
-    className="grid rounded-lg bg-white/10 p-1 text-sm"
+    className={`grid rounded-lg bg-white/10 p-1 ${size}`}
     style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
     role="group"
     aria-label={label}
@@ -47,7 +54,7 @@ export const Segmented = ({ label, options, value, onChange, accent }) => (
         onClick={() => onChange(key)}
       >
         {caption && (
-          <span className="text-[9px] font-semibold uppercase tracking-wider opacity-60">
+          <span className="whitespace-nowrap text-[9px] font-semibold uppercase tracking-wide opacity-60">
             {caption}
           </span>
         )}

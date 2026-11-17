@@ -511,7 +511,7 @@ function App() {
   }, []);
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-slate-950 text-white md:block">
+    <div className="flex min-h-[100dvh] flex-col bg-slate-950 pb-[72px] text-white md:block md:pb-0">
       <Tooltip id="main-tooltip" style={{ maxWidth: "280px", zIndex: 50 }} />
 
       <div className="relative h-[50dvh] md:h-[100dvh]">
@@ -532,9 +532,10 @@ function App() {
           </div>
         </div>
         {/* Along the bottom: the result bar with Hit to its right, the pair
-            centred on the screen. On phones the bar takes the full width and
-            Hit stays with the controls below. */}
-        <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-20 flex justify-center md:bottom-4 md:left-20 md:right-20">
+            centred on the screen. On phones the bar takes the full width, above
+            the corner buttons, and Hit is in the bar at the bottom of the
+            screen. */}
+        <div className="pointer-events-none absolute bottom-[60px] left-3 right-3 z-20 flex justify-center md:bottom-4 md:left-20 md:right-20">
           <div className="pointer-events-auto flex max-w-full items-stretch gap-2">
             <ShotReadout live={live} result={result} />
             {isDesktop && (
@@ -544,7 +545,7 @@ function App() {
         </div>
         {/* Back to the usual view, bottom right, once it has been dragged. */}
         {orbiting && (
-          <div className="absolute bottom-[84px] right-3 z-20 md:bottom-4 md:right-4">
+          <div className="absolute bottom-3 right-3 z-20 md:bottom-4 md:right-4">
             <button
               type="button"
               aria-label="Reset view"
@@ -557,8 +558,8 @@ function App() {
             </button>
           </div>
         )}
-        {/* Settings, bottom left (above the result bar on phones). */}
-        <div className="absolute bottom-[84px] left-3 z-20 md:bottom-4 md:left-4">
+        {/* Settings, bottom left. */}
+        <div className="absolute bottom-3 left-3 z-20 md:bottom-4 md:left-4">
           <SettingsModal
             side={side}
             turf={turf}
@@ -598,14 +599,24 @@ function App() {
             onClub={handleClub}
             onReset={handleReset}
           />
-          <ButtonRow
-            mode={mode}
-            onMode={(value) => handleValueChange("mode", value)}
-            simulate={handleHit}
-            showHit={!isDesktop}
-          />
+          {isDesktop && (
+            <ButtonRow
+              mode={mode}
+              onMode={(value) => handleValueChange("mode", value)}
+            />
+          )}
         </div>
       </div>
+      {/* Phones: mode and Hit stay at the bottom of the screen. Outside the
+          panel, whose blur would otherwise pin the bar to itself. */}
+      {!isDesktop && (
+        <ButtonRow
+          bar
+          mode={mode}
+          onMode={(value) => handleValueChange("mode", value)}
+          simulate={handleHit}
+        />
+      )}
     </div>
   );
 }

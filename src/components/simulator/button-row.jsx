@@ -16,18 +16,25 @@ export const HitButton = ({ onClick, className = "" }) => (
   </button>
 );
 
-// Practice or a game, with Hit above it when it isn't shown beside the result
-// bar (phones).
-const ButtonRow = ({ mode, onMode, simulate, showHit = true }) => (
-  <div className="mt-2">
-    {showHit && <HitButton onClick={simulate} className="mb-2 w-full py-2.5" />}
+// Practice or a game. On laptops it closes the shot panel; on phones it is a
+// bar fixed to the bottom of the screen, with Hit beside it.
+const ButtonRow = ({ mode, onMode, simulate, bar = false }) => (
+  <div
+    className={
+      bar
+        ? "fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-2 border-t border-white/10 bg-slate-950/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur"
+        : "mt-2"
+    }
+  >
     <div
+      className={bar ? "min-w-0 flex-1" : undefined}
       data-tooltip-id="main-tooltip"
       data-tooltip-content="A game is 10 targets, one shot at each. Normal: rings on the ground, hit 5 to win. Advanced: targets in the air, hit 8."
     >
       <Segmented
         label="Mode"
         accent
+        size={bar ? "h-full text-[13px]" : "text-sm"}
         options={[
           ["practice", "Practice"],
           ["normal", "Normal", "Game Mode"],
@@ -37,6 +44,7 @@ const ButtonRow = ({ mode, onMode, simulate, showHit = true }) => (
         onChange={onMode}
       />
     </div>
+    {bar && <HitButton onClick={simulate} className="w-24 shrink-0" />}
   </div>
 );
 

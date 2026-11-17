@@ -22,7 +22,7 @@ function standing(hits, left, toWin) {
 // One pip per target: filled for a hit, crossed for a miss, a ring for the
 // one being played, faint for those still to come.
 const Pips = ({ round, total, playing }) => (
-  <ol className="mt-2 flex gap-1" aria-label="Targets">
+  <ol className="mt-1.5 flex gap-[3px] md:mt-2 md:gap-1" aria-label="Targets">
     {Array.from({ length: total }, (_, i) => {
       const shot = round[i];
       const current = !shot && playing && i === round.length;
@@ -38,17 +38,19 @@ const Pips = ({ round, total, playing }) => (
                 ? "up now"
                 : "to come"
           }`}
-          className={`flex h-[18px] w-[18px] items-center justify-center rounded-full text-[10px] font-bold leading-none ${
+          className={`flex h-2.5 w-2.5 items-center justify-center rounded-full text-[10px] font-bold leading-none md:h-[18px] md:w-[18px] ${
             shot
               ? shot.hit
                 ? "bg-lime-400 text-slate-900"
-                : "bg-white/10 text-rose-300"
+                : "bg-rose-400/70 text-rose-300 md:bg-white/10"
               : current
-                ? "animate-pulse border-2 border-amber-300"
+                ? "animate-pulse border border-amber-300 md:border-2"
                 : "border border-white/20"
           }`}
         >
-          {shot ? (shot.hit ? "✓" : "✕") : ""}
+          {shot && (
+            <span className="hidden md:inline">{shot.hit ? "✓" : "✕"}</span>
+          )}
         </li>
       );
     })}
@@ -56,7 +58,8 @@ const Pips = ({ round, total, playing }) => (
 );
 
 // Game mode, top right: the target that is up, progress toward the goal,
-// every shot of the game, and the games won this session.
+// every shot of the game, and the games won this session. On phones it is a
+// small card: the target, the pips and the score.
 const GameCard = ({ mode, goal, target, round, session, onRestart }) => {
   const hits = round.filter((shot) => shot.hit).length;
   const over = round.length >= goal.targets;
@@ -67,15 +70,15 @@ const GameCard = ({ mode, goal, target, round, session, onRestart }) => {
 
   return (
     <div
-      className="hud-panel w-[248px] whitespace-nowrap px-3 py-2.5 md:w-[268px] md:px-4 md:py-3"
+      className="hud-panel w-[150px] whitespace-nowrap px-2.5 py-2 md:w-[268px] md:px-4 md:py-3"
       role="status"
       aria-label="Game"
     >
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-300">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-300 md:text-[11px]">
           {TITLES[mode]}
         </p>
-        <p className="text-[11px] tabular-nums text-white/50">
+        <p className="hidden text-[11px] tabular-nums text-white/50 md:block">
           {over ? "Finished" : `Target ${round.length + 1} of ${goal.targets}`}
         </p>
       </div>
@@ -83,24 +86,28 @@ const GameCard = ({ mode, goal, target, round, session, onRestart }) => {
       {over ? (
         <div className="mt-1.5">
           <p
-            className={`text-2xl font-bold leading-tight md:text-3xl ${
+            className={`text-lg font-bold leading-tight md:text-3xl ${
               won ? "text-lime-300" : "text-white"
             }`}
           >
             {won ? "You win!" : "Not this time"}
           </p>
-          <p className="text-sm text-white/60">
+          <p className="text-[11px] text-white/60 md:text-sm">
             {hits} of {goal.targets} hit · {goal.toWin} to win
           </p>
         </div>
       ) : (
         target && (
           <p className="mt-1 leading-none">
-            <span className="text-2xl font-bold tabular-nums md:text-3xl">
+            <span className="text-xl font-bold tabular-nums md:text-3xl">
               {target.distanceYards}
             </span>
-            <span className="ml-1.5 text-sm text-white/60">
-              yd · {describeSide(target.offlineYards)}
+            <span className="ml-1 text-[11px] text-white/60 md:ml-1.5 md:text-sm">
+              yd
+            </span>
+            <span className="mt-1 block text-[11px] text-white/60 md:ml-1.5 md:mt-0 md:inline md:text-sm">
+              <span className="hidden md:inline">· </span>
+              {describeSide(target.offlineYards)}
               {target.air && ` · ${target.heightYards} yd up`}
             </span>
           </p>
@@ -108,7 +115,7 @@ const GameCard = ({ mode, goal, target, round, session, onRestart }) => {
       )}
 
       <Pips round={round} total={goal.targets} playing={!over} />
-      <div className="mt-1.5 flex items-baseline justify-between gap-2 text-xs tabular-nums">
+      <div className="mt-1.5 flex items-baseline justify-between gap-2 text-[11px] tabular-nums md:text-xs">
         <p className="font-semibold">
           {hits} hit
           <span className="font-normal text-white/50">
@@ -116,7 +123,9 @@ const GameCard = ({ mode, goal, target, round, session, onRestart }) => {
             / {goal.toWin} to win
           </span>
         </p>
-        {!over && <p className={state.tone}>{state.text}</p>}
+        {!over && (
+          <p className={`hidden md:block ${state.tone}`}>{state.text}</p>
+        )}
       </div>
 
       {round.length > 0 && (
@@ -147,8 +156,8 @@ const GameCard = ({ mode, goal, target, round, session, onRestart }) => {
         </ol>
       )}
 
-      <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-white/10 pt-2">
-        <p className="text-xs tabular-nums text-white/70">
+      <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-white/10 pt-1.5 md:mt-2.5 md:gap-3 md:pt-2">
+        <p className="hidden text-xs tabular-nums text-white/70 md:block">
           {session.played > 0
             ? `Games won ${session.won} of ${session.played}`
             : `Streak ${streak}`}
@@ -159,7 +168,7 @@ const GameCard = ({ mode, goal, target, round, session, onRestart }) => {
           className={
             over
               ? "rounded-md bg-lime-400 px-2.5 py-1 text-xs font-bold text-slate-900 hover:bg-lime-300"
-              : "text-xs font-semibold text-lime-300 hover:text-lime-200"
+              : "ml-auto text-[11px] font-semibold text-lime-300 hover:text-lime-200 md:text-xs"
           }
           onClick={onRestart}
         >
