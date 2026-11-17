@@ -474,8 +474,9 @@ function App() {
   const onShortcut = useRef(null);
   onShortcut.current = (event) => {
     if (shouldIgnoreKey(event)) return;
-    // Leave the keyboard alone while the settings dialog is open.
-    if (document.querySelector('[role="dialog"]')) return;
+    // Leave the keyboard alone while the settings dialog or the club list is
+    // open.
+    if (document.querySelector('[role="dialog"], [role="listbox"]')) return;
     const pressed = keyAction(event);
     if (!pressed) return;
     event.preventDefault();
@@ -556,11 +557,9 @@ function App() {
         {/* Settings, bottom left (above the result bar on phones). */}
         <div className="absolute bottom-[84px] left-3 z-20 md:bottom-4 md:left-4">
           <SettingsModal
-            mode={mode}
             side={side}
             turf={turf}
             turfPreset={turfPreset}
-            onMode={(value) => handleValueChange("mode", value)}
             onSide={(value) => handleValueChange("side", value)}
             onTurfPreset={handleTurfPreset}
             onTurfField={handleTurfField}
@@ -593,9 +592,12 @@ function App() {
             onSelect={setSelected}
             preview={preview}
             onChange={handleValueChange}
+            onClub={handleClub}
+            onReset={handleReset}
           />
           <ButtonRow
-            handleReset={handleReset}
+            mode={mode}
+            onMode={(value) => handleValueChange("mode", value)}
             simulate={handleHit}
             showHit={!isDesktop}
           />

@@ -23,7 +23,7 @@ const firmnessWord = (value) =>
 const wetnessWord = (value) =>
   value < 0.2 ? "dry" : value > 0.7 ? "wet" : "damp";
 
-const Segmented = ({ label, options, value, onChange, accent }) => (
+export const Segmented = ({ label, options, value, onChange, accent }) => (
   <div
     className="grid rounded-lg bg-white/10 p-1 text-sm"
     style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
@@ -225,14 +225,12 @@ const ClubPicker = ({ club, speeds, onClub, onCarry, onReset }) => {
   );
 };
 
-// Everything about the session rather than the swing: the club in hand, game
-// mode, which side the golfer plays from, and the turf the ball lands on.
+// Everything about the session rather than the swing: the bag and its
+// distances, which side the golfer plays from, and the turf the ball lands on.
 const SettingsModal = ({
-  mode,
   side,
   turf,
   turfPreset,
-  onMode,
   onSide,
   onTurfPreset,
   onTurfField,
@@ -252,7 +250,7 @@ const SettingsModal = ({
         className="hud-panel flex h-10 w-10 items-center justify-center !rounded-full text-white/90 transition-colors hover:text-white"
         onClick={() => setOpen(true)}
         data-tooltip-id="main-tooltip"
-        data-tooltip-content="Settings: club, practice or game, handedness, turf, feedback"
+        data-tooltip-content="Settings: clubs and distances, handedness, turf, feedback"
       >
         <GearFill size={18} />
       </button>
@@ -290,23 +288,6 @@ const SettingsModal = ({
                   onClub={onClub}
                   onCarry={onClubCarry}
                   onReset={onResetCarries}
-                />
-              </Section>
-
-              <Section
-                title="Mode"
-                hint="A game is 10 targets, one shot at each. Normal: rings on the ground, hit 5 to win. Advanced: targets in the air, hit 8."
-              >
-                <Segmented
-                  label="Mode"
-                  accent
-                  options={[
-                    ["practice", "Practice"],
-                    ["normal", "Normal"],
-                    ["advanced", "Advanced"],
-                  ]}
-                  value={mode}
-                  onChange={onMode}
                 />
               </Section>
 

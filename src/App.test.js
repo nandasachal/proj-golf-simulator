@@ -143,7 +143,7 @@ const typeValue = (name, value, key = "Enter") => {
 const result = () => screen.getByRole("status", { name: "Shot result" });
 
 describe("shot controls", () => {
-  test("the panel holds the shot controls and nothing about the session", () => {
+  test("the panel holds the shot controls and the mode; turf and handedness are in Settings", () => {
     renderApp();
     expect(screen.queryByText(/golf simulator/i)).not.toBeInTheDocument();
     expect(valueOf("Club face")).toBe(0);
@@ -162,9 +162,10 @@ describe("shot controls", () => {
     expect(
       screen.queryByRole("button", { name: /left-handed/i }),
     ).not.toBeInTheDocument();
+    // the mode is on the panel, below the controls
     expect(
-      screen.queryByRole("button", { name: "Advanced" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Advanced" }),
+    ).toBeInTheDocument();
   });
 
   test("a changed control is used by the very next hit", () => {
@@ -1020,8 +1021,9 @@ describe("game mode", () => {
       }),
     );
 
-  const modeButton = (dialog, name) =>
-    within(dialog.getByRole("group", { name: "Mode" })).getByRole("button", {
+  // Mode sits at the bottom of the shot panel.
+  const modeButton = (name) =>
+    within(screen.getByRole("group", { name: "Mode" })).getByRole("button", {
       name,
     });
   const HIT = { hit: true, longYards: 1, rightYards: 0 };
@@ -1040,11 +1042,7 @@ describe("game mode", () => {
     expect(game()).toHaveTextContent("Normal game");
     expect(game()).toHaveTextContent("Target 1 of 10");
     expect(game()).toHaveTextContent("0 hit / 5 to win");
-    const dialog = openSettings();
-    expect(modeButton(dialog, "Normal")).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(modeButton("Normal")).toHaveAttribute("aria-pressed", "true");
   });
 
   test("practice mode has no target", () => {
@@ -1055,19 +1053,15 @@ describe("game mode", () => {
     expect(lastTarget()).toBeNull();
   });
 
-  test("switching mode in Settings puts a target on the range and shows it", () => {
+  test("switching mode on the panel puts a target on the range and shows it", () => {
     renderApp("/?mode=practice");
-    const dialog = openSettings();
-    fireEvent.click(modeButton(dialog, "Normal"));
-    fireEvent.click(dialog.getByRole("button", { name: "Close settings" }));
+    fireEvent.click(modeButton("Normal"));
 
     const target = lastTarget();
     expect(target.z).toBeGreaterThanOrEqual(140);
     expect(game()).toHaveTextContent(`${target.distanceYards}`);
 
-    const again = openSettings();
-    fireEvent.click(modeButton(again, "Practice"));
-    fireEvent.click(again.getByRole("button", { name: "Close settings" }));
+    fireEvent.click(modeButton("Practice"));
     expect(lastTarget()).toBeNull();
     expect(
       screen.queryByRole("status", { name: "Game" }),
@@ -1076,9 +1070,7 @@ describe("game mode", () => {
 
   test("advanced puts the targets in the air and asks for 8 of 10", () => {
     renderApp("/?mode=practice");
-    const dialog = openSettings();
-    fireEvent.click(modeButton(dialog, "Advanced"));
-    fireEvent.click(dialog.getByRole("button", { name: "Close settings" }));
+    fireEvent.click(modeButton("Advanced"));
 
     const target = lastTarget();
     expect(target.air).toBe(true);
@@ -1215,6 +1207,27 @@ describe("club selection", () => {
     expect(lastClub().teed).toBe(true);
     expect(screen.getByText("Driver · 10.5°")).toBeInTheDocument();
     expect(clubScenes.above.options.club.id).toBe("driver");
+  });
+
+  test("the club chip on the panel opens the bag and picks a club", () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: /Driver · 10\.5°/ }));
+    const bag = within(screen.getByRole("listbox"));
+    expect(bag.getByRole("option", { name: /Driver/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    fireEvent.click(bag.getByRole("option", { name: /7 iron/ }));
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(lastClub().id).toBe("7i");
+    expect(address()).toContain("club=7i");
+    expect(screen.getByText("7 iron · 34°")).toBeInTheDocument();
+  });
+
+  test("Reset is an icon at the top of the panel", () => {
+    renderApp("/?face=3");
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(address()).not.toContain("face=");
   });
 
   test("Settings lists every kind of club with its loft and a carry distance", () => {

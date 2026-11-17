@@ -20,7 +20,7 @@ than abstract.
   loft: about 4.5° of axis tilt per degree, in line with TrackMan's published
   driver examples.
 - **Game mode** (`src/simulate/game.js`) — a game is 10 targets with one shot at
-  each, chosen in Settings as Normal or Advanced (`?mode=practice` turns the game
+  each, chosen at the bottom of the shot panel as Normal or Advanced (`?mode=practice` turns the game
   off, `?mode=advanced` picks advanced; normal is the default).
   - **Normal**: a random target ring on the ground, 140–330 yd out with the driver
     (between a soft and a full swing's carry with any other club) and up to 40 yd
@@ -55,8 +55,8 @@ than abstract.
   lob wedge (46–60°), each with its loft, lie, length and a tour reference delivery
   (club speed, attack angle, launch, spin, smash). The references are TrackMan's
   PGA Tour averages where published (driver, 3 and 5 wood, hybrid, 3 iron to
-  pitching wedge) and interpolated by loft for the rest. The club is chosen in
-  Settings; the driver is the default and the only club played off a tee.
+  pitching wedge) and interpolated by loft for the rest. The club is chosen from
+  the chip at the top of the shot panel (or in Settings, with its distance); the driver is the default and the only club played off a tee.
   - The driver's standard delivery moves with swing speed (`driverLaunch`): 80 mph
     is 13.8° launch / 3075 rpm / 1.445 smash, 140 mph is 9.6° / 2295 rpm / 1.50,
     passing close to PGA Tour averages at 113 mph.
@@ -120,9 +120,9 @@ than abstract.
 React UI (App.js, components/)          src/simulate/ (no React)
   sliders + side toggle  ──────────►  launch-conditions.js   face/path/speed → launch
   Hit button                          shot.js                launch → trajectory points
-  ⋯ settings modal (club)             clubs.js               the bag: loft, lie, tour delivery
+  club chip, settings modal           clubs.js               the bag: loft, lie, tour delivery
   ⋯ settings modal (turf)             ground.js              touchdown → bounces + roll
-  ⋯ settings modal (mode), score      game.js                ground and air targets, hit or miss
+  mode buttons, score                 game.js                ground and air targets, hit or miss
   shot readout  ◄── callbacks ──────  shot-analysis.js       trajectory → carry, total, shape…
   URL query state (hooks/use-query)   main.js                scene, render loop, shot states
                                         ├─ range.js          assembles scenery/ (below)
@@ -163,8 +163,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
     ×4, strike ×2 (the × is shown in each view's corner; the numbers are
     always true). The handle geometry is pure and tested in
     `src/utils/club-handles.js`, in the scene's own centimetres.
-  - Session settings (club, game mode, dominant side, turf) and the feedback link are
-    in a modal behind the gear button, bottom left. On laptops Hit sits to the
+  - The shot panel carries the club in hand (the chip in its header opens the
+    bag), Reset (the icon top right) and the mode (Practice, Normal, Advanced,
+    along the bottom). Club distances, dominant side, turf and the feedback
+    link are in a modal behind the gear button, bottom left. On laptops Hit sits to the
     right of the result bar.
   - Shot setup, the club (`club`), turf (`turf` preset plus `cut`/`firm`/`wet`/`grass` overrides)
     and `mode` live in the query string (`hooks/use-query.js`), so a setup is

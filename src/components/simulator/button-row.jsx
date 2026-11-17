@@ -1,8 +1,6 @@
 import React from "react";
-import { ArrowCounterclockwise, PlayFill } from "react-bootstrap-icons";
-
-const secondary =
-  "flex items-center justify-center rounded-lg bg-white/10 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/20 hover:text-white";
+import { PlayFill } from "react-bootstrap-icons";
+import { Segmented } from "./settings-modal";
 
 export const HitButton = ({ onClick, className = "" }) => (
   <button
@@ -18,20 +16,27 @@ export const HitButton = ({ onClick, className = "" }) => (
   </button>
 );
 
-// Reset, with Hit above it when it isn't shown beside the result bar (phones).
-const ButtonRow = ({ handleReset, simulate, showHit = true }) => (
+// Practice or a game, with Hit above it when it isn't shown beside the result
+// bar (phones).
+const ButtonRow = ({ mode, onMode, simulate, showHit = true }) => (
   <div className="mt-3">
     {showHit && <HitButton onClick={simulate} className="mb-2 w-full py-2.5" />}
-    <button
-      type="button"
-      className={`${secondary} w-full`}
-      onClick={handleReset}
+    <div
       data-tooltip-id="main-tooltip"
-      data-tooltip-content="Back to the default shot for this club"
+      data-tooltip-content="A game is 10 targets, one shot at each. Normal: rings on the ground, hit 5 to win. Advanced: targets in the air, hit 8."
     >
-      <ArrowCounterclockwise size={14} className="mr-1.5" />
-      Reset
-    </button>
+      <Segmented
+        label="Mode"
+        accent
+        options={[
+          ["practice", "Practice"],
+          ["normal", "Normal"],
+          ["advanced", "Advanced"],
+        ]}
+        value={mode}
+        onChange={onMode}
+      />
+    </div>
   </div>
 );
 

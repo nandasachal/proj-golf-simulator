@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Listbox } from "@headlessui/react";
+import { ArrowCounterclockwise, ChevronDown } from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
+import { CATEGORIES, CLUBS } from "../../simulate/clubs";
 import { neutralOf, stateOf } from "../../utils/shortcuts";
 import {
   GAIN,
@@ -446,6 +449,58 @@ const FlightIcon = ({ sketch }) => (
 
 // The club at impact, shown twice in 3D, as the shot controls: drag a
 // handle, use its keys, or click a value to type it.
+// The club in hand, as a chip that opens the bag. Distances are set in
+// Settings.
+const ClubMenu = ({ club, onClub }) => (
+  <Listbox value={club.id} onChange={onClub}>
+    <div className="relative">
+      <Listbox.Button
+        className="flex items-center gap-1 whitespace-nowrap rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+        data-club
+        data-tooltip-id="main-tooltip"
+        data-tooltip-content="The club in hand. Click to change it; set each club's distance in Settings (the gear, bottom left)."
+      >
+        {club.name} · {club.loftDegrees}°
+        <ChevronDown size={9} aria-hidden="true" />
+      </Listbox.Button>
+      <Listbox.Options className="hud-panel hud-panel-solid absolute left-0 top-full z-40 mt-1 max-h-[min(60dvh,420px)] w-48 overflow-y-auto p-1 text-xs font-medium focus:outline-none">
+        {Object.entries(CATEGORIES).map(([category, label]) => (
+          <React.Fragment key={category}>
+            {category !== "driver" && (
+              <li
+                role="presentation"
+                className="px-2 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-white/45"
+              >
+                {label}
+              </li>
+            )}
+            {CLUBS.filter((entry) => entry.category === category).map(
+              (entry) => (
+                <Listbox.Option
+                  key={entry.id}
+                  value={entry.id}
+                  className={({ active, selected }) =>
+                    classNames(
+                      "flex cursor-pointer items-center justify-between gap-3 rounded px-2 py-1.5",
+                      active && "bg-white/15",
+                      selected ? "font-bold text-lime-300" : "text-white/85",
+                    )
+                  }
+                >
+                  <span>{entry.name}</span>
+                  <span className="tabular-nums text-white/55">
+                    {entry.loftDegrees}°
+                  </span>
+                </Listbox.Option>
+              ),
+            )}
+          </React.Fragment>
+        ))}
+      </Listbox.Options>
+    </div>
+  </Listbox>
+);
+
 const ClubPads = ({
   values,
   side,
@@ -455,6 +510,8 @@ const ClubPads = ({
   onSelect,
   preview,
   onChange,
+  onClub,
+  onReset,
 }) => {
   const mirror = side === "Left" ? -1 : 1;
   const [active, setActive] = useState(null);
@@ -694,25 +751,28 @@ const ClubPads = ({
   return (
     <div className="flex flex-col gap-1.5" aria-label="Shot controls">
       <div className="flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-sm font-bold">
+        <div className="flex shrink-0 items-center gap-1.5 text-sm font-bold">
           {preview && <FlightIcon sketch={preview.sketch} />}
           {preview ? preview.shape : "Club at impact"}
-          <span
-            className="whitespace-nowrap rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold text-white/80"
-            data-club
-            data-tooltip-id="main-tooltip"
-            data-tooltip-content="The club in hand. Change it in Settings (the gear, bottom left)."
-          >
-            {club.name} · {club.loftDegrees}°
-          </span>
-        </p>
+          <ClubMenu club={club} onClub={onClub} />
+        </div>
         <p
-          className="shrink-0 text-[11px] text-white/55"
+          className="ml-auto min-w-0 truncate text-[11px] text-white/55"
           data-tooltip-id="main-tooltip"
           data-tooltip-content="Drag a handle, or click a number to type it. Arrow keys move between the boxes; hold Command (Ctrl on Windows) and press ← → to change the selected box's number, or ↑ ↓ to step its word (closed, square, open). Angles are drawn several times their real size (the × in each view's corner) so a one-degree change is easy to see and grab. The numbers are the true values."
         >
-          Drag · or click a value
+          Drag or click
         </p>
+        <button
+          type="button"
+          aria-label="Reset"
+          className="-my-1 -mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          onClick={onReset}
+          data-tooltip-id="main-tooltip"
+          data-tooltip-content="Back to the default shot for this club"
+        >
+          <ArrowCounterclockwise size={15} />
+        </button>
       </div>
 
       <Pad3D
