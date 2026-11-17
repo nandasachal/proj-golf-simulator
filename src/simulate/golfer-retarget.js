@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { BONE } from "./golfer-body-figure";
-import { FIGURE_BODY, LEAD_HAND, TRAIL_HAND } from "./swing-rig";
+import { FIGURE_BODY } from "./swing-rig";
 
 // Drives a modelled character's skeleton (public/models/golfer.glb, built by
 // tools/blender) from the swing rig. The rig poses 17 loose bones in the
@@ -19,7 +19,25 @@ const SIDES = [
 const FINGERS = ["index", "middle", "ring", "pinky"];
 // How far each finger joint closes round the grip, knuckle to tip, degrees.
 const CURL = [62, 78, 48];
-const THUMB_CURL = [38, 14, 18];
+// How far the thumb comes from its rest line to the line of the shaft.
+const THUMB_IN = 1;
+// The thumb's line on the grip, from the fingers' line toward its own side.
+const THUMB_ACROSS = (48 * Math.PI) / 180;
+// How far the thumb presses in toward the palm side, where the shaft is.
+const THUMB_PRESS = 0.45;
+// How each hand takes the club, lead then trail: the angle of the shaft
+// across the fingers (0 would be along them), how far the palm is turned
+// down onto the top of the grip, how far from the wrist toward the knuckles
+// the shaft crosses, and how far toward the thumb side.
+const HOLD = [
+  { across: 58, palm: 25, reach: 0.72, shift: 0 },
+  { across: 74, palm: 20, reach: 0.76, shift: 0 },
+];
+// How much nearer the end of the grip these hands sit than the rig's hold
+// points, so a straight lead arm still reaches with the shortest club.
+const HOLD_UP = 0.022;
+// From the palm's skin line to the middle of the grip, yards.
+const PALM_DEPTH = 0.026;
 // How much of the hand's turn about the forearm the forearm itself takes up,
 // so the wrist is not wrung like a cloth.
 const FOREARM_TWIST = 0.55;
@@ -146,6 +164,7 @@ export function createRetarget(joints, scale = MODEL_SCALE) {
   const figureLeg = FIGURE_BODY.thigh + FIGURE_BODY.shin;
   const body = {
     ...FIGURE_BODY,
+    grips: [],
     upperArm: shoulder.distanceTo(elbow),
     forearm: elbow.distanceTo(wrist),
     thigh,
@@ -223,28 +242,51 @@ export function createRetarget(joints, scale = MODEL_SCALE) {
       forearmFrame,
     );
 
-    // The hand: fingers pointing from the wrist to where it holds the grip,
-    // palm against the shaft. The lead palm faces away from the target, the
-    // trail palm toward it.
+    // The hand on the grip. A club is not held along the fingers but across
+    // them: it runs from the heel pad under the little finger to the base
+    // of the forefinger, so the fingers wrap it and the thumb lies down the
+    // top. The lead palm faces away from the target and a little down onto
+    // the grip; the trail palm faces the target.
     const hand = need(`hand${tag}`);
     const knuckle = at(`middle_01${tag}`);
     const fingersRest = new THREE.Vector3().subVectors(knuckle, w);
     const palmRest = new THREE.Vector3()
       .subVectors(at(`index_01${tag}`), w)
       .cross(v1.subVectors(at(`pinky_01${tag}`), w))
-      .multiplyScalar(-sign);
-    const holdAt = lead ? LEAD_HAND : TRAIL_HAND;
-    const wristOnGrip = new THREE.Vector3(
-      body.wrist.x,
-      holdAt + body.wrist.y,
-      sign * body.wrist.z,
+      .multiplyScalar(-sign)
+      .normalize();
+    const along = fingersRest.clone().normalize();
+    const thumbSide = new THREE.Vector3().subVectors(at(`thumb_01${tag}`), w);
+    thumbSide
+      .addScaledVector(along, -thumbSide.dot(along))
+      .addScaledVector(palmRest, -thumbSide.dot(palmRest))
+      .normalize();
+    const hold = HOLD[side];
+    const across = (hold.across * Math.PI) / 180;
+    // The line of the shaft through the open hand, toward the clubhead.
+    const shaftRest = along
+      .clone()
+      .multiplyScalar(Math.cos(across))
+      .addScaledVector(thumbSide, Math.sin(across));
+    const turn = (hold.palm * Math.PI) / 180;
+    const palmHeld = new THREE.Vector3(
+      -Math.sin(turn),
+      0,
+      -sign * Math.cos(turn),
     );
-    const fingersHeld = new THREE.Vector3(0, holdAt, 0).sub(wristOnGrip);
-    const palmHeld = new THREE.Vector3(0, 0, -sign);
-    const grip = frameXY(fingersHeld, palmHeld).multiply(
-      frameXY(fingersRest, palmRest).invert(),
+    const grip = frameXY(new THREE.Vector3(0, -1, 0), palmHeld).multiply(
+      frameXY(shaftRest, palmRest).invert(),
     );
     const handOffset = grip.clone().multiply(restQ[hand]);
+    // Where the shaft's middle passes the palm, from the wrist; the rig
+    // puts the wrist that far the other way from where the hand holds.
+    const shaftInPalm = fingersRest
+      .clone()
+      .multiplyScalar(hold.reach)
+      .addScaledVector(thumbSide, hold.shift)
+      .addScaledVector(palmRest, PALM_DEPTH);
+    body.grips[side] = shaftInPalm.clone().applyQuaternion(grip).negate();
+    body.grips[side].y += HOLD_UP;
 
     // Fingers closed round the grip: each joint turned toward the palm.
     const curls = [];
@@ -271,19 +313,33 @@ export function createRetarget(joints, scale = MODEL_SCALE) {
         curl(`${finger}_0${joint + 1}${tag}`, degrees, palmRest),
       );
     }
-    // The thumb comes in to lie down the shaft, alongside the fingers.
-    THUMB_CURL.forEach((degrees, joint) =>
-      curl(
-        `thumb_0${joint + 1}${tag}`,
-        degrees,
-        joint ? palmRest : fingersRest,
-      ),
+    // The thumb comes round to lie down the shaft.
+    const thumbTip = joints.findIndex(
+      (j) => j.parent === need(`thumb_03${tag}`),
     );
+    const thumbRest = new THREE.Vector3().subVectors(
+      thumbTip < 0 ? at(`thumb_03${tag}`) : restP[thumbTip],
+      at(`thumb_01${tag}`),
+    );
+    // The thumb's base sits back from the shaft, so the thumb does not lie
+    // along it: it reaches forward and across to rest its pad on top.
+    const thumbHeld = along
+      .clone()
+      .multiplyScalar(Math.cos(THUMB_ACROSS))
+      .addScaledVector(thumbSide, Math.sin(THUMB_ACROSS))
+      .addScaledVector(palmRest, THUMB_PRESS);
+    curl(
+      `thumb_01${tag}`,
+      THUMB_IN * ((thumbRest.angleTo(thumbHeld) * 180) / Math.PI),
+      thumbHeld,
+    );
+    curl(`thumb_02${tag}`, 10, palmRest);
+    curl(`thumb_03${tag}`, 12, palmRest);
 
     return {
       hand,
       grip,
-      palmRest: palmRest.clone().normalize(),
+      palmRest: palmRest.clone(),
       handOffset,
       angle: 0,
       upperOut: new THREE.Vector3(),

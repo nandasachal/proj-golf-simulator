@@ -100,7 +100,7 @@ No new npm dependency: `GLTFLoader` and the meshopt decoder ship with `three`.
       the procedural golfer stays and the console has one warning, no error.
 - [x] AC7 (60 fps steady with the model shown or hidden, dev build in the app browser pane; 43 fps averaged over the 3 s straight after page load and Hit; no before-number for the code-built figure was ever taken) — Frame rate measured on this machine during a swing, before and after,
       and recorded in `planning/progress.md`; after is not below 55 fps.
-- [ ] AC8 (stills taken, side-by-side not yet shown) — Close-up check: face, hands on the grip and shoes at 1.5 yards, side
+- [x] AC8 (side-by-side of upper body and grip sent to Sachal 2026-11-16; the old figure has the better shirt detail, the model the better body, face and hands) — Close-up check: face, hands on the grip and shoes at 1.5 yards, side
       by side with the current golfer, shown to Sachal.
 - [x] AC9 — README architecture and `knowledge-base` (if the golfer is described
       there) updated; roadmap item marked `[done]`.

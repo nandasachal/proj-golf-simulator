@@ -74,8 +74,13 @@ function fitBody(body) {
     ...body,
     pelvisAddress: new THREE.Vector3(1.03, body.pelvisHeight, 0),
     ankleY: MAT_TOP + body.ankleHeight,
-    leadWrist: wristOn(LEAD_HAND, 1),
-    trailWrist: wristOn(TRAIL_HAND, -1),
+    // A modelled hand says for itself where its wrist is from its hold.
+    leadWrist: body.grips
+      ? new THREE.Vector3(0, LEAD_HAND, 0).add(body.grips[0])
+      : wristOn(LEAD_HAND, 1),
+    trailWrist: body.grips
+      ? new THREE.Vector3(0, TRAIL_HAND, 0).add(body.grips[1])
+      : wristOn(TRAIL_HAND, -1),
     arm,
     straightArm: arm * 0.985,
     // The points the feet turn about: the ball of the trail foot, and the

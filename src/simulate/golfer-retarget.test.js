@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
-import { Vector3 } from "three";
+import { Object3D, Vector3 } from "three";
 import { createRetarget, jointsFromGltf } from "./golfer-retarget";
+import { createGolfer } from "./golfer";
 import { createRig, solveRig, FIGURE_BODY } from "./swing-rig";
 import {
   createSwing,
@@ -147,5 +148,51 @@ describe("retargeting onto the model", () => {
       }
       before = now;
     }
+  });
+});
+
+describe("swapping the model in", () => {
+  // The model's node tree as the loader would hand it over, without meshes.
+  const loadedScene = () => {
+    const scene = new Object3D();
+    const nodes = joints.map((joint) => {
+      const node = new Object3D();
+      node.name = joint.name;
+      node.position.fromArray(joint.position);
+      node.quaternion.fromArray(joint.quaternion);
+      return node;
+    });
+    joints.forEach((joint, i) =>
+      (joint.parent < 0 ? scene : nodes[joint.parent]).add(nodes[i]),
+    );
+    return scene;
+  };
+
+  test("hides the built figure and shows the model in one step", () => {
+    const golfer = createGolfer();
+    const before = golfer.group.children.filter((part) => part.visible);
+    expect(before.length).toBeGreaterThan(10);
+    golfer.setModel(loadedScene());
+    const shown = golfer.group.children.filter((part) => part.visible);
+    // only the club and the model are left showing
+    expect(shown.map((part) => part.name)).toContain("golfer-model");
+    expect(shown.length).toBe(2);
+  });
+
+  test("the model then follows the swing, hands on the club", () => {
+    const golfer = createGolfer();
+    golfer.setModel(loadedScene());
+    const hand = golfer.group.getObjectByName("hand_l");
+    const where = () => {
+      golfer.group.updateMatrixWorld(true);
+      return hand.getWorldPosition(new Vector3());
+    };
+    golfer.setTime(0);
+    const address = where();
+    golfer.setTime(0.7);
+    const top = where();
+    expect(top.y).toBeGreaterThan(address.y + 0.4);
+    golfer.setTime(CONTACT_TIME);
+    expect(where().distanceTo(address)).toBeLessThan(0.35);
   });
 });
