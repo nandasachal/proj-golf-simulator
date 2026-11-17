@@ -191,6 +191,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
   script (`golfer_outfit.py`), which also subdivides the head; the rest is MakeHuman clothing repainted
   (`golfer_finish.py`). The design follows the video but the build does not:
   `golfer-build.test.js` fails if the body's girth grows.
+  His face is Sachal's: a front photo is projected onto the skin texture
+  during the build. The photo itself is not in the repo, so rebuilding
+  without it gives the same golfer with a generic face, and the face is not
+  CC0 (`public/models/LICENSE.md`).
 - **Scenery** (`src/simulate/scenery/`) — everything but the golfer, generated in
   code (no downloaded assets). `range.js` assembles five parts, each returning
   `{ object, update(seconds, camera) }`; `main.js` calls the update every frame

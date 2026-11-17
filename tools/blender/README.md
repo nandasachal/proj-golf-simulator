@@ -11,7 +11,7 @@ rebuilt and changed from this folder.
 | `golfer_finish.py` | Texture work before export: pullover and trousers painted over the sweater and jeans, trainers, eyes, and the face (4096 px skin with pores, beard and hair strokes), texture sizes. |
 | `golfer_paint.py` | Helpers the two above share: image access, painting a per-vertex value into a UV layout, materials. |
 | `golfer_measure.json` | Written by the build: chest, waist and hip girth over height. `src/simulate/golfer-build.test.js` fails if he gets heavier. |
-| `reference/` | Reference photos and video for the design. Git-ignored: the repo is public. |
+| `reference/` | Reference photos and video for the design. Git-ignored: the repo is public. `face-front.webp` here is projected onto the head by `golfer_finish.py`; without it the build still runs and the face keeps its painted skin, so a rebuild on another machine loses the likeness. |
 | `preview.py` | Renders review stills of the built file. |
 | `golfer.blend` | The built working file (textures packed). Open it in Blender to look or adjust by hand. |
 
@@ -69,5 +69,9 @@ straight from the exported file.
   when the shoulders turn, so `golfer_outfit._tuck` removes it.
 - Asset textures can carry real brand marks (the trainers did). Look at a
   texture before shipping it.
+- A photo projected onto a face brings its light and its expression with it.
+  The broad shading is divided out (`FACE_FLATTEN`), and the mouth and eyes
+  are masked off, because a smile painted onto a closed mouth puts teeth on
+  the lips and creases on the cheeks.
 - Hand-edits to `golfer.blend` are overwritten by the next build. Put lasting
   changes in the scripts.

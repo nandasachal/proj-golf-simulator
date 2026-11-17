@@ -103,13 +103,33 @@ CAP_RIM_FRONT = 1.724
 CAP_RIM_SIDE = 1.708
 CAP_RIM_BACK = 1.688
 
+# The front photo of Sachal's face, projected onto the head (he asked for a
+# true likeness, 2026-11-16). The file is in tools/blender/reference, which
+# is not in git. Landmarks are (across, down) as shares of the photo.
+FACE_PHOTO = "face-front.webp"
+FACE_MARKS = {
+    "eye_right": (0.3605, 0.436),
+    "eye_left": (0.5435, 0.44),
+    "nose": (0.452, 0.545),
+    "mouth": (0.455, 0.648),
+    "chin": (0.455, 0.805),
+}
+# The smile, left out: half-width and half-height of the mouth in the photo.
+FACE_MOUTH = (0.15, 0.085)
+# How much of the photo's broad light and shade is taken out (0 none, 1 all).
+FACE_FLATTEN = 0.85
+# The part of the photo that is face: hairline, under the chin, and inside
+# the ears on either side.
+FACE_EDGES = (0.255, 0.83, 0.275, 0.645)
+EYEBROWS = "eyebrow009"
+
 # (asset folder, asset name, MPFB asset type). No hair asset: the hair is
 # cropped short and painted on the scalp, which sits cleanly under a cap.
 ASSETS = [
     ("clothes", SUIT, "Clothes"),
     ("clothes", SHOES, "Clothes"),
     ("eyes", "low-poly", "Eyes"),
-    ("eyebrows", "eyebrow009", "Eyebrows"),
+    ("eyebrows", EYEBROWS, "Eyebrows"),
     ("eyelashes", "eyelashes01", "Eyelashes"),
     ("teeth", "teeth_base", "Teeth"),
 ]

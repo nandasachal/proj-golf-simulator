@@ -1,6 +1,8 @@
 """Texture work on the assembled character before export: the outfit's
 colours painted over the MakeHuman clothes, skin, eyes, and textures sized
 for the web."""
+import os
+
 import bpy
 import numpy as np
 
@@ -136,7 +138,8 @@ def skin(body, spec):
     pores /= np.abs(pores).max()
     rgb *= (1 + 0.07 * pores)[..., None]
 
-    hair, strands = _hair(body, spec, size, lips, rng)
+    photo = _project(body, spec, rgb, lips)
+    hair, strands = _hair(body, spec, size, lips, rng, photo)
     for c in range(3):
         rgb[..., c] = rgb[..., c] * (1 - hair) + spec.HAIR_COLOUR[c] * hair
     np.clip(rgb, 0, 1, out=rgb)
@@ -155,10 +158,9 @@ def skin(body, spec):
     _principled(body).inputs["Roughness"].default_value = spec.SKIN_ROUGHNESS
 
 
-def _hair(body, spec, size, lips, rng):
-    """Where hair covers the skin, as (cover, strands): a short beard and
-    moustache, and cropped hair on the scalp, drawn as fine strokes rather
-    than a flat shade."""
+def _landmarks(body):
+    """The head's vertices by index, the tip of the nose, the height of the
+    bottom of the chin, and the outermost point of an ear."""
     mesh = body.data
     head = paint.islands(mesh)[0]
     co = {i: mesh.vertices[i].co for i in head}
@@ -168,6 +170,115 @@ def _hair(body, spec, size, lips, rng):
     nose = min(profile, key=lambda c: c.y)
     chin = min(c.z for c in profile if c.y < nose.y + 0.04)
     ear = max((c for c in co.values() if c.z > 1.6), key=lambda c: abs(c.x))
+    return co, nose, chin, ear
+
+
+def _project(body, spec, rgb, lips):
+    """Lays the front photo of the face over the skin texture, where the
+    surface faces the camera. Returns how much of each texel is photo.
+
+    The photo is not in the repo (tools/blender/reference is git-ignored);
+    without it the face keeps its painted skin. He is smiling in it, so the
+    mouth is left out, and so are the eyes: the model has its own."""
+    path = os.path.join(os.path.dirname(__file__), "reference", spec.FACE_PHOTO)
+    size = rgb.shape[0]
+    if not os.path.exists(path):
+        print("No face photo: the face keeps its painted skin")
+        return np.zeros((size, size), dtype=np.float32)
+    image = bpy.data.images.load(path)
+    photo = paint.pixels(image)[..., :3]
+    height, width, _ = photo.shape
+    bpy.data.images.remove(image)
+
+    mesh = body.data
+    co, nose, chin, _ = _landmarks(body)
+    eyeballs = bpy.data.objects["body.low-poly"].data
+    eyes = []
+    for piece in paint.islands(eyeballs)[:2]:
+        points = [eyeballs.vertices[i].co for i in piece]
+        eyes.append(
+            (sum(p.x for p in points) / len(points),
+             sum(p.z for p in points) / len(points))
+        )
+    eyes.sort()
+    marks = spec.FACE_MARKS
+    # The photo's right-hand eye is his left, the model's +x side.
+    model = [eyes[0], eyes[1], (nose.x, nose.z), (0.0, chin)]
+    image_at = [marks["eye_right"], marks["eye_left"], marks["nose"], marks["chin"]]
+    # px = a x + b z + c, least squares over the landmarks; rows of the photo
+    # run bottom to top like the texture's.
+    basis = np.array([[x, z, 1.0] for x, z in model])
+    fit_u = np.linalg.lstsq(basis, [u * width for u, _ in image_at], rcond=None)[0]
+    fit_v = np.linalg.lstsq(
+        basis, [(1 - v) * height for _, v in image_at], rcond=None
+    )[0]
+
+    count = len(mesh.vertices)
+    xs, zs, facing = [0.0] * count, [0.0] * count, [0.0] * count
+    for i, c in co.items():
+        xs[i] = c.x + 1
+        zs[i] = c.z
+        facing[i] = max(-mesh.vertices[i].normal.y, 0.0)
+    x = paint.uv_field(body, xs, size) - 1
+    z = paint.uv_field(body, zs, size)
+    front = paint.uv_field(body, facing, size)
+    px = fit_u[0] * x + fit_u[1] * z + fit_u[2]
+    py = fit_v[0] * x + fit_v[1] * z + fit_v[2]
+    u, v = px / width, 1 - py / height
+
+    def keep_out(centre, radii):
+        """0 inside an ellipse in the photo, rising to 1 outside it."""
+        d = np.sqrt(((u - centre[0]) / radii[0]) ** 2 + ((v - centre[1]) / radii[1]) ** 2)
+        return np.clip((d - 1) / 0.4, 0, 1)
+
+    weight = np.clip((front - 0.3) / 0.35, 0, 1) * (z > 0)
+    weight *= keep_out(marks["eye_right"], (0.058, 0.028))
+    weight *= keep_out(marks["eye_left"], (0.058, 0.028))
+    weight *= keep_out(marks["mouth"], spec.FACE_MOUTH)
+    weight *= 1 - np.clip(paint.blur(lips, 24) * 3, 0, 1)
+    top, bottom, left, right = spec.FACE_EDGES
+    weight *= np.clip((v - top) / 0.03, 0, 1) * np.clip((bottom - v) / 0.03, 0, 1)
+    weight *= np.clip((u - left) / 0.03, 0, 1) * np.clip((right - u) / 0.03, 0, 1)
+    # The model's own eyes and lids stay, whatever the photo has there.
+    for ex, ez in eyes:
+        d = np.sqrt(((x - ex) / 0.023) ** 2 + ((z - ez) / 0.0095) ** 2)
+        weight *= np.clip((d - 1) / 0.35, 0, 1)
+    weight = paint.blur(weight.astype(np.float32), 6)
+
+    col = np.clip(px, 0, width - 1.001)
+    row = np.clip(py, 0, height - 1.001)
+    c0, r0 = col.astype(int), row.astype(int)
+    fc, fr = (col - c0)[..., None], (row - r0)[..., None]
+    sample = (
+        photo[r0, c0] * (1 - fc) * (1 - fr)
+        + photo[r0, c0 + 1] * fc * (1 - fr)
+        + photo[r0 + 1, c0] * (1 - fc) * fr
+        + photo[r0 + 1, c0 + 1] * fc * fr
+    )
+    # The photo's own light and shade (the smile's creases, the shadow of the
+    # nose) would be baked in: take most of the broad shading out and keep
+    # the fine detail, which is what makes it his skin.
+    shade = paint.luma(sample)
+    broad = np.maximum(paint.blur(shade, 48), 0.02)
+    solid = weight > 0.6
+    sample *= ((np.median(shade[solid]) / broad) ** spec.FACE_FLATTEN)[..., None]
+    # Bring the photo's skin to the texture's tone so the join does not show.
+    for c in range(3):
+        sample[..., c] *= spec.SKIN_TONE[c] / np.median(sample[..., c][solid])
+    rgb[...] = rgb * (1 - weight[..., None]) + np.clip(sample, 0, 1) * weight[..., None]
+    brows = bpy.data.objects.get(f"body.{spec.EYEBROWS}")
+    if brows:
+        # His own brows are in the photo.
+        bpy.data.objects.remove(brows)
+    return weight
+
+
+def _hair(body, spec, size, lips, rng, photo):
+    """Where hair covers the skin, as (cover, strands): a short beard and
+    moustache, and cropped hair on the scalp, drawn as fine strokes rather
+    than a flat shade."""
+    mesh = body.data
+    co, nose, chin, ear = _landmarks(body)
 
     def ramp(value, width):
         return min(max(value / width, 0), 1)
@@ -207,7 +318,8 @@ def _hair(body, spec, size, lips, rng):
     streaks = np.clip((streaks - streaks.mean()) / (3 * streaks.std()) + 0.5, 0, 1)
     cover = np.maximum(
         scalp * spec.HAIR * (0.75 + 0.25 * streaks),
-        beard * (1 - lips) * spec.BEARD * (0.45 + 0.55 * streaks),
+        # The photo brings its own stubble.
+        beard * (1 - lips) * (1 - photo) * spec.BEARD * (0.45 + 0.55 * streaks),
     )
     return np.clip(cover, 0, 1), (streaks - 0.5) * np.maximum(beard, scalp)
 
@@ -234,7 +346,8 @@ def run(human, spec):
     low = bpy.data.objects["body.low-poly"]
     _principled(low).inputs["Roughness"].default_value = spec.EYE_ROUGHNESS
     skin(human, spec)
-    darken("eyebrow", 0.2, 512)
+    if bpy.data.objects.get(f"body.{spec.EYEBROWS}"):
+        darken("eyebrow", 0.2, 512)
     for image in bpy.data.images:
         if "teeth" in image.name and image.size[0] > 512:
             image.scale(512, 512)
