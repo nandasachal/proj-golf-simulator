@@ -12,9 +12,16 @@ from mathutils.bvhtree import BVHTree
 import golfer_paint as paint
 
 
+# The height the girths are taken against, and the levels they are taken at,
+# are fixed in metres rather than read off the mesh, so that reshaping the
+# head (which changes the figure's height) does not move the tape.
+MEASURE_HEIGHT = 1.796
+
+
 def measure(body):
-    """Girth of the bare body over its height, at chest, waist and hips: the
-    length of a tape drawn round the torso. Taken before the clothes go on."""
+    """Girth of the bare body at chest, waist and hips, as a share of the
+    reference height: the length of a tape drawn round the torso. Taken
+    before the clothes go on."""
     group = body.vertex_groups["body"].index
     points = np.array(
         [
@@ -23,7 +30,6 @@ def measure(body):
             if any(g.group == group and g.weight > 0.5 for g in v.groups)
         ]
     )
-    height = points[:, 2].max() - points[:, 2].min()
     floor = points[:, 2].min()
     result = {}
     # Arms hang away from the body in the rest pose; the cut keeps them out.
@@ -32,11 +38,11 @@ def measure(body):
         ("waist", 0.61, 0.22),
         ("hips", 0.52, 0.24),
     ):
-        z = floor + level * height
+        z = floor + level * MEASURE_HEIGHT
         ring = points[
             (np.abs(points[:, 2] - z) < 0.012) & (np.abs(points[:, 0]) < reach)
         ][:, :2]
-        result[name] = round(_tape(ring) / height, 4)
+        result[name] = round(_tape(ring) / MEASURE_HEIGHT, 4)
     return result
 
 

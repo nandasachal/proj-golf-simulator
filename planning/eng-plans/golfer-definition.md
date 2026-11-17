@@ -83,7 +83,7 @@ phone had brightened, then darkened by eye, so they are estimates.
 | Trousers | Warm grey, tapered, plain | `TROUSERS`; MakeHuman jeans with the denim removed |
 | Shoes | Dark knit trainers, white sole | `SHOE`; MakeHuman trainers recoloured, maker's mark painted out |
 | Glove | White, lead (left) hand | `GLOVE`; the hand itself, re-skinned |
-| Face | Medium-brown skin, short dark beard | existing skin tone; short beard and cropped hair painted as strokes (`BEARD`, `HAIR`); dark brown, glossy eyes; head mesh subdivided; skin at 4096 px with pores |
+| Face | Front and side photos supplied 2026-11-16 | Shape matched by eye with MakeHuman targets (oval head, broad round-tipped nose, wide mouth, larger closer-set eyes, ears out a little); heavy dark brows; even light stubble with a moustache; cropped hair with a hairline; skin tone darkened to the photo; head mesh subdivided; skin at 4096 px with pores |
 | Build | Heavier round the middle | **not followed**: girth unchanged from the golfer before this work |
 
 Not taken from the video: height and limb lengths (a phone video is too
@@ -136,8 +136,12 @@ and beanie, so AC5 to AC8 were rewritten to match it.
   figure shows for longer on a slow connection.
 - The independent `loop-evaluator` review was not run.
 - At the finish the pullover bunches into dark wedges under the lead arm.
-- The face is still MakeHuman's generic head. A likeness needs a clear front
-  and side photo of the face; the swing video is too small to take one from.
+- The face is a resemblance, not a likeness: it is as close as MakeHuman's
+  sliders get by eye. Closer needs the photo projected onto the head as its
+  texture, which would put a recognisable face in a public repo and site, or
+  a sculpt. Neither was done.
+- Blender updated to 5.3 during the work; MPFB and its assets are still in
+  the 5.2 folder (see the Blender README).
 - The trainers still carry MakeHuman's own white side stripes.
 
 ## Verify

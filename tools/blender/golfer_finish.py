@@ -122,8 +122,10 @@ def skin(body, spec):
     # Lips nearer the skin's own colour than the asset's pink.
     pink = rgb[..., 0] - rgb[..., 1]
     lips = np.clip((pink - np.median(pink[lit]) - 0.05) / 0.04, 0, 1)
+    shade = paint.luma(rgb) / paint.luma(np.array(spec.SKIN_TONE))
     for c in range(3):
-        rgb[..., c] *= 1 - 0.3 * lips * (1 - spec.SKIN_TONE[c])
+        lip = spec.SKIN_TONE[c] * spec.LIPS[c] * shade
+        rgb[..., c] = rgb[..., c] * (1 - 0.8 * lips) + lip * 0.8 * lips
     # Sharpen what is there, then add pores: fine mottling in the colour and
     # the same pattern as relief.
     for c in range(3):
@@ -179,7 +181,7 @@ def _hair(body, spec, size, lips, rng):
             # and it thins out toward the ear instead of stopping at a line.
             # Even stubble over the lip, chin, jaw and lower cheeks.
             side = max(abs(c.x) - 0.035, 0)
-            top = nose.z - 0.016 - min(side * 1.2, 0.012) + max(side - 0.02, 0) * 1.2
+            top = nose.z - 0.006 - min(side * 1.2, 0.02) + max(side - 0.02, 0) * 1.2
             beard[i] = (
                 ramp(top - c.z, 0.012)
                 * ramp(c.z - chin + 0.04, 0.025)
@@ -232,7 +234,7 @@ def run(human, spec):
     low = bpy.data.objects["body.low-poly"]
     _principled(low).inputs["Roughness"].default_value = spec.EYE_ROUGHNESS
     skin(human, spec)
-    darken("eyebrow", 0.35, 512)
+    darken("eyebrow", 0.2, 512)
     for image in bpy.data.images:
         if "teeth" in image.name and image.size[0] > 512:
             image.scale(512, 512)

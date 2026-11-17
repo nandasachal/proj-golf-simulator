@@ -24,30 +24,34 @@ TARGETS = {
     # forehead, full cheeks, a rounded chin, a broad nose with a round tip,
     # a wide mouth with a thin upper lip, low heavy brows, ears that stand
     # out a little.
-    "head-oval": 0.7,
+    "head-oval": 0.35,
+    "head-fat-decr": 0.3,
     "head-scale-horiz-decr": 0.2,
     "head-age-incr": 0.2,
-    "forehead-scale-vert-incr": 0.3,
-    "l-cheek-volume-incr": 0.15,
-    "r-cheek-volume-incr": 0.15,
-    "l-cheek-bones-incr": 0.2,
+    "forehead-scale-vert-incr": 0.1,
+            "l-cheek-bones-incr": 0.2,
     "r-cheek-bones-incr": 0.2,
     "chin-height-incr": 0.3,
-    "chin-width-decr": 0.3,
+    "chin-width-decr": 0.5,
+    "neck-double-decr": 0.3,
     "chin-bones-incr": 0.1,
-    "nose-scale-horiz-incr": 0.35,
+    "nose-scale-horiz-incr": 0.5,
+    "nose-volume-incr": 0.3,
+    "nose-hump-incr": 0.2,
     "nose-scale-vert-incr": 0.3,
-    "nose-scale-depth-incr": 0.2,
+    "nose-scale-depth-incr": 0.4,
     "nose-width2-incr": 0.3,
-    "nose-point-width-incr": 0.4,
+    "nose-point-width-incr": 0.7,
     "nose-nostrils-width-incr": 0.4,
-    "nose-point-down": 0.2,
+    "nose-point-down": 0.3,
     "mouth-scale-horiz-incr": 0.5,
-    "mouth-lowerlip-volume-incr": 0.3,
+    "mouth-lowerlip-volume-incr": 0.15,
     "mouth-upperlip-volume-decr": 0.2,
     "eyebrows-trans-down": 0.3,
-    "l-eye-scale-incr": 0.2,
-    "r-eye-scale-incr": 0.2,
+    "l-eye-scale-incr": 0.45,
+    "r-eye-scale-incr": 0.45,
+    "l-eye-trans-in": 0.3,
+    "r-eye-trans-in": 0.3,
     "l-ear-wing-incr": 0.4,
     "r-ear-wing-incr": 0.4,
 }
@@ -56,8 +60,10 @@ SKIN = "young_caucasian_male"
 # Part of the skin texture's file name, and the tone its skin is brought to
 # (sRGB, 0-1): a warm brown.
 SKIN_IMAGE = "young_lightskinned_male_diffuse"
-SKIN_TONE = (0.66, 0.48, 0.37)
+SKIN_TONE = (0.6, 0.42, 0.31)
 SKIN_ROUGHNESS = 0.66
+# The lips, as a share of the skin tone: darker and a little redder.
+LIPS = (0.86, 0.6, 0.58)
 # Short beard and cropped hair, painted as strokes: how solid each is (0 is
 # none, 1 hides the skin), and their colour.
 BEARD = 0.38
@@ -103,7 +109,7 @@ ASSETS = [
     ("clothes", SUIT, "Clothes"),
     ("clothes", SHOES, "Clothes"),
     ("eyes", "low-poly", "Eyes"),
-    ("eyebrows", "eyebrow012", "Eyebrows"),
+    ("eyebrows", "eyebrow009", "Eyebrows"),
     ("eyelashes", "eyelashes01", "Eyelashes"),
     ("teeth", "teeth_base", "Teeth"),
 ]

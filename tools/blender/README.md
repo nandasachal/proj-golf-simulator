@@ -39,6 +39,19 @@ blender -b -P tools/blender/build_golfer.py
 blender -b tools/blender/golfer.blend -P tools/blender/preview.py -- /tmp/golfer-preview
 ```
 
+To compare the face with a photo, `BARE=1 VIEWS=face_front,face_profile`
+before the preview command takes the cap off and lights the face from the
+front.
+
+MPFB and the asset pack are installed for one Blender version. If Blender has
+been updated since (it went from 5.2 to 5.3 on 2026-11-16) the build fails
+with `No module named 'bl_ext.blender_org.mpfb'`. Either install both again
+for the new version, or point Blender at the old settings folder:
+
+```bash
+BLENDER_USER_RESOURCES="$HOME/Library/Application Support/Blender/5.2" blender -b -P tools/blender/build_golfer.py
+```
+
 After a rebuild run `scripts/check.sh`: the retarget tests read the skeleton
 straight from the exported file.
 
