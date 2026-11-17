@@ -227,8 +227,9 @@ React UI (App.js, components/)          src/simulate/ (no React)
   and the wheel moves it in and out (`orbit-view.js`, pure and tested; pointer
   handling in `main.js`). The view stays where it was put until the reset
   button (bottom right, shown only then) or the next hit hands it back to the
-  camera director, so a shot is always followed from the address view. Behind the tee line stands a grey wall with the motto and
-  the Saanchal mark (`scenery/wall.js`), there to be found by turning round.
+  camera director, so a shot is always followed from the address view. Behind the tee line stands a grey wall with
+  the Saanchal mark and, under it, three mottos that cross-fade in turn every 5 seconds (`MOTTOS` in
+  `scenery/wall.js`), there to be found by turning round.
 - **Address camera** — straight behind the ball, looking down the target
   line, so a straight shot leaves straight up the middle of the picture; the
   golfer stands beside it. The scene is centred on the whole window (the
