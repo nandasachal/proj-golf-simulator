@@ -267,6 +267,17 @@ function App() {
     const sim = createSimulator(stage.current, {
       side,
       fleet: empire != null,
+      // The golfer is on the tee: fade out the loading screen in index.html
+      // once a frame with him in it has been drawn.
+      onReady: () =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            const loading = document.getElementById("loading");
+            if (!loading) return;
+            loading.addEventListener("transitionend", () => loading.remove());
+            loading.classList.add("done");
+          }),
+        ),
       onOrbit: setOrbiting,
       onProgress: setLive,
       onResult: (shotResult) => {

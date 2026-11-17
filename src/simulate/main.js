@@ -60,7 +60,7 @@ const GOLFER_CLEARANCE = 1.35;
 const ADDRESS_DISTANCE = 6;
 
 export function createSimulator(container, callbacks = {}) {
-  const { onState, onProgress, onResult, onOrbit, fleet } = callbacks;
+  const { onState, onProgress, onResult, onOrbit, onReady, fleet } = callbacks;
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -310,7 +310,8 @@ export function createSimulator(container, callbacks = {}) {
     .catch(() => {
       console.warn("Golfer model did not load; building the built-in figure.");
       golfer.buildFigure();
-    });
+    })
+    .then(() => onReady && onReady());
   let swingSeconds = 0;
   let aim = 0;
   let state = ADDRESS;

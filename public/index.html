@@ -53,6 +53,73 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>Golf Swing Simulator</title>
+    <!-- The loading screen is plain HTML and CSS so it paints before the
+         script runs. Its bar moves by transform only, which the browser keeps
+         animating while the main thread is busy building the range. -->
+    <style>
+      #loading {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 24px;
+        background: linear-gradient(#0e2318 0%, #1c4429 62%, #2a5c35 100%);
+        color: #f1f5f2;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        text-align: center;
+        transition: opacity 0.4s ease;
+      }
+      #loading.done {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #loading h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+      #loading p {
+        margin: 0;
+        font-size: 14px;
+        color: rgba(241, 245, 242, 0.72);
+      }
+      #loading .track {
+        width: min(240px, 70vw);
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.18);
+        overflow: hidden;
+      }
+      #loading .track i {
+        display: block;
+        width: 40%;
+        height: 100%;
+        border-radius: 2px;
+        background: #a3e635;
+        animation: loading-slide 1.2s ease-in-out infinite alternate;
+        will-change: transform;
+      }
+      @keyframes loading-slide {
+        from {
+          transform: translateX(0);
+        }
+        to {
+          transform: translateX(150%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #loading .track i {
+          animation: none;
+          width: 100%;
+          opacity: 0.6;
+        }
+      }
+    </style>
     <script
       async
       src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4631919395799165"
@@ -62,6 +129,11 @@
   <body>
     <noscript>You need to enable JavaScript to rhelloun this app.</noscript>
     <div id="root"></div>
+    <div id="loading" role="status" aria-live="polite">
+      <h1>Golf Swing Simulator</h1>
+      <div class="track"><i></i></div>
+      <p>Building the range…</p>
+    </div>
     <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.

@@ -14,11 +14,19 @@ const router = createBrowserRouter([
 ]);
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(
-  <React.StrictMode>
-    <RouterProvider router={router} />
-  </React.StrictMode>
-);
+const start = () =>
+  root.render(
+    <React.StrictMode>
+      <RouterProvider router={router} />
+    </React.StrictMode>,
+  );
+// Building the scene holds the main thread for seconds, so let the loading
+// screen in index.html paint first. A hidden tab gets no frames: start at once.
+if (document.visibilityState === "visible") {
+  requestAnimationFrame(() => setTimeout(start));
+} else {
+  start();
+}
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))

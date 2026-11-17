@@ -296,6 +296,13 @@ next shot is hit.
 
 ### Load time
 
+- A loading screen is written straight into `public/index.html` (`#loading`),
+  so it shows before any script runs. `src/index.js` waits one frame before
+  starting React so it is painted, and `App.js` fades it out when the scene
+  calls `onReady` (the golfer is on the tee, or the built-in figure after a
+  failed download). Its bar animates by `transform` only, which keeps moving
+  while the main thread is building the range.
+
 - The modelled golfer (`public/models/golfer.glb`) is preloaded from
   `index.html`, so it downloads alongside the script. The figure built in
   code takes about four seconds of main-thread time to make, so it is only
