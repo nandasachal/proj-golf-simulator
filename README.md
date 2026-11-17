@@ -185,10 +185,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
   re-solving the arms and legs for the model's measurements so its hands close
   on the grip and its feet stay planted. A figure built in code stands in while
   the file loads, and stays if it fails to.
-  He wears a beanie, a quarter-zip pullover, grey trousers, dark trainers and
+  He wears a golf cap, a quarter-zip pullover, grey trousers, dark trainers and
   a glove on the lead hand, a design taken from a reference video of Sachal
-  that is kept out of the repo. The collar, zip, hat and glove are built by
-  script (`golfer_outfit.py`); the rest is MakeHuman clothing repainted
+  that is kept out of the repo. The collar, zip, cap and glove are built by
+  script (`golfer_outfit.py`), which also subdivides the head; the rest is MakeHuman clothing repainted
   (`golfer_finish.py`). The design follows the video but the build does not:
   `golfer-build.test.js` fails if the body's girth grows.
 - **Scenery** (`src/simulate/scenery/`) — everything but the golfer, generated in

@@ -7,8 +7,8 @@ rebuilt and changed from this folder.
 |---|---|
 | `golfer_spec.py` | What the golfer is: body sliders, face targets, skin, clothes, colours. Edit this to change him. |
 | `build_golfer.py` | Builds the character with MPFB, rigs it, and exports it. |
-| `golfer_outfit.py` | What MakeHuman has no asset for: stand collar and zip, beanie, glove; also measures the bare body's girth. |
-| `golfer_finish.py` | Texture work before export: pullover and trousers painted over the sweater and jeans, trainers, eyes, skin relief and stubble, texture sizes. |
+| `golfer_outfit.py` | What MakeHuman has no asset for: stand collar and zip, cap, glove; splits off and subdivides the head; also measures the bare body's girth. |
+| `golfer_finish.py` | Texture work before export: pullover and trousers painted over the sweater and jeans, trainers, eyes, and the face (4096 px skin with pores, beard and hair strokes), texture sizes. |
 | `golfer_paint.py` | Helpers the two above share: image access, painting a per-vertex value into a UV layout, materials. |
 | `golfer_measure.json` | Written by the build: chest, waist and hip girth over height. `src/simulate/golfer-build.test.js` fails if he gets heavier. |
 | `reference/` | Reference photos and video for the design. Git-ignored: the repo is public. |

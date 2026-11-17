@@ -78,12 +78,12 @@ phone had brightened, then darkened by eye, so they are estimates.
 
 | Part | In the video | As built (`golfer_spec.py`) |
 |---|---|---|
-| Hat | Slate-blue knitted beanie, no cuff, covers the hair and ear tops | `BEANIE` (0.36, 0.42, 0.60), ribbed knit, built by script |
+| Hat | Slate-blue knitted beanie | **Golf cap instead** (Sachal, 2026-11-16): navy six-panel cap with a curved peak, `CAP`, built by script |
 | Top | Dark navy quarter-zip pullover, stand collar with a lighter lining, lighter panel over the shoulders | `TOP`, `TOP_YOKE`, `TOP_LINING`; MakeHuman sweater repainted, collar and zip built by script |
 | Trousers | Warm grey, tapered, plain | `TROUSERS`; MakeHuman jeans with the denim removed |
 | Shoes | Dark knit trainers, white sole | `SHOE`; MakeHuman trainers recoloured, maker's mark painted out |
 | Glove | White, lead (left) hand | `GLOVE`; the hand itself, re-skinned |
-| Face | Medium-brown skin, short dark stubble | existing skin tone, `STUBBLE` painted on, dark brown irises |
+| Face | Medium-brown skin, short dark beard | existing skin tone; short beard and cropped hair painted as strokes (`BEARD`, `HAIR`); dark brown, glossy eyes; head mesh subdivided; skin at 4096 px with pores |
 | Build | Heavier round the middle | **not followed**: girth unchanged from the golfer before this work |
 
 Not taken from the video: height and limb lengths (a phone video is too
@@ -95,24 +95,28 @@ the watch, the shirt tail under the pullover, the shoe's three stripes.
 The plan as proposed assumed a polo, cap and belt. The video shows a pullover
 and beanie, so AC5 to AC8 were rewritten to match it.
 
-- [x] AC1 — Budget held: `golfer.glb` is 1.83 MB and 32,074 triangles. Frame
-      rate was **not** re-measured (see As built).
+- [x] AC1 — Budget held, with less room: `golfer.glb` is 5.03 MB (limit 8) and
+      58,700 triangles (limit 60k) after the face rework. Frame rate was **not**
+      measured reliably (see As built).
 - [x] AC2 — Eyes: dark brown iris, white sclera, no red cast (face still).
-- [x] AC3 — Skin has relief from a normal map and is less glossy; the hair is
-      under the hat, with stubble and cropped hair painted below it.
+- [x] AC3 — Face rework: the head is split off the body and subdivided once;
+      the skin texture is worked at 4096 px (sharpened, pores added, a normal
+      map from the same detail); beard and cropped hair are painted as strokes
+      with a hairline; lips are less pink; eyes are glossy.
 - [ ] AC4 — Dropped: an environment map would relight the whole scene for a
       small gain on rough cloth and skin. The existing shadow was left as is.
 - [x] AC5 — Pullover: stand collar and zip exist as geometry; the sweater's
       logo and piping are gone.
 - [x] AC6 — Trousers: denim fade, colour and twill removed. Seams and pockets
       remain (the video's trousers have pockets). No belt: the pullover covers it.
-- [x] AC7 — Beanie fitted to the skull by ray casting; no scalp shows at
-      address, top or finish.
+- [x] AC7 — Cap fitted to the skull by ray casting, with a peak, panel seams
+      and a button; it stays on the head at address, top and finish.
 - [x] AC8 — Glove on the lead hand; it swaps for a left-hander because the
       whole figure is mirrored. Shoes are dark trainers, as in the video.
-- [ ] AC9 — Partly checked: address (close up), top and finish (face-on,
-      driver, right-handed) show no tearing. Down-the-line, lob wedge and
-      left-handed were not looked at.
+- [x] AC9 — Checked in the app: driver right-handed (address, top, impact
+      down-the-line; top and finish face-on) and lob wedge left-handed
+      (address, top, finish). The glove swaps hands. One flaw: at the finish
+      the pullover bunches into dark wedges under the lead arm.
 - [x] AC10 — Character sheet above.
 - [x] AC11 — Garments, hat, skin and stubble follow the sheet. Proportions
       deliberately unchanged.
@@ -125,10 +129,15 @@ and beanie, so AC5 to AC8 were rewritten to match it.
 
 ## As built: open items
 
-- AC9's unchecked poses, and a frame-rate reading during a swing.
+- Frame rate and load time were not measured reliably: the preview pane was
+  hidden, which throttles the page. One reading with the pane showing gave
+  60 fps idle and 56 fps in a swing, but the stand-in figure was on screen.
+- The file went from 1.8 MB to 5.0 MB (the 4096 px skin), so the stand-in
+  figure shows for longer on a slow connection.
 - The independent `loop-evaluator` review was not run.
-- The beard's edge in front of the ear is a little square in profile.
-- The yoke's seam follows the mesh and wanders slightly across the back.
+- At the finish the pullover bunches into dark wedges under the lead arm.
+- The face is still MakeHuman's generic head. A likeness needs a clear front
+  and side photo of the face; the swing video is too small to take one from.
 - The trainers still carry MakeHuman's own white side stripes.
 
 ## Verify
