@@ -3,21 +3,13 @@ import { canvasTexture, valueNoise } from "./shared";
 import logoUrl from "../../assets/images/saanchal-logo.jpg";
 
 // The wall behind the tee line: plain grey concrete with the Saanchal mark and,
-// under it, a motto that changes every few seconds. There for when the view is
-// swung round to face the golfer.
+// under it, a motto. There for when the view is swung round to face the golfer.
 
 const WALL = { width: 64, height: 9.5, z: -12.5, thickness: 0.5 };
 const SIGN = { width: 22, height: 7.2, bottom: 2.1 };
-export const MOTTOS = [
-  ["In Every Experience", "You Either Win or You Learn"],
-  ["Only Those With Big Wieners", "Can Drive the Ball 300+"],
-  ["Do or Do Not", "There Is No Try"],
-];
-export const MOTTO_SECONDS = 5;
-const FADE_SECONDS = 0.9;
-// The mottos' strip of the sign, as a share of its height from the bottom.
+const MOTTO = ["Do or Do Not", "There Is No Try"];
+// The motto's strip of the sign, as a share of its height from the bottom.
 const STRIP = 0.45;
-const DRIFT = 0.3;
 // The mark within its file: the picture has wide black margins.
 const LOGO_CROP = { x: 320, y: 315, width: 640, height: 560 };
 const INK = "#ffffff";
@@ -49,16 +41,6 @@ function concrete() {
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(WALL.width / 4, WALL.height / 4);
   return texture;
-}
-
-// Which motto is up, and how far it has handed over to the next (0 to 1, eased).
-export function mottoAt(seconds) {
-  const turn = Math.floor(seconds / MOTTO_SECONDS);
-  const count = MOTTOS.length;
-  const index = ((turn % count) + count) % count;
-  const left = MOTTO_SECONDS - (seconds - turn * MOTTO_SECONDS);
-  const t = Math.min(1, Math.max(0, 1 - left / FADE_SECONDS));
-  return { index, next: (index + 1) % count, mix: t * t * (3 - 2 * t) };
 }
 
 function mottoTexture(lines, anisotropy) {
@@ -153,36 +135,19 @@ export function buildWall({ anisotropy = 1 } = {}) {
   logo.src = logoUrl;
 
   const stripHeight = SIGN.height * STRIP;
-  const stripY = SIGN.bottom + stripHeight / 2;
-  const mottos = MOTTOS.map((lines) => {
-    const mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(SIGN.width, stripHeight),
-      new THREE.MeshStandardMaterial({
-        map: mottoTexture(lines, anisotropy),
-        transparent: true,
-        depthWrite: false,
-        roughness: 0.9,
-        polygonOffset: true,
-        polygonOffsetFactor: -3,
-      }),
-    );
-    mesh.position.set(0, stripY, WALL.z + 0.02);
-    mesh.visible = false;
-    object.add(mesh);
-    return mesh;
-  });
+  const motto = new THREE.Mesh(
+    new THREE.PlaneGeometry(SIGN.width, stripHeight),
+    new THREE.MeshStandardMaterial({
+      map: mottoTexture(MOTTO, anisotropy),
+      transparent: true,
+      depthWrite: false,
+      roughness: 0.9,
+      polygonOffset: true,
+      polygonOffsetFactor: -3,
+    }),
+  );
+  motto.position.set(0, SIGN.bottom + stripHeight / 2, WALL.z + 0.02);
+  object.add(motto);
 
-  // The old motto lifts away as it fades; the new one rises into its place.
-  const update = (seconds) => {
-    const { index, next, mix } = mottoAt(seconds);
-    mottos.forEach((mesh, i) => {
-      const cover = i === index ? 1 - mix : i === next ? mix : 0;
-      mesh.visible = cover > 0;
-      mesh.material.opacity = cover;
-      mesh.position.y = stripY + DRIFT * (i === index ? mix : mix - 1);
-    });
-  };
-  update(0);
-
-  return { object, update };
+  return { object, update() {} };
 }

@@ -228,7 +228,7 @@ React UI (App.js, components/)          src/simulate/ (no React)
   handling in `main.js`). The view stays where it was put until the reset
   button (bottom right, shown only then) or the next hit hands it back to the
   camera director, so a shot is always followed from the address view. Behind the tee line stands a grey wall with
-  the Saanchal mark and, under it, three mottos that cross-fade in turn every 5 seconds (`MOTTOS` in
+  the Saanchal mark and, under it, the motto "Do or Do Not, There Is No Try" (`MOTTO` in
   `scenery/wall.js`), there to be found by turning round.
 - **Address camera** — straight behind the ball, looking down the target
   line, so a straight shot leaves straight up the middle of the picture; the
