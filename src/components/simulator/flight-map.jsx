@@ -135,8 +135,8 @@ const FlightMap = ({ result, target = null, startOpen = true, onPast }) => {
           aria-label="Which shot"
         >
           {[
-            ["previous", "Previous shot"],
-            ["current", "Current shot"],
+            ["previous", "Previous"],
+            ["current", "Current"],
           ].map(([id, name]) => (
             <button
               key={id}
@@ -146,11 +146,14 @@ const FlightMap = ({ result, target = null, startOpen = true, onPast }) => {
                   ? "bg-white text-black"
                   : "text-white/70 hover:text-white disabled:text-white/30"
               }`}
+              aria-label={`${name} shot`}
               aria-pressed={showing === id}
               disabled={id === "previous" && !shot}
               onClick={() => choose(id)}
             >
+              {/* The card is narrow on phones: one word each there. */}
               {name}
+              <span className="hidden md:inline"> shot</span>
             </button>
           ))}
         </div>

@@ -145,14 +145,28 @@ const openSettings = () => {
 };
 // Each shot control is a slider handle on a club pad and a value you can
 // click to type over.
+// Swing speed has no handle: its value is read off its box.
+const boxText = (name) =>
+  screen
+    .getByRole("button", {
+      name: new RegExp(`^Edit ${name}:`, "i"),
+      // still readable behind an open dialog
+      hidden: true,
+    })
+    .getAttribute("aria-label")
+    .replace(/^Edit [^:]+: /, "");
 const valueOf = (name) =>
-  Number(
-    screen
-      .getByRole("slider", { name, hidden: true })
-      .getAttribute("aria-valuenow"),
-  );
+  name === "Swing speed"
+    ? Number.parseFloat(boxText(name))
+    : Number(
+        screen
+          .getByRole("slider", { name, hidden: true })
+          .getAttribute("aria-valuenow"),
+      );
 const textOf = (name) =>
-  screen.getByRole("slider", { name }).getAttribute("aria-valuetext");
+  name === "Swing speed"
+    ? boxText(name)
+    : screen.getByRole("slider", { name }).getAttribute("aria-valuetext");
 const startTyping = (name) => {
   fireEvent.click(
     screen.getByRole("button", { name: new RegExp(`^Edit ${name}:`, "i") }),
@@ -527,9 +541,8 @@ describe("keyboard", () => {
     expect(
       screen.getByRole("button", { name: /^Edit aim:/i }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("slider", { name: "Swing speed" }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("slider")).toBeNull();
+    expect(valueOf("Swing speed")).toBe(95);
   });
 
   test("clicking a box, or grabbing its handle, puts the keyboard on it", () => {
@@ -811,11 +824,8 @@ describe("club pads", () => {
     fireEvent.focus(handle("Strike"));
     fireEvent.keyDown(handle("Strike"), { key: "ArrowRight", metaKey: true });
     expect(valueOf("Strike")).toBe(0.25);
-    fireEvent.focus(handle("Swing speed"));
-    fireEvent.keyDown(handle("Swing speed"), {
-      key: "ArrowRight",
-      metaKey: true,
-    });
+    selectBox("swing speed");
+    command("ArrowRight");
     expect(valueOf("Swing speed")).toBe(96);
 
     fireEvent.doubleClick(handle("Aim"));
@@ -1395,12 +1405,13 @@ describe("club selection", () => {
 
   test("the swing-speed control covers the club's own range", () => {
     renderApp("/?club=7i");
-    const speed = screen.getByRole("slider", { name: "Swing speed" });
-    expect(speed).toHaveAttribute("aria-valuemin", "64");
-    expect(speed).toHaveAttribute("aria-valuemax", "112");
     selectBox("swing speed");
     command("ArrowLeft");
     expect(valueOf("Swing speed")).toBe(75);
+    typeValue("Swing speed", "10");
+    expect(valueOf("Swing speed")).toBe(64);
+    typeValue("Swing speed", "999");
+    expect(valueOf("Swing speed")).toBe(112);
   });
 
   test("typing a distance sets that club's swing speed for the session", () => {

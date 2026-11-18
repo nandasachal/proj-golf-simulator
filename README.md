@@ -141,7 +141,8 @@ React UI (App.js, components/)          src/simulate/ (no React)
   viewport with a HUD over it (stacked under the scene on phones).
   - **Shot controls are the club itself** (`components/simulator/club-pads.jsx`).
     The left panel holds every control's value box together (face, path,
-    strike, aim, attack angle, loft, swing speed and its bar), each with a dot
+    strike, aim, attack angle, loft and swing speed, with the club menu beside
+    it), each with a dot
     of its own colour, and under them the club in hand at impact in two live
     3D views, built from the same scene as the old close-up (`club-scene.js`,
     below): from above (aim, face, path, strike) and from the toe (attack
@@ -168,7 +169,7 @@ React UI (App.js, components/)          src/simulate/ (no React)
     ×4, strike ×2 (the × is shown in each view's corner; the numbers are
     always true). The handle geometry is pure and tested in
     `src/utils/club-handles.js`, in the scene's own centimetres.
-  - The shot panel carries the club in hand (the chip in its header opens the
+  - The shot panel carries the club in hand (the chip beside swing speed opens the
     bag), Reset (the icon top right) and the mode (Practice, Normal, Advanced,
     along the bottom). On phones the mode and Hit are a bar fixed to the
     bottom of the screen, the game card shrinks to the target, pips and

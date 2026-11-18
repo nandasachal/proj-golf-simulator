@@ -189,7 +189,7 @@ const ValueChip = ({
               aria-label={`${name}: ${word}`}
               data-field="word"
               className={classNames(
-                "min-w-0 cursor-pointer appearance-none truncate rounded bg-transparent py-0 pl-1 pr-4 text-sm font-semibold leading-tight hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
+                "min-w-0 cursor-pointer appearance-none truncate rounded bg-transparent py-0 pl-1 pr-3.5 text-sm font-semibold leading-tight hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
                 state === 0 ? "text-white/70" : "text-white",
               )}
               value={state}
@@ -203,7 +203,7 @@ const ValueChip = ({
             </select>
             <ChevronDown
               size={9}
-              className="pointer-events-none absolute right-1 text-white/50"
+              className="pointer-events-none absolute right-0.5 text-white/50"
               aria-hidden="true"
             />
           </span>
@@ -216,7 +216,18 @@ const ValueChip = ({
               data-field="number"
               onClick={() => setDraft(String(value))}
             >
-              {number}
+              {/* The unit is set small, so the word beside it has room. */}
+              {number.endsWith(" mph") ? (
+                <>
+                  {number.slice(0, -4)}
+                  <span className="text-[10px] font-medium text-white/60">
+                    {" "}
+                    mph
+                  </span>
+                </>
+              ) : (
+                number
+              )}
             </button>
           ) : (
             <input
@@ -492,7 +503,7 @@ const FlightIcon = ({ sketch }) => (
 // Settings.
 const ClubMenu = ({ club, onClub }) => (
   <Listbox value={club.id} onChange={onClub}>
-    <div className="relative min-w-0 flex-[1.35]">
+    <div className="relative min-w-0">
       <Listbox.Button className="flex h-12 w-full items-center gap-1.5 rounded-lg bg-white/[0.07] px-2.5 text-left transition-colors hover:bg-white/20 md:h-11">
         <span className="min-w-0 flex-1">
           <span className="block text-[11px] font-normal leading-tight text-white/60">
@@ -689,16 +700,9 @@ const ClubPads = ({
     return scene ? scene.project(world[control]) : null;
   };
 
-  const speedBar = useRef(null);
   const moveTo = (control, event) => {
     let raw;
-    if (control === "swingSpeed") {
-      const rect = speedBar.current.getBoundingClientRect();
-      raw =
-        ranges.swingSpeed.MIN +
-        ((event.clientX - rect.left) / rect.width) *
-          (ranges.swingSpeed.MAX - ranges.swingSpeed.MIN);
-    } else if (onSide(control)) {
+    if (onSide(control)) {
       const point = scenes.current.side.pick(event.clientX, event.clientY, {
         plane: "side",
       });
@@ -745,7 +749,6 @@ const ClubPads = ({
       ).focus?.();
       setDragging(picked);
       onSelect(picked);
-      if (picked === "swingSpeed") moveTo(picked, event);
     },
   });
 
@@ -805,9 +808,6 @@ const ClubPads = ({
     onAbout: setAbout,
   });
 
-  const speedFraction =
-    (swingSpeed - ranges.swingSpeed.MIN) /
-    (ranges.swingSpeed.MAX - ranges.swingSpeed.MIN);
   // Each view is built for one club.
   const topOptions = useMemo(() => ({ ...VIEW_FROM_ABOVE, club }), [club]);
   const sideOptions = useMemo(() => ({ ...VIEW_FROM_TOE, club }), [club]);
@@ -820,26 +820,25 @@ const ClubPads = ({
 
   return (
     <div className="flex flex-col gap-2" aria-label="Shot controls">
-      <div className="flex items-stretch gap-2">
+      {/* What this setup will do, with Reset; a rule sets it apart from the
+          controls under it. */}
+      <div className="flex items-center gap-2 border-b border-white/10 pb-2">
         <div
-          className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-lg bg-white/[0.07] px-2.5 md:h-11"
+          className="flex min-w-0 flex-1 items-center gap-2 px-1"
           data-shot-shape
         >
           {preview && <FlightIcon sketch={preview.sketch} />}
-          <div className="min-w-0">
-            <div className="truncate text-[11px] leading-tight text-white/60">
-              Shot Shape
-            </div>
-            <div className="truncate text-sm font-semibold leading-tight">
+          <p className="min-w-0 truncate text-sm leading-tight">
+            <span className="text-white/60">Shot shape: </span>
+            <span className="font-semibold">
               {preview ? preview.shape : "Club at impact"}
-            </div>
-          </div>
+            </span>
+          </p>
         </div>
-        <ClubMenu club={club} onClub={onClub} />
         <button
           type="button"
           aria-label="Reset"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/[0.07] text-white/70 transition-colors hover:bg-white/20 hover:text-white md:h-11 md:w-11"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.07] text-white/70 transition-colors hover:bg-white/20 hover:text-white"
           onClick={onReset}
         >
           <ArrowCounterclockwise size={16} />
@@ -857,40 +856,10 @@ const ClubPads = ({
           <ValueChip {...chipProps("attackAngle")} />
           <ValueChip {...chipProps("loftChange")} />
         </div>
-        {/* Speed: one wide bar. Click or drag anywhere on it. */}
-        <div className="flex items-center gap-2">
-          <div className="w-[58%] shrink-0">
-            <ValueChip {...chipProps("swingSpeed")} />
-          </div>
-          <div
-            ref={speedBar}
-            role="slider"
-            tabIndex={0}
-            data-control="swingSpeed"
-            aria-label={describe.swingSpeed.name}
-            aria-valuemin={ranges.swingSpeed.MIN}
-            aria-valuemax={ranges.swingSpeed.MAX}
-            aria-valuenow={swingSpeed}
-            aria-valuetext={text.swingSpeed}
-            className="club-handle relative h-12 flex-1 cursor-pointer overflow-hidden rounded-lg bg-white/[0.07] md:h-11"
-            style={{ touchAction: "none" }}
-            onDoubleClick={() =>
-              onChange("swingSpeed", ranges.swingSpeed.DEFAULT)
-            }
-            onFocus={() => onSelect("swingSpeed")}
-            onPointerEnter={() => setActive("swingSpeed")}
-            onPointerLeave={() => setActive(null)}
-            {...drag("swingSpeed")}
-          >
-            <div
-              className="absolute inset-y-0 left-0 opacity-80"
-              style={{ width: `${speedFraction * 100}%`, background: SPEED }}
-            />
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-3 text-[10px] font-semibold text-white/70">
-              <span>{ranges.swingSpeed.MIN}</span>
-              <span>{ranges.swingSpeed.MAX}</span>
-            </div>
-          </div>
+        {/* Swing speed, and beside it the club it is swung with. */}
+        <div className="grid grid-cols-2 gap-2">
+          <ValueChip {...chipProps("swingSpeed")} />
+          <ClubMenu club={club} onClub={onClub} />
         </div>
         {about && (
           <p
