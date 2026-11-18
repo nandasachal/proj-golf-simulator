@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import App from "./App";
 import { createSimulator } from "./simulate/main";
@@ -56,6 +63,10 @@ const fakeClubScene = (options) => {
 };
 
 beforeEach(() => {
+  // No saved player, and the leaderboard API cannot be reached unless a test
+  // says otherwise.
+  window.localStorage.clear();
+  global.fetch = jest.fn(() => Promise.reject(new TypeError("offline")));
   simulator = {
     hit: jest.fn(),
     setSide: jest.fn(),
@@ -1452,5 +1463,538 @@ describe("bird's-eye view", () => {
     act(() => callbacks.onResult(landed));
     fireEvent.click(screen.getByRole("button", { name: /^hit$/i }));
     expect(map()).not.toBeInTheDocument();
+  });
+});
+
+describe("players and leaderboard", () => {
+  const game = () => screen.getByRole("status", { name: "Game" });
+  const HIT = { hit: true, longYards: 1, rightYards: 0 };
+  const MISS = { hit: false, longYards: -9.2, rightYards: -4.1 };
+  const play = (targetResult) => {
+    hit();
+    act(() =>
+      callbacks.onResult({
+        shape: "Straight",
+        carryYards: 200,
+        runYards: 20,
+        totalYards: 220,
+        offlineYards: 0,
+        apexYards: 25,
+        target: targetResult,
+      }),
+    );
+    act(() => callbacks.onState("address"));
+  };
+  const playGame = (hits) => {
+    for (let i = 0; i < 5; i++) play(i < hits ? HIT : MISS);
+  };
+
+  const respond = (status, body = {}) =>
+    Promise.resolve({
+      ok: status < 400,
+      status,
+      json: () => Promise.resolve(body),
+    });
+  // The API, faked at fetch: routes are keyed "METHOD /path".
+  const api = (routes) =>
+    global.fetch.mockImplementation((url, options = {}) => {
+      const route =
+        routes[`${options.method || "GET"} ${new URL(url).pathname}`];
+      return route
+        ? route(new URL(url), options)
+        : Promise.reject(new TypeError("offline"));
+    });
+  const requests = (method, path) =>
+    global.fetch.mock.calls.filter(
+      ([url, options = {}]) =>
+        (options.method || "GET") === method && new URL(url).pathname === path,
+    );
+  const shotsSent = () =>
+    requests("POST", "/shots").map(([, options]) => JSON.parse(options.body));
+
+  const SACHAL = { id: "p1", name: "Sachal", key: "secret" };
+  const savePlayer = () =>
+    window.localStorage.setItem("golf.player", JSON.stringify(SACHAL));
+  const row = (rank, id, name, pct) => ({
+    rank,
+    id,
+    name,
+    hits: pct,
+    attempts: 100,
+    pct,
+    games: 20,
+    bestStreak: 30 - rank,
+  });
+  const board = (overrides = {}) => ({
+    mode: "normal",
+    period: "all",
+    minAttempts: 15,
+    rows: [],
+    warmingUp: [],
+    me: null,
+    passes: null,
+    ...overrides,
+  });
+
+  const saveForm = () =>
+    within(game()).getByRole("form", { name: "Save to the leaderboard" });
+  const typeName = (value) =>
+    fireEvent.change(
+      within(saveForm()).getByRole("textbox", { name: "Name" }),
+      {
+        target: { value },
+      },
+    );
+
+  test("a finished game with no name saved asks for one; saving it sends the game and shows the recovery code once", async () => {
+    api({
+      "POST /players": () =>
+        respond(201, { ...SACHAL, recoveryCode: "TEE-4821" }),
+      "POST /shots": () => respond(201),
+      "GET /leaderboard": () =>
+        respond(
+          200,
+          board({
+            me: { ...row(null, "p1", "Sachal", 0), attempts: 5, ranked: false },
+          }),
+        ),
+    });
+    renderApp();
+    play(HIT);
+    expect(
+      screen.queryByRole("form", { name: "Save to the leaderboard" }),
+    ).not.toBeInTheDocument();
+    for (let i = 0; i < 2; i++) play(HIT);
+    for (let i = 0; i < 2; i++) play(MISS);
+
+    expect(saveForm()).toHaveTextContent("3 of 5. Save it to the leaderboard?");
+    // nothing leaves the browser before there is a name
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    typeName("Sachal");
+    fireEvent.click(within(saveForm()).getByRole("button", { name: "Save" }));
+
+    expect(await within(game()).findByText("TEE-4821")).toBeInTheDocument();
+    expect(game()).toHaveTextContent(
+      "Write this down to use your name on another device",
+    );
+    expect(JSON.parse(requests("POST", "/players")[0][1].body)).toEqual({
+      name: "Sachal",
+    });
+    expect(JSON.parse(window.localStorage.getItem("golf.player"))).toEqual(
+      SACHAL,
+    );
+
+    await waitFor(() => expect(shotsSent()).toHaveLength(5));
+    expect(shotsSent().map((shot) => shot.hit)).toEqual([
+      true,
+      true,
+      true,
+      false,
+      false,
+    ]);
+    expect(new Set(shotsSent().map((shot) => shot.gameId)).size).toBe(1);
+    expect(shotsSent()[0]).toMatchObject({ mode: "normal", club: "driver" });
+    expect(shotsSent()[0].targetYards).toBeGreaterThanOrEqual(140);
+    expect(requests("POST", "/shots")[0][1].headers.Authorization).toBe(
+      "Bearer secret",
+    );
+
+    fireEvent.click(within(game()).getByRole("button", { name: "Got it" }));
+    expect(game()).not.toHaveTextContent("TEE-4821");
+    expect(
+      await within(game()).findByText(
+        "Warming up: 10 more targets to be ranked",
+      ),
+    ).toBeInTheDocument();
+    expect(within(game()).getByLabelText("Playing as Sachal")).toBeVisible();
+  });
+
+  test("a taken or unusable name is said next to the field, and the game is still there", async () => {
+    api({ "POST /players": () => respond(409, { error: "name_taken" }) });
+    renderApp();
+    playGame(2);
+    typeName("Varun");
+    fireEvent.click(within(saveForm()).getByRole("button", { name: "Save" }));
+    expect(await within(saveForm()).findByRole("alert")).toHaveTextContent(
+      "That name is taken",
+    );
+
+    api({ "POST /players": () => respond(422, { error: "invalid_name" }) });
+    fireEvent.click(within(saveForm()).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(within(saveForm()).getByRole("alert")).toHaveTextContent(
+        "2 to 16 characters",
+      ),
+    );
+
+    // and with the API down
+    api({});
+    fireEvent.click(within(saveForm()).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(within(saveForm()).getByRole("alert")).toHaveTextContent(
+        "Couldn't reach the leaderboard",
+      ),
+    );
+    expect(window.localStorage.getItem("golf.player")).toBeNull();
+    expect(game()).toHaveTextContent("Not this time");
+  });
+
+  test("an existing name is taken up with its recovery code", async () => {
+    api({
+      "POST /players/recover": (_url, options) =>
+        JSON.parse(options.body).recoveryCode === "TEE-4821"
+          ? respond(200, SACHAL)
+          : respond(401),
+      "POST /shots": () => respond(201),
+    });
+    renderApp();
+    playGame(3);
+    fireEvent.click(
+      within(saveForm()).getByRole("button", {
+        name: "Already have a name? Use recovery code",
+      }),
+    );
+    typeName("Sachal");
+    const code = within(saveForm()).getByRole("textbox", {
+      name: "Recovery code",
+    });
+    fireEvent.change(code, { target: { value: "WRONG" } });
+    fireEvent.click(
+      within(saveForm()).getByRole("button", { name: "Use name" }),
+    );
+    expect(await within(saveForm()).findByRole("alert")).toHaveTextContent(
+      "don't match",
+    );
+
+    fireEvent.change(code, { target: { value: "TEE-4821" } });
+    fireEvent.click(
+      within(saveForm()).getByRole("button", { name: "Use name" }),
+    );
+    expect(
+      await within(game()).findByLabelText("Playing as Sachal"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("form", { name: "Save to the leaderboard" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(shotsSent()).toHaveLength(5));
+  });
+
+  test("with a name saved every game shot is sent as it lands, and the finished game says where the player stands", async () => {
+    savePlayer();
+    api({
+      "POST /shots": () => respond(201),
+      "GET /leaderboard": () =>
+        respond(
+          200,
+          board({
+            me: { ...row(12, "p1", "Sachal", 58), ranked: true },
+            passes: { name: "Varun", hitsNeeded: 1 },
+          }),
+        ),
+    });
+    renderApp();
+    expect(within(game()).getByLabelText("Playing as Sachal")).toBeVisible();
+    play(HIT);
+    await waitFor(() => expect(shotsSent()).toHaveLength(1));
+    expect(requests("GET", "/leaderboard")).toHaveLength(0);
+
+    for (let i = 0; i < 4; i++) play(MISS);
+    expect(
+      await within(game()).findByText("Rank 12 · 58% hit"),
+    ).toBeInTheDocument();
+    expect(game()).toHaveTextContent("One more hit passes Varun");
+    expect(shotsSent()).toHaveLength(5);
+    const asked = new URL(requests("GET", "/leaderboard")[0][0]).searchParams;
+    expect(Object.fromEntries(asked)).toEqual({
+      mode: "normal",
+      period: "all",
+      player: "p1",
+    });
+    expect(
+      screen.queryByRole("form", { name: "Save to the leaderboard" }),
+    ).not.toBeInTheDocument();
+
+    // a new game is a new game id
+    fireEvent.click(screen.getByRole("button", { name: "Play again" }));
+    expect(game()).not.toHaveTextContent("Rank 12");
+    play(HIT);
+    await waitFor(() => expect(shotsSent()).toHaveLength(6));
+    expect(shotsSent()[5].gameId).not.toBe(shotsSent()[0].gameId);
+  });
+
+  test("practice shots are never sent", async () => {
+    savePlayer();
+    api({ "POST /shots": () => respond(201) });
+    renderApp("/?mode=practice");
+    play(undefined);
+    play(HIT);
+    await act(async () => {});
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem("golf.shots")).toBeNull();
+  });
+
+  test("with the API down the game plays as usual and the shots go once it is back", async () => {
+    savePlayer();
+    renderApp();
+    playGame(3);
+    expect(game()).toHaveTextContent("You win!");
+    expect(game()).toHaveTextContent("Games won 1 of 1");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        JSON.parse(window.localStorage.getItem("golf.shots")),
+      ).toHaveLength(5),
+    );
+
+    global.fetch.mockClear();
+    api({ "POST /shots": () => respond(201) });
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+    await waitFor(() =>
+      expect(JSON.parse(window.localStorage.getItem("golf.shots"))).toEqual([]),
+    );
+    expect(shotsSent().map((shot) => shot.hit)).toEqual([
+      true,
+      true,
+      true,
+      false,
+      false,
+    ]);
+  });
+
+  test("shots left over from an earlier visit are sent on load", async () => {
+    savePlayer();
+    window.localStorage.setItem(
+      "golf.shots",
+      JSON.stringify([
+        {
+          gameId: "g0",
+          mode: "normal",
+          club: "driver",
+          targetYards: 210,
+          hit: true,
+        },
+      ]),
+    );
+    api({ "POST /shots": () => respond(201) });
+    renderApp();
+    await waitFor(() => expect(shotsSent()).toHaveLength(1));
+    expect(shotsSent()[0].gameId).toBe("g0");
+  });
+
+  test("a won game sets off the celebration, bigger for 5 of 5, and a lost one does not", () => {
+    simulator.celebrate = jest.fn();
+    renderApp();
+    playGame(2);
+    expect(simulator.celebrate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Play again" }));
+    for (let i = 0; i < 2; i++) play(MISS);
+    for (let i = 0; i < 2; i++) play(HIT);
+    expect(simulator.celebrate).not.toHaveBeenCalled();
+    play(HIT);
+    expect(simulator.celebrate).toHaveBeenCalledTimes(1);
+    expect(simulator.celebrate).toHaveBeenLastCalledWith("win");
+
+    fireEvent.click(screen.getByRole("button", { name: "Play again" }));
+    playGame(5);
+    expect(simulator.celebrate).toHaveBeenCalledTimes(2);
+    expect(simulator.celebrate).toHaveBeenLastCalledWith("perfect");
+  });
+
+  const openLeaderboard = async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Leaderboard" }));
+    return within(await screen.findByRole("dialog"));
+  };
+
+  test("just outside the top rows, the neighbour already listed is not shown twice", async () => {
+    savePlayer();
+    api({
+      "GET /leaderboard": () =>
+        respond(
+          200,
+          board({
+            rows: [row(1, "p7", "Varun", 71), row(2, "p8", "Aanchal", 64.4)],
+            me: {
+              ...row(3, "p1", "Sachal", 41),
+              ranked: true,
+              neighbours: [
+                row(2, "p8", "Aanchal", 64.4),
+                row(4, "p6", "Behind", 40),
+              ],
+            },
+          }),
+        ),
+    });
+    renderApp();
+    const dialog = await openLeaderboard();
+    await dialog.findByText("Varun");
+    expect(dialog.getAllByText("Aanchal")).toHaveLength(1);
+    expect(dialog.getByText("Behind")).toBeInTheDocument();
+  });
+
+  test("the trophy button opens the leaderboard: ranked rows, the player's own row with its neighbours, and those warming up", async () => {
+    savePlayer();
+    api({
+      "GET /leaderboard": () =>
+        respond(
+          200,
+          board({
+            rows: [row(1, "p7", "Varun", 71), row(2, "p8", "Aanchal", 64.4)],
+            warmingUp: [
+              { id: "p9", name: "Newbie", hits: 2, attempts: 5, games: 1 },
+            ],
+            me: {
+              ...row(31, "p1", "Sachal", 41),
+              ranked: true,
+              neighbours: [
+                row(30, "p5", "Ahead", 42),
+                row(32, "p6", "Behind", 40),
+              ],
+            },
+          }),
+        ),
+    });
+    renderApp();
+    const dialog = await openLeaderboard();
+    expect(dialog.getByText("Loading…")).toBeInTheDocument();
+
+    const cells = async (name) =>
+      within((await dialog.findByText(name)).closest("tr"))
+        .getAllByRole("cell")
+        .map((cell) => cell.textContent);
+    expect(await cells("Varun")).toEqual(["1", "Varun", "71%", "20", "29"]);
+    expect(await cells("Aanchal")).toEqual(["2", "Aanchal", "64%", "20", "28"]);
+    expect(
+      dialog.getAllByRole("columnheader").map((header) => header.textContent),
+    ).toEqual(["#Rank", "Name", "Hit %", "Games", "Best Streak"]);
+
+    // own row, outside the top rows, between the players either side of it
+    const names = dialog
+      .getAllByRole("row")
+      .slice(1)
+      .map((line) => line.cells[1]?.textContent);
+    expect(names).toEqual([
+      "Varun",
+      "Aanchal",
+      "Ahead",
+      "Sachal (you)",
+      "Behind",
+    ]);
+    // a divider sets the player's part of the board off from the top rows
+    expect(
+      screen.getByRole("dialog").querySelector("tr[aria-hidden]"),
+    ).toHaveTextContent("⋯");
+    expect(dialog.getByText("Sachal").closest("tr")).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    expect(dialog.getByText("Varun").closest("tr")).not.toHaveAttribute(
+      "aria-current",
+    );
+
+    const warming = within(dialog.getByRole("region", { name: "Warming up" }));
+    expect(warming.getByRole("listitem")).toHaveTextContent(
+      "Newbie2 of 5 hit · 10 to go",
+    );
+
+    const asked = new URL(requests("GET", "/leaderboard")[0][0]).searchParams;
+    expect(Object.fromEntries(asked)).toEqual({
+      mode: "normal",
+      period: "all",
+      player: "p1",
+    });
+  });
+
+  test("the leaderboard has a board per mode and period", async () => {
+    api({
+      "GET /leaderboard": (url) =>
+        respond(
+          200,
+          board({
+            rows: [
+              row(
+                1,
+                "p7",
+                `${url.searchParams.get("mode")} ${url.searchParams.get("period")}`,
+                50,
+              ),
+            ],
+          }),
+        ),
+    });
+    renderApp("/?mode=advanced");
+    const dialog = await openLeaderboard();
+    // opens on the mode being played
+    expect(await dialog.findByText("advanced all")).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "Advanced" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    fireEvent.click(dialog.getByRole("button", { name: "Normal" }));
+    expect(await dialog.findByText("normal all")).toBeInTheDocument();
+    fireEvent.click(dialog.getByRole("button", { name: "This week" }));
+    expect(dialog.getByText("Loading…")).toBeInTheDocument();
+    expect(await dialog.findByText("normal week")).toBeInTheDocument();
+    // no saved player: none is asked about
+    expect(
+      new URL(requests("GET", "/leaderboard")[0][0]).searchParams.has("player"),
+    ).toBe(false);
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  test("an empty leaderboard and an unreachable one each say so", async () => {
+    api({ "GET /leaderboard": () => respond(200, board()) });
+    renderApp();
+    const dialog = await openLeaderboard();
+    expect(
+      await dialog.findByText("No one has played yet"),
+    ).toBeInTheDocument();
+
+    api({ "GET /leaderboard": () => respond(503) });
+    fireEvent.click(dialog.getByRole("button", { name: "Advanced" }));
+    expect(
+      await dialog.findByText("Leaderboard is unavailable right now"),
+    ).toBeInTheDocument();
+
+    api({});
+    fireEvent.click(dialog.getByRole("button", { name: "This week" }));
+    expect(dialog.getByText("Loading…")).toBeInTheDocument();
+    expect(
+      await dialog.findByText("Leaderboard is unavailable right now"),
+    ).toBeInTheDocument();
+  });
+
+  test("a warming-up player is picked out in the warming-up list", async () => {
+    savePlayer();
+    api({
+      "GET /leaderboard": () =>
+        respond(
+          200,
+          board({
+            warmingUp: [
+              { id: "p1", name: "Sachal", hits: 6, attempts: 10, games: 2 },
+            ],
+            me: {
+              ...row(null, "p1", "Sachal", 60),
+              attempts: 10,
+              ranked: false,
+            },
+          }),
+        ),
+    });
+    renderApp();
+    const dialog = await openLeaderboard();
+    const mine = await dialog.findByRole("listitem");
+    expect(mine).toHaveTextContent("Sachal6 of 10 hit · 5 to go");
+    expect(mine).toHaveAttribute("aria-current", "true");
+    expect(dialog.getByText("No one is ranked yet.")).toBeInTheDocument();
   });
 });

@@ -19,6 +19,7 @@ import { Shot } from "./shot";
 import { analyzeShot } from "./shot-analysis";
 import { groundRun, turfParameters, TURF_PRESETS } from "./ground";
 import { evaluateTarget } from "./game";
+import { createCelebration } from "./celebration-effects";
 import { toYards } from "./conversions-lib";
 
 // Scene units are yards; the physics runs in meters.
@@ -84,6 +85,9 @@ export function createSimulator(container, callbacks = {}) {
     0.5,
     fleet ? FLEET_FAR : 2600,
   );
+  // The win confetti hangs off the camera, which draws only if it is in the scene.
+  scene.add(camera);
+  const celebration = createCelebration(camera);
 
   // --- ball, tee, shadow, tracer, landing marker ---
   const restPosition = new THREE.Vector3(
@@ -546,6 +550,7 @@ export function createSimulator(container, callbacks = {}) {
   function update(dt) {
     scenerySeconds += dt;
     range.userData.update(scenerySeconds, camera);
+    celebration.update(dt);
     if (airTarget.visible) airBall.rotation.y = scenerySeconds * 0.4;
     if (state !== ADDRESS) {
       // The swing keeps running into its follow-through after the ball has gone.
@@ -743,6 +748,8 @@ export function createSimulator(container, callbacks = {}) {
     setClub,
     setViewInset,
     resetView,
+    // Confetti and a sound for a won game: "win", or "perfect" for 5 of 5.
+    celebrate: celebration.celebrate,
     dispose,
     // Step the simulation by hand; used to verify behaviour without waiting
     // on real time.

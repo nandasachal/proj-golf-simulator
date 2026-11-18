@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import SaveName from "./save-name";
 
 const describeSide = (offlineYards) => {
   if (offlineYards === 0) return "on the centre line";
@@ -57,10 +58,45 @@ const Pips = ({ round, total, playing }) => (
   </ol>
 );
 
+// Where a saved player stands on the all-time board after a game, from the
+// leaderboard's answer for them.
+function boardLines(board) {
+  const me = board?.me;
+  if (!me) return [];
+  const toGo = board.minAttempts - me.attempts;
+  const lines = [
+    me.ranked
+      ? `Rank ${me.rank} · ${Math.round(me.pct)}% hit`
+      : `Warming up: ${toGo} more ${toGo === 1 ? "target" : "targets"} to be ranked`,
+  ];
+  if (board.passes) {
+    const { name, hitsNeeded } = board.passes;
+    lines.push(
+      hitsNeeded === 1
+        ? `One more hit passes ${name}`
+        : `${hitsNeeded} more hits pass ${name}`,
+    );
+  }
+  return lines;
+}
+
 // Game mode, top right: the target that is up, progress toward the goal,
 // every shot of the game, and the games won this session. On phones it is a
-// small card: the target, the pips and the score.
-const GameCard = ({ mode, goal, target, round, session, onRestart }) => {
+// small card: the target, the pips and the score. A finished game asks for a
+// name to save it under, and once there is one says where the player stands.
+const GameCard = ({
+  mode,
+  goal,
+  target,
+  round,
+  session,
+  onRestart,
+  player,
+  board,
+  onPlayer,
+}) => {
+  // Shown once, straight after a name is saved, until it is dismissed.
+  const [recoveryCode, setRecoveryCode] = useState(null);
   const hits = round.filter((shot) => shot.hit).length;
   const over = round.length >= goal.targets;
   const won = hits >= goal.toWin;
@@ -114,7 +150,17 @@ const GameCard = ({ mode, goal, target, round, session, onRestart }) => {
         )
       )}
 
-      <Pips round={round} total={goal.targets} playing={!over} />
+      <div className="flex items-end justify-between gap-2">
+        <Pips round={round} total={goal.targets} playing={!over} />
+        {player && (
+          <p
+            className="min-w-0 truncate text-[10px] text-white/50 md:text-[11px]"
+            aria-label={`Playing as ${player.name}`}
+          >
+            {player.name}
+          </p>
+        )}
+      </div>
       <div className="mt-1.5 flex items-baseline justify-between gap-2 text-[11px] tabular-nums md:text-xs">
         <p className="font-semibold">
           {hits} hit
@@ -154,6 +200,56 @@ const GameCard = ({ mode, goal, target, round, session, onRestart }) => {
               </li>
             ))}
         </ol>
+      )}
+
+      {recoveryCode ? (
+        <div className="mt-2 whitespace-normal border-t border-white/10 pt-2">
+          <p className="text-[11px] text-white/70 md:text-xs">
+            Saved as {player?.name}. Your recovery code:
+          </p>
+          <p className="mt-1 select-all break-all font-mono text-sm font-bold tracking-wider text-amber-300 md:text-base">
+            {recoveryCode}
+          </p>
+          <p className="mt-1 text-[11px] leading-snug text-white/70 md:text-xs">
+            Write this down to use your name on another device. It is only shown
+            once.
+          </p>
+          <button
+            type="button"
+            className="mt-1.5 rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20"
+            onClick={() => setRecoveryCode(null)}
+          >
+            Got it
+          </button>
+        </div>
+      ) : (
+        over &&
+        (player ? (
+          boardLines(board).length > 0 && (
+            <div
+              className="mt-2 whitespace-normal border-t border-white/10 pt-2 text-[11px] leading-snug md:text-xs"
+              aria-label="Leaderboard standing"
+            >
+              {boardLines(board).map((line, i) => (
+                <p
+                  key={line}
+                  className={i === 0 ? "font-semibold" : "text-lime-300"}
+                >
+                  {line}
+                </p>
+              ))}
+            </div>
+          )
+        ) : (
+          <SaveName
+            hits={hits}
+            targets={goal.targets}
+            onSaved={(saved, code) => {
+              setRecoveryCode(code || null);
+              onPlayer(saved);
+            }}
+          />
+        ))
       )}
 
       <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-white/10 pt-1.5 md:mt-2.5 md:gap-3 md:pt-2">

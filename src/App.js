@@ -8,6 +8,10 @@ import ShotReadout from "./components/simulator/shot-readout";
 import SettingsModal from "./components/simulator/settings-modal";
 import GameCard from "./components/simulator/game-card";
 import FlightMap from "./components/simulator/flight-map";
+import LeaderboardModal from "./components/simulator/leaderboard-modal";
+import { getLeaderboard } from "./players/api";
+import { loadProfile } from "./players/profile";
+import { flush, newGameId, recordShot } from "./players/queue";
 import { useQueryState, useSetQueries } from "./hooks/use-query";
 import { ArrowCounterclockwise } from "react-bootstrap-icons";
 import { createSimulator } from "./simulate/main";
@@ -259,6 +263,10 @@ function App() {
   const [session, setSession] = useState(NO_SESSION);
   // The simulator's callbacks are created once, so they read these here.
   const game = useRef({ target: null, shots: [], goal: null, next: null });
+  // The saved player, if this browser has one, and the leaderboard's answer
+  // for them once a game is over.
+  const [player, setPlayer] = useState(loadProfile);
+  const [board, setBoard] = useState(null);
   // Set when a shot has been scored, so the next target appears once the
   // camera is back.
   const targetDone = useRef(false);
@@ -305,8 +313,23 @@ function App() {
           game.current.shots = shots;
           setRound(shots);
           targetDone.current = true;
+          recordShot({
+            gameId: game.current.id,
+            mode: game.current.mode,
+            club: game.current.club,
+            targetYards: aimedAt.distanceYards,
+            hit,
+            shotId: newGameId(),
+            playedAt: new Date().toISOString(),
+          });
           if (shots.length === goal.targets) {
-            const won = shots.filter((shot) => shot.hit).length >= goal.toWin;
+            const hits = shots.filter((shot) => shot.hit).length;
+            const won = hits >= goal.toWin;
+            if (won) {
+              simulator.current?.celebrate?.(
+                hits === goal.targets ? "perfect" : "win",
+              );
+            }
             setSession((previous) => ({
               played: previous.played + 1,
               won: previous.won + (won ? 1 : 0),
@@ -369,12 +392,15 @@ function App() {
     // A ball already in the air was not hit at the new game's first target.
     staleShot.current = true;
     game.current.shots = [];
+    game.current.id = newGameId();
     setRound([]);
     setTarget((previous) => (goal ? nextTarget(previous) : null));
   };
   game.current.goal = goal;
   game.current.next = nextTarget;
   game.current.target = target;
+  game.current.mode = mode;
+  game.current.club = club.id;
   useEffect(() => {
     setSession(NO_SESSION);
     startGame();
@@ -384,6 +410,31 @@ function App() {
   useEffect(() => {
     simulator.current.setTarget(target);
   }, [target]);
+
+  // Shots that could not be sent earlier go once the API can be reached.
+  useEffect(() => {
+    flush();
+    window.addEventListener("online", flush);
+    return () => window.removeEventListener("online", flush);
+  }, []);
+
+  // After a game, or a name saved at the end of one: send its shots, then
+  // ask where the player now stands.
+  const gameOver = goal != null && round.length >= goal.targets;
+  useEffect(() => {
+    setBoard(null);
+    if (!gameOver || !player) return undefined;
+    let stale = false;
+    flush()
+      .then(() => getLeaderboard({ mode, period: "all", player: player.id }))
+      .then((answer) => {
+        if (!stale) setBoard(answer);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [gameOver, player, mode]);
 
   const handleTurfPreset = (key) =>
     setQueries({ turf: key, ...CLEAR_TURF_OVERRIDES });
@@ -539,7 +590,9 @@ function App() {
         <div id="display-container" ref={stage} className="absolute inset-0" />
 
         <div className="pointer-events-none absolute inset-0 flex items-start justify-between gap-3 p-3 md:p-4">
-          <div className="pointer-events-auto ml-auto flex flex-col items-end gap-2">
+          {/* Above the shot readout: on a phone the finished card, with its
+              name form, reaches down to it and must keep Play again in reach. */}
+          <div className="pointer-events-auto relative z-30 ml-auto flex flex-col items-end gap-2">
             {goal && (
               <GameCard
                 mode={mode}
@@ -548,6 +601,9 @@ function App() {
                 round={round}
                 session={session}
                 onRestart={startGame}
+                player={player}
+                board={board}
+                onPlayer={setPlayer}
               />
             )}
             {/* Folded away to start with on phones, where the picture is
@@ -582,8 +638,8 @@ function App() {
             </button>
           </div>
         )}
-        {/* Settings, bottom left. */}
-        <div className="absolute bottom-3 left-3 z-20 md:bottom-4 md:left-4">
+        {/* Settings and the leaderboard, bottom left. */}
+        <div className="absolute bottom-3 left-3 z-20 flex gap-2 md:bottom-4 md:left-4">
           <SettingsModal
             side={side}
             turf={turf}
@@ -596,6 +652,10 @@ function App() {
             onClub={handleClub}
             onClubCarry={handleClubCarry}
             onResetCarries={handleResetCarries}
+          />
+          <LeaderboardModal
+            player={player}
+            startMode={mode === "advanced" ? "advanced" : "normal"}
           />
         </div>
       </div>
