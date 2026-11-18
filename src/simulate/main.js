@@ -191,6 +191,9 @@ export function createSimulator(container, callbacks = {}) {
   landingLabel.scale.set(4, 1.5, 1);
   landingMarker.add(landingRing, landingLabel);
   scene.add(landingMarker);
+  // Whether there is a shot line, and a landing marker, to show or put away.
+  let traced = false;
+  let landed = false;
 
   // --- game-mode target: a beam, and the circle at its foot ---
   const TARGET_COLOR = 0xffb020;
@@ -394,6 +397,7 @@ export function createSimulator(container, callbacks = {}) {
     swingSeconds = 0;
     ballToRest();
     landingMarker.visible = false;
+    landed = false;
 
     shot = new Shot({ dt: SHOT_DT, ...launch });
     // Shape is judged against the line the golfer aimed down, so name it
@@ -454,6 +458,7 @@ export function createSimulator(container, callbacks = {}) {
     tracer.geometry.setPositions(positions);
     tracer.geometry.instanceCount = 0;
     tracer.visible = true;
+    traced = true;
 
     flightSeconds = 0;
     progressSeconds = 0;
@@ -551,6 +556,7 @@ export function createSimulator(container, callbacks = {}) {
       material.map = labelTexture(`${Math.round(analysis.totalYards)} yd`);
       material.needsUpdate = true;
       landingMarker.visible = true;
+      landed = true;
 
       if (analysis.target) paintTarget(analysis.target.hit);
       landedSeconds = 0;
@@ -761,6 +767,12 @@ export function createSimulator(container, callbacks = {}) {
     setClub,
     setViewInset,
     resetView,
+    // The last shot's line and landing marker, put away once the next shot
+    // is being lined up and brought back if it is asked for again.
+    showShot(visible) {
+      tracer.visible = visible && traced;
+      landingMarker.visible = visible && landed;
+    },
     // Confetti and a sound for a won game: "win", or "perfect" for 5 of 5.
     celebrate: celebration.celebrate,
     dispose,

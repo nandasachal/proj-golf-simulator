@@ -72,6 +72,7 @@ beforeEach(() => {
     setSide: jest.fn(),
     setAim: jest.fn(),
     setTarget: jest.fn(),
+    showShot: jest.fn(),
     setClub: jest.fn(),
     setViewInset: jest.fn(),
     dispose: jest.fn(),
@@ -1666,6 +1667,29 @@ describe("bird's-eye view in a game", () => {
       expect(map().querySelector('[data-map="flight"]')).not.toBeNull();
       act(() => jest.advanceTimersByTime(10000));
       expect(tab("Previous shot")).toHaveAttribute("aria-pressed", "true");
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("the shot's numbers along the bottom and its line on the range go with it", () => {
+    jest.useFakeTimers();
+    try {
+      renderApp("/");
+      unfold();
+      const bar = () => screen.queryByRole("status", { name: "Shot result" });
+      act(() => callbacks.onResult(landed));
+      expect(bar()).toHaveTextContent("220");
+      expect(simulator.showShot).toHaveBeenLastCalledWith(true);
+
+      act(() => jest.advanceTimersByTime(5100));
+      expect(bar()).not.toBeInTheDocument();
+      expect(simulator.showShot).toHaveBeenLastCalledWith(false);
+
+      // asked for again, they come back
+      fireEvent.click(tab("Previous shot"));
+      expect(bar()).toHaveTextContent("220");
+      expect(simulator.showShot).toHaveBeenLastCalledWith(true);
     } finally {
       jest.useRealTimers();
     }

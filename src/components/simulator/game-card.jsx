@@ -176,24 +176,25 @@ const GameCard = ({
 
       {round.length > 0 && (
         <ol
-          className="mt-2 hidden max-h-[132px] flex-col gap-0.5 overflow-y-auto border-t border-white/10 pt-2 text-xs md:flex"
+          className="mt-2 hidden max-h-[132px] flex-col gap-0.5 overflow-y-auto overflow-x-hidden border-t border-white/10 pt-2 text-xs md:flex"
           aria-label="Shots this game"
         >
           {round
             .map((shot, i) => ({ ...shot, number: i + 1 }))
             .reverse()
             .map((shot) => (
-              <li key={shot.number} className="flex gap-2 tabular-nums">
-                <span className="w-4 text-right text-white/40">
+              <li key={shot.number} className="flex min-w-0 gap-2 tabular-nums">
+                <span className="w-4 shrink-0 text-right text-white/40">
                   {shot.number}
                 </span>
-                <span className="w-12 text-white/60">
+                <span className="w-12 shrink-0 text-white/60">
                   {shot.distanceYards} yd
                 </span>
                 <span
-                  className={
+                  // A long miss is cut short with an ellipsis, never scrolled.
+                  className={`min-w-0 flex-1 truncate text-left ${
                     shot.hit ? "font-semibold text-lime-300" : "text-white/80"
-                  }
+                  }`}
                 >
                   {shot.hit ? "Hit" : `Missed: ${shot.miss}`}
                 </span>

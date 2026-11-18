@@ -255,6 +255,9 @@ function App() {
   const stage = useRef(null);
   const [live, setLive] = useState(null);
   const [result, setResult] = useState(null);
+  // False once the bird's-eye card has gone back to the current shot: the
+  // last shot's numbers and its line on the range are then put away.
+  const [past, setPast] = useState(true);
   // True once the view has been dragged round, until it is reset.
   const [orbiting, setOrbiting] = useState(false);
   const [target, setTarget] = useState(null);
@@ -427,6 +430,10 @@ function App() {
   useEffect(() => {
     simulator.current.setTarget(target);
   }, [target]);
+
+  useEffect(() => {
+    simulator.current.showShot?.(past);
+  }, [past]);
 
   const savePlayer = (saved) => {
     setPlayer(saved);
@@ -632,7 +639,12 @@ function App() {
             )}
             {/* Folded away to start with on phones, where the picture is
                 small. */}
-            <FlightMap result={result} target={target} startOpen={isDesktop} />
+            <FlightMap
+              result={result}
+              target={target}
+              startOpen={isDesktop}
+              onPast={setPast}
+            />
           </div>
         </div>
         {/* Along the bottom: the result bar with Hit to its right, the pair
@@ -641,7 +653,7 @@ function App() {
             screen. */}
         <div className="pointer-events-none absolute bottom-[60px] left-3 right-3 z-20 flex justify-center md:bottom-4 md:left-20 md:right-20">
           <div className="pointer-events-auto flex max-w-full items-stretch gap-2">
-            <ShotReadout live={live} result={result} />
+            <ShotReadout live={live} result={past ? result : null} />
             {isDesktop && (
               <HitButton onClick={handleHit} className="min-h-[52px] px-7" />
             )}

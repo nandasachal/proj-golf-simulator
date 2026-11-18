@@ -38,30 +38,38 @@ const TAB =
 // shot (the target that is up, before it is hit at) and the previous shot
 // (its flight, run and numbers). In practice there is only the last shot.
 // The heading folds it away.
-const FlightMap = ({ result, target = null, startOpen = true }) => {
+const FlightMap = ({ result, target = null, startOpen = true, onPast }) => {
   const [open, setOpen] = useState(startOpen);
-  const [view, setView] = useState("current");
   const shot = result?.track ? result : null;
-  // A shot that has just stopped is what to look at, for a few seconds; then
-  // it is back to the target that is up. Either can be asked for again.
+  // Which view was last chosen, and for which shot: a shot that has just
+  // stopped is what to look at until something else is chosen for it.
+  const [choice, setChoice] = useState({ shot: null, view: "current" });
+  const view =
+    choice.shot === shot ? choice.view : shot ? "previous" : "current";
+  // After a few seconds it is back to the target that is up. A view that was
+  // asked for stays: it is not turned back.
   const back = useRef(null);
   useEffect(() => {
     if (!shot) return undefined;
-    setView("previous");
     back.current = setTimeout(
-      () => setView("current"),
+      () => setChoice({ shot, view: "current" }),
       PREVIOUS_SECONDS * 1000,
     );
     return () => clearTimeout(back.current);
   }, [shot]);
-  // A view that was asked for stays: it is not turned back after the 5 s.
   const choose = (id) => {
     clearTimeout(back.current);
-    setView(id);
+    setChoice({ shot, view: id });
   };
+  const showing = !target ? "previous" : !shot ? "current" : view;
+  // The rest of the screen keeps the last shot (its line on the range, its
+  // numbers along the bottom) only while this card is on it.
+  const past = !(shot && showing === "current");
+  useEffect(() => {
+    onPast?.(past);
+  }, [past, onPast]);
   if (!shot && !target) return null;
 
-  const showing = !target ? "previous" : !shot ? "current" : view;
   const previous = showing === "previous";
   const track = previous
     ? shot.track
