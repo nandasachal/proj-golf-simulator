@@ -313,6 +313,42 @@ next shot is hit.
   re-encodes the model's largest textures in place (normal maps to 1024 px,
   colour maps to 2048 px). Needs `cwebp`/`dwebp`.
 
+### Players and leaderboard
+
+A player saves a name after a finished game; from then on every scored game shot
+is recorded under it and ranked on a leaderboard by share of targets hit. The
+rules a contributor needs:
+
+- **Identity is a name plus a browser-held key**, no account. `POST /players`
+  returns the key and a one-time recovery code; the key lives in localStorage
+  (`golf.player`). The server stores only hashes.
+- **Every scored shot counts when it lands**, abandoned games included, so a bad
+  start cannot be restarted away. Practice shots are never recorded.
+- **15 attempts to be ranked** (three games), per mode and period; below that a
+  player is "warming up". Normal and Advanced are separate boards, each with
+  This week (from Monday 00:00 UTC) and All time.
+- **The game never depends on the API.** Shots go through a localStorage queue
+  (`golf.shots`, `src/players/queue.js`) that holds them while there is no saved
+  name or the API is unreachable and sends them later. Each shot carries its own
+  id and played-at time, so a resend is not counted twice and an offline shot
+  lands in the week it was played.
+- **Win moment**: a won game calls `simulator.celebrate("win" | "perfect")`:
+  confetti attached to the camera and a short synthesised sound
+  (`src/simulate/celebration.js` for the maths, `celebration-effects.js` for the
+  mesh and audio). Confetti is skipped under `prefers-reduced-motion`.
+
+```
+src/players/      api.js (fetch client), profile.js (saved player), queue.js (shot queue)
+src/components/simulator/save-name.jsx, leaderboard-modal.jsx
+server/           FastAPI + Postgres API: see server/README.md
+```
+
+The client reads the API base from `REACT_APP_API_URL` (default
+`http://localhost:8000` in development, `https://api.golfswingsimulator.com` in
+production). Scores are worked out in the browser, so the API limits abuse (rate
+limits, five shots a game, sane target distances, admin removal) rather than
+preventing it.
+
 ### Hosting
 
 Static React app (Create React App) on Render: static site `golf-swing-simulator`,
@@ -320,7 +356,7 @@ auto-deploying from `main`, build `npm ci && npm run build`, publish `build/`. T
 a `yarn.lock` in the repo makes Render run its own `yarn install` first.
 Live at https://golf-swing-simulator.onrender.com (`NODE_VERSION` is pinned to 20.9.0 there).
 
-`scripts/check.sh` (tests + a `CI=true` build) is the local gate and uses the same
+`scripts/check.sh` (client tests, server tests + a `CI=true` build) is the local gate and uses the same
 strict build Render does, so a lint warning fails locally before it fails a deploy.
 
 The custom domain in `CNAME` (golfswingsimulator.com) still points at the old

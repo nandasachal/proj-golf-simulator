@@ -1,6 +1,6 @@
 # Product Spec: Players, Leaderboard and Visitor Tracking
 
-Status: proposed 2026-11-17
+Status: approved 2026-11-17
 Eng plan: [../eng-plans/profiles-leaderboard.md](../eng-plans/profiles-leaderboard.md)
 
 ## What this is

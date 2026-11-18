@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Golf Swing Simulator: names, scoring and the leaderboard</title>
+<style>
+  body { font: 15px/1.55 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #1a1d1a; max-width: 720px; margin: 40px auto; padding: 0 24px; }
+  h1 { font-size: 26px; margin-bottom: 4px; }
+  h2 { font-size: 18px; margin-top: 30px; border-bottom: 1px solid #d9ddd6; padding-bottom: 4px; }
+  .meta { color: #5d655c; margin-top: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e3e6e0; vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #5d655c; }
+  .note { background: #f3f6ee; border-left: 3px solid #9ac43c; padding: 8px 12px; }
+</style>
+</head>
+<body>
+<h1>Names, scoring and the leaderboard</h1>
+<p class="meta">Golf Swing Simulator · as of 2026-11-17</p>
+
+<p class="note">Status: built and tested, not yet live. It goes live on
+golfswingsimulator.com once the leaderboard service is deployed.</p>
+
+<h2>Playing a game</h2>
+<p>A game is 5 targets with one shot at each. In Normal the targets are rings on
+the ground and 3 hits win. In Advanced the targets are in the air and 4 hits
+win. Practice has no targets and is never scored.</p>
+<p>A won game sets off confetti and a short sound, bigger for 5 of 5. If your
+device is set to reduce motion, you get the sound without the confetti.</p>
+
+<h2>Saving a name</h2>
+<p>You can play straight away without signing up. When a game finishes, the game
+card asks whether to save it to the leaderboard. Type a name and press Save.</p>
+<ul>
+  <li>Names are 2 to 16 characters and unique regardless of capitals. The first
+  person to save a name owns it.</li>
+  <li>There is no email or password. Your browser remembers you.</li>
+  <li>The game you just finished is saved with the name. Games before it are not.</li>
+  <li>You are shown a <strong>recovery code</strong> once. Write it down: it is
+  the only way to use your name on another phone or browser, or after clearing
+  your browser data.</li>
+</ul>
+<p>To use your name on a new device, finish a game there, choose "Already have a
+name? Use recovery code", and enter the name and the code. This moves your name
+to the new device: the old one still shows the name but stops saving shots
+until you use the code there again.</p>
+
+<h2>How you are scored</h2>
+<table>
+  <tr><th>Rule</th><th>What it means</th></tr>
+  <tr><td>Hit %</td><td>Targets hit divided by targets attempted, across every game you have played in that mode.</td></tr>
+  <tr><td>Every shot counts</td><td>A shot is counted the moment it lands. Restarting a game that started badly does not remove its shots.</td></tr>
+  <tr><td>15 targets to be ranked</td><td>Until you have attempted 15 targets (three games) you are listed as "warming up" and have no rank.</td></tr>
+  <tr><td>Separate boards</td><td>Normal and Advanced are ranked separately.</td></tr>
+  <tr><td>Ties</td><td>The player who has attempted more targets ranks higher.</td></tr>
+</table>
+
+<h2>The leaderboard</h2>
+<p>Open it with the trophy button next to Settings. Choose Normal or Advanced,
+and This week or All time. The week starts on Monday at 00:00 UTC.</p>
+<p>Each row shows rank, name, hit %, games played and best streak (the longest
+run of hits in a row). The top 20 are listed. Once you have played in that mode and period, your own row is always shown and
+highlighted; if you are outside the top 20 it appears below the list with the
+players just above and below you.</p>
+<p>After each finished game the game card shows where you stand: your rank and
+hit %, or how many more targets you need to be ranked. When someone is just
+ahead of you it also says how many more hits would pass them.</p>
+
+<h2>When something goes wrong</h2>
+<table>
+  <tr><th>What you see</th><th>Why</th></tr>
+  <tr><td>"That name is taken"</td><td>Someone already saved it. Pick another, or use your recovery code if it is yours.</td></tr>
+  <tr><td>"That name and code don't match"</td><td>The recovery code or name was mistyped.</td></tr>
+  <tr><td>"Leaderboard is unavailable right now"</td><td>The leaderboard service could not be reached. The game still plays; your shots are kept on your device and sent when it is back.</td></tr>
+  <tr><td>"Too many tries"</td><td>Too many names or codes were tried in a short time. Wait a minute.</td></tr>
+  <tr><td>Your name is gone</td><td>The browser's data was cleared, or this is a different device. Use your recovery code.</td></tr>
+</table>
+
+<h2>Limits</h2>
+<ul>
+  <li>Scores are worked out in your browser. The board is meant for friends, not
+  for strangers competing for prizes.</li>
+  <li>Offensive names are refused, and the site owner can remove a player.</li>
+</ul>
+</body>
+</html>

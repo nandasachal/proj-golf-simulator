@@ -1,6 +1,6 @@
 # Phase plan: Players, Leaderboard and Visitor Tracking
 
-Status: proposed 2026-11-17
+Status: approved 2026-11-17 (backend: option A, Render); phases 2 and 3 built and reviewed 2026-11-17, not yet deployed; phase 1 waits on the Cloudflare token
 Tier: 1
 Spec: [../product-specs/profiles-leaderboard.md](../product-specs/profiles-leaderboard.md)
 
@@ -20,7 +20,7 @@ browser (React)  ──HTTPS/JSON──►  API  ──►  Postgres
    player id + secret key
 ```
 
-**Backend choice (needs Sachal's decision, it costs money):**
+**Backend choice: A, Render (Sachal, 2026-11-17).**
 
 | | A. Render web service + Render Postgres (recommended) | B. Cloudflare Worker + D1 |
 |---|---|---|
@@ -80,36 +80,36 @@ Each phase is shippable alone. Built top down, one at a time.
 - [ ] AC1 — the live page loads the beacon script and the Cloudflare dashboard
   shows a visit.
 
-### Phase 2: players and recording
+### Phase 2: players and recording — built 2026-11-17
 
 - In: `server/` (FastAPI, Postgres, migrations, tests against a real local
   Postgres), `POST /players`, `/players/recover`, `POST /shots`; client
   save-name step, local profile, offline queue.
 - Out: any leaderboard UI.
-- [ ] AC1 — `scripts/check.sh` runs the server tests as well as the client's
+- [x] AC1 — `scripts/check.sh` runs the server tests as well as the client's
   and is green.
-- [ ] AC2 — a new name returns an id, key and recovery code; the same name in
+- [x] AC2 — a new name returns an id, key and recovery code; the same name in
   different capitals returns 409.
-- [ ] AC3 — `POST /shots` without a valid key is 401; a sixth shot on one game
+- [x] AC3 — `POST /shots` without a valid key is 401; a sixth shot on one game
   id is rejected; an out-of-range target is rejected.
-- [ ] AC4 — in the browser: finish a game with no name saved, enter a name,
+- [x] AC4 — in the browser: finish a game with no name saved, enter a name,
   reload, play another game; the database holds 10 shots under that player.
-- [ ] AC5 — with the API unreachable the game plays normally and the shots are
+- [x] AC5 — with the API unreachable the game plays normally and the shots are
   sent once it is back.
-- [ ] AC6 — practice shots are never sent.
+- [x] AC6 — practice shots are never sent.
 
-### Phase 3: leaderboard
+### Phase 3: leaderboard — built 2026-11-17
 
 - In: `GET /leaderboard`, trophy button, dialog with Normal/Advanced and This
   week/All time, the player's own row and neighbours, "one more hit passes X"
   on the end-of-game card, the win moment.
-- [ ] AC1 — hit % = hits ÷ attempts across all of a player's shots in that
+- [x] AC1 — hit % = hits ÷ attempts across all of a player's shots in that
   mode, abandoned games included; covered by a server test with fixed data.
-- [ ] AC2 — a player with fewer than 15 attempts is listed as warming up and
+- [x] AC2 — a player with fewer than 15 attempts is listed as warming up and
   not ranked.
-- [ ] AC3 — the caller's row is returned and shown even outside the top 20.
-- [ ] AC4 — the dialog works by keyboard and at phone width.
-- [ ] AC5 — `knowledge-base/product-functionality` is created and describes
+- [x] AC3 — the caller's row is returned and shown even outside the top 20.
+- [x] AC4 — the dialog works by keyboard and at phone width.
+- [x] AC5 — `knowledge-base/product-functionality` is created and describes
   names, scoring and the leaderboard as shipped.
 
 ### Phase 4: ranks, bests, badges, daily streak
