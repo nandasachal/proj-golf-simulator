@@ -12,6 +12,7 @@ import LeaderboardModal from "./components/simulator/leaderboard-modal";
 import { getLeaderboard } from "./players/api";
 import { loadProfile } from "./players/profile";
 import { flush, newGameId, recordShot } from "./players/queue";
+import { identify, track } from "./analytics";
 import { useQueryState, useSetQueries } from "./hooks/use-query";
 import { ArrowCounterclockwise } from "react-bootstrap-icons";
 import { createSimulator } from "./simulate/main";
@@ -294,6 +295,11 @@ function App() {
         // A shot only counts against the target it was hit at: changing club
         // mid-flight puts up a new one.
         const { target: aimedAt, goal } = game.current;
+        track("shot_landed", {
+          mode: game.current.mode,
+          club: game.current.club,
+          total_yards: Math.round(shotResult.totalYards),
+        });
         if (
           shotResult.target &&
           !staleShot.current &&
@@ -313,6 +319,14 @@ function App() {
           game.current.shots = shots;
           setRound(shots);
           targetDone.current = true;
+          const played = { mode: game.current.mode, club: game.current.club };
+          if (shots.length === 1) track("game_started", played);
+          track("target_attempted", {
+            ...played,
+            hit,
+            target_yards: aimedAt.distanceYards,
+            target_number: shots.length,
+          });
           recordShot({
             gameId: game.current.id,
             mode: game.current.mode,
@@ -325,6 +339,7 @@ function App() {
           if (shots.length === goal.targets) {
             const hits = shots.filter((shot) => shot.hit).length;
             const won = hits >= goal.toWin;
+            track("game_finished", { ...played, hits, won });
             if (won) {
               simulator.current?.celebrate?.(
                 hits === goal.targets ? "perfect" : "win",
@@ -413,6 +428,7 @@ function App() {
 
   // Shots that could not be sent earlier go once the API can be reached.
   useEffect(() => {
+    identify(loadProfile());
     flush();
     window.addEventListener("online", flush);
     return () => window.removeEventListener("online", flush);
@@ -603,12 +619,16 @@ function App() {
                 onRestart={startGame}
                 player={player}
                 board={board}
-                onPlayer={setPlayer}
+                onPlayer={(saved) => {
+                  setPlayer(saved);
+                  identify(saved);
+                  track("name_saved");
+                }}
               />
             )}
             {/* Folded away to start with on phones, where the picture is
                 small. */}
-            <FlightMap result={result} startOpen={isDesktop} />
+            <FlightMap result={result} target={target} startOpen={isDesktop} />
           </div>
         </div>
         {/* Along the bottom: the result bar with Hit to its right, the pair

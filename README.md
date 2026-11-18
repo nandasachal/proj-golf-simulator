@@ -22,13 +22,13 @@ than abstract.
 - **Game mode** (`src/simulate/game.js`) — a game is 5 targets with one shot at
   each, chosen at the bottom of the shot panel as Normal or Advanced (`?mode=practice` turns the game
   off, `?mode=advanced` picks advanced; normal is the default).
-  - **Normal**: a random target ring on the ground, 140–330 yd out with the driver
+  - **Normal**: a random target circle on the ground, 140–330 yd out with the driver
     (between a soft and a full swing's carry with any other club) and up to 40 yd
-    either side, bigger the farther it is (13–20 yd radius). A shot scores if the
-    ball touches the ground inside the ring at any point: landing, bouncing,
+    either side, bigger the farther it is (12–18 yd radius). A shot scores if the
+    ball touches the ground inside the circle at any point: landing, bouncing,
     rolling through or stopping. Hit 3 of 5 to win.
-  - **Advanced**: a sphere floating in the air that the ball has to fly through
-    (7 yd radius at 100 yd, 9 at 200). Each one is placed on the flight of a random
+  - **Advanced**: a small sphere floating in the air that the ball has to fly through
+    (2.2 yd radius at 100 yd, 2.9 at 200). Each one is placed on the flight of a random
     swing with the club in hand, 30–85% of the way along it, so it is always
     reachable and turns up low and early, at the apex, or late on the way down. A
     miss reports how far high/low and left/right the ball passed it, or how far
@@ -287,13 +287,17 @@ React UI (App.js, components/)          src/simulate/ (no React)
 
 ### Bird's-eye view
 
-Once a shot has stopped, a card under the game card shows it from straight
-above (`components/simulator/flight-map.jsx`): the range with its 50 yd
-lines, the flight (solid), the run (dotted), where it landed and stopped,
-and the target it was hit at. The heading folds it away; it starts folded on
-phones. The points come with the shot result as `track`
-(`simulate/shot-track.js`, pure and tested), and the card goes away when the
-next shot is hit.
+A card under the game card shows the range from straight above
+(`components/simulator/flight-map.jsx`), with its 50 yd lines. In a game it
+has two views, switched by a pair of buttons: **Current shot** is the target
+that is up, before it is hit at, with its distance, line and (in advanced) its
+altitude; **Previous shot** is the last shot's flight (solid), run (dotted),
+where it landed and stopped, the target it was hit at, and its carry, run,
+offline and apex. It turns to the previous shot when one stops and back to
+the current one when the next target comes up. In practice there is only the
+last shot, shown once it has stopped. The heading folds the card away; it
+starts folded on phones. A shot's points come with its result as `track`
+(`simulate/shot-track.js`, pure and tested).
 
 ### Load time
 
@@ -348,6 +352,17 @@ The client reads the API base from `REACT_APP_API_URL` (default
 production). Scores are worked out in the browser, so the API limits abuse (rate
 limits, five shots a game, sane target distances, admin removal) rather than
 preventing it.
+
+### Analytics
+
+PostHog, for web analytics (page views) and product analytics (`src/analytics.js`).
+It is off unless the build has `REACT_APP_POSTHOG_KEY` (the project key, public
+by design; `REACT_APP_POSTHOG_HOST` for an EU project), so tests and local runs
+send nothing. Autocapture and session replay are off; the visitor id is kept in
+localStorage, not a cookie. Events: `shot_landed` (every shot, practice
+included), `game_started` (first scored shot of a game), `target_attempted`,
+`game_finished`, `name_saved`, `leaderboard_opened`. A saved player is
+identified by player id and name.
 
 ### Hosting
 

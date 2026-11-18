@@ -161,7 +161,7 @@ export function createSimulator(container, callbacks = {}) {
   landingMarker.add(landingRing, landingLabel);
   scene.add(landingMarker);
 
-  // --- game-mode target: a ring on the ground with a beacon above it ---
+  // --- game-mode target: a circle on the ground with a beacon above it ---
   const TARGET_COLOR = 0xffb020;
   const TARGET_HIT_COLOR = 0x8dff3a;
   const targetMaterial = new THREE.MeshBasicMaterial({
@@ -201,13 +201,6 @@ export function createSimulator(container, callbacks = {}) {
   targetEdge.rotation.x = -Math.PI / 2;
   groundOverlay(targetEdge, 5);
   targetEdge.position.y = 0.07;
-  const targetBullseye = new THREE.Mesh(
-    new THREE.RingGeometry(0.3, 0.36, 48),
-    targetEdgeMaterial,
-  );
-  targetBullseye.rotation.x = -Math.PI / 2;
-  groundOverlay(targetBullseye, 5);
-  targetBullseye.position.y = 0.07;
   const targetBeacon = new THREE.Mesh(
     new THREE.CylinderGeometry(1.2, 1.2, 45, 16, 1, true),
     targetBeaconMaterial,
@@ -217,34 +210,15 @@ export function createSimulator(container, callbacks = {}) {
     new THREE.SpriteMaterial({ depthTest: false, fog: false }),
   );
   const groundTarget = new THREE.Group();
-  groundTarget.add(targetDisc, targetEdge, targetBullseye, targetBeacon);
+  groundTarget.add(targetDisc, targetEdge, targetBeacon);
 
-  // An advanced target: a sphere in the air with hoops round it, a tether
-  // down to a mark on the turf so its distance can be read.
+  // An advanced target: a small sphere in the air, with a tether down to a
+  // mark on the turf so its distance can be read.
   const airTarget = new THREE.Group();
-  const airBall = new THREE.Group();
-  const airShell = new THREE.Mesh(
+  const airBall = new THREE.Mesh(
     new THREE.SphereGeometry(1, 32, 20),
-    targetMaterial,
-  );
-  airBall.add(airShell);
-  for (const [x, y] of [
-    [0, 0],
-    [Math.PI / 2, 0],
-    [0, Math.PI / 2],
-  ]) {
-    const hoop = new THREE.Mesh(
-      new THREE.TorusGeometry(1, 0.035, 8, 64),
-      targetEdgeMaterial,
-    );
-    hoop.rotation.set(x, y, 0);
-    airBall.add(hoop);
-  }
-  const airCore = new THREE.Mesh(
-    new THREE.SphereGeometry(0.16, 16, 12),
     targetEdgeMaterial,
   );
-  airBall.add(airCore);
   const airTether = new THREE.Mesh(
     new THREE.CylinderGeometry(0.12, 0.12, 1, 8, 1, true),
     targetBeaconMaterial,
@@ -287,12 +261,11 @@ export function createSimulator(container, callbacks = {}) {
       airBall.scale.setScalar(next.radius);
       airTether.scale.y = next.y - next.radius;
       airTether.position.y = (next.y - next.radius) / 2;
-      airMark.scale.setScalar(next.radius * 0.5);
+      airMark.scale.setScalar(next.radius * 1.5);
       targetLabel.position.y = next.y + next.radius + labelWidth * 0.25;
     } else {
       targetDisc.scale.setScalar(next.radius);
       targetEdge.scale.setScalar(next.radius);
-      targetBullseye.scale.setScalar(next.radius);
       targetLabel.position.y = 6 + next.z * 0.05;
     }
     const material = targetLabel.material;

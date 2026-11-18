@@ -193,8 +193,10 @@ def recover_player(body: Recovery, request: Request):
         if not hmac.compare_digest(actual, expected):
             return error(401, "invalid_recovery")
         key = secrets.token_urlsafe(32)
+        # Another key for the same player: the device that had the name
+        # before keeps working.
         conn.execute(
-            "UPDATE players SET key_hash = %s WHERE id = %s",
+            "INSERT INTO player_keys (key_hash, player_id) VALUES (%s, %s)",
             (key_hash(key), player_id),
         )
     return {"id": str(player_id), "name": name, "key": key}
@@ -209,8 +211,10 @@ def record_shot(
     with request.app.state.pool.connection() as conn:
         # The row lock makes the five-shot count safe against parallel requests.
         player = conn.execute(
-            "SELECT id FROM players WHERE key_hash = %s FOR UPDATE",
-            (key_hash(bearer(authorization)),),
+            "SELECT id FROM players WHERE key_hash = %(key)s OR id ="
+            " (SELECT player_id FROM player_keys WHERE key_hash = %(key)s)"
+            " FOR UPDATE",
+            {"key": key_hash(bearer(authorization))},
         ).fetchone()
         if not player:
             return error(401, "unauthorized")

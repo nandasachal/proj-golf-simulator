@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { track } from "../../analytics";
 import { Dialog } from "@headlessui/react";
 import { Trophy, X } from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
@@ -180,6 +181,7 @@ const LeaderboardModal = ({ player, startMode }) => {
           setMode(startMode);
           setAnswer(null);
           setOpen(true);
+          track("leaderboard_opened", { mode: startMode });
         }}
       >
         <Trophy size={18} />

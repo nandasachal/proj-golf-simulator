@@ -5,6 +5,9 @@ import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import "react-tooltip/dist/react-tooltip.css";
+import { startAnalytics } from "./analytics";
+
+startAnalytics();
 
 const router = createBrowserRouter([
   {

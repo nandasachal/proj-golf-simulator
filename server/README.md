@@ -51,7 +51,7 @@ Errors are `{"error": "<code>"}`.
 | Route | Result |
 |---|---|
 | `POST /players` `{name}` | 201 `{id, name, key, recoveryCode}` · 409 `name_taken` · 422 `invalid_name` |
-| `POST /players/recover` `{name, recoveryCode}` | 200 `{id, name, key}` (new key, old one stops working) · 401 `invalid_recovery` |
+| `POST /players/recover` `{name, recoveryCode}` | 200 `{id, name, key}` (a further key; earlier ones keep working) · 401 `invalid_recovery` |
 | `POST /shots` `Authorization: Bearer <key>`, `{gameId, mode, club, targetYards, hit}` | 201 `{ok: true}` · 401 `unauthorized` · 409 `game_full` · 422 `invalid_request` · 429 `rate_limited` |
 | `GET /leaderboard?mode=&period=&player=` | `{mode, period, minAttempts, rows, warmingUp, me, passes}` |
 | `GET /stats` (admin) | `{gamesStarted, gamesFinished, namesCreated, playersReturning}` |

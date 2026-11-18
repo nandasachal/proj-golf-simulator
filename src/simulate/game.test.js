@@ -135,7 +135,8 @@ describe("air targets", () => {
       expect(target.y - target.radius).toBeGreaterThanOrEqual(1);
       expect(target.z).toBeGreaterThan(30);
       expect(target.z).toBeLessThan(330);
-      expect(target.radius).toBeGreaterThan(5.5);
+      expect(target.radius).toBeGreaterThan(1.7);
+      expect(target.radius).toBeLessThan(4);
       expect(target.heightYards).toBe(Math.round(target.y));
       heights.push(target.y);
       sides.add(Math.sign(Math.round(target.x)));

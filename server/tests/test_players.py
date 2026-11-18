@@ -42,7 +42,7 @@ def test_invalid_names(client):
     assert client.post("/players", json={"name": "x" * 16}).status_code == 201
 
 
-def test_recover_rotates_the_key(client):
+def test_recover_gives_a_second_key_and_the_first_still_works(client):
     player = signup(client)
     assert shoot(client, player["key"]).status_code == 201
     response = client.post(
@@ -54,7 +54,7 @@ def test_recover_rotates_the_key(client):
     assert recovered["id"] == player["id"]
     assert recovered["name"] == "Sachal"
     assert recovered["key"] != player["key"]
-    assert shoot(client, player["key"]).status_code == 401
+    assert shoot(client, player["key"]).status_code == 201
     assert shoot(client, recovered["key"]).status_code == 201
 
 

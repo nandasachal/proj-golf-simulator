@@ -1,6 +1,6 @@
-// Game mode: a target somewhere downrange. Normal targets are rings on the
-// ground that the ball has to touch; advanced targets are spheres in the air
-// that it has to fly through. Positions are scene units: yards, tee at the
+// Game mode: a target somewhere downrange. Normal targets are circles on the
+// ground that the ball has to touch; advanced targets are small spheres in the
+// air that it has to fly through. Positions are scene units: yards, tee at the
 // origin, downrange is +z and -x is the right-hand side.
 import { getClub, swingSpeedRange, DEFAULT_CLUB_ID } from "./clubs";
 import { launchConditions } from "./launch-conditions";
@@ -20,8 +20,8 @@ const MAX_OFFLINE = 40;
 // Anything this close to the ground counts as touching it.
 const GROUND_CONTACT_YARDS = 0.06;
 
-// Farther targets are bigger: 13 yd radius at 140 yd, about 20 at 330.
-const radiusAt = (z) => 8 + 0.035 * z;
+// Farther targets are bigger: about 12 yd radius at 140 yd, 18 at 330.
+const radiusAt = (z) => 7.2 + 0.0315 * z;
 
 // `random` returns [0, 1). Pass the previous target to avoid a near repeat,
 // and `reach` ({ nearest, farthest } in yards) for a club other than the
@@ -52,9 +52,9 @@ export function randomTarget(
   };
 }
 
-// Air targets are bigger the farther out they are: 7 yd radius at 100 yd,
-// 9 at 200.
-const airRadiusAt = (z) => 5 + 0.02 * z;
+// Air targets are small, and a little bigger the farther out they are: 2.2 yd
+// radius at 100 yd, 2.9 at 200.
+const airRadiusAt = (z) => 1.6 + 0.0064 * z;
 const AIR_DT = 0.01;
 // How hard a face or path (degrees) the shot a target is taken from may have.
 const AIR_MAX_ANGLE = 3;

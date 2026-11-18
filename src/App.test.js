@@ -1466,6 +1466,69 @@ describe("bird's-eye view", () => {
   });
 });
 
+describe("bird's-eye view in a game", () => {
+  const map = () => screen.getByRole("region", { name: "Bird's-eye view" });
+  const tab = (name) => within(map()).getByRole("button", { name });
+  const landed = {
+    shape: "Fade",
+    carryYards: 200,
+    runYards: 20,
+    totalYards: 220,
+    offlineYards: 12,
+    apexYards: 25,
+    target: { hit: false, longYards: -9, rightYards: 4 },
+    track: {
+      air: [
+        [0, 0],
+        [10, 200],
+      ],
+      run: [
+        [10, 200],
+        [12, 220],
+      ],
+      target: { right: 5, downrange: 230, radius: 15, air: false },
+    },
+  };
+  const unfold = () =>
+    fireEvent.click(within(map()).getByRole("button", { name: /bird/i }));
+
+  test("shows the target that is up before it is hit at", () => {
+    renderApp("/");
+    unfold();
+    expect(tab("Current shot")).toHaveAttribute("aria-pressed", "true");
+    expect(tab("Previous shot")).toBeDisabled();
+    expect(
+      within(map()).getByRole("img", { name: /^Target: \d+ yards/ }),
+    ).toBeInTheDocument();
+    expect(map().querySelector('[data-map="target"]')).not.toBeNull();
+    expect(map().querySelector('[data-map="flight"]')).toBeNull();
+    expect(within(map()).queryByText("Altitude")).not.toBeInTheDocument();
+  });
+
+  test("turns to the previous shot when one lands, and back on request", () => {
+    renderApp("/");
+    unfold();
+    act(() => callbacks.onResult(landed));
+    expect(tab("Previous shot")).toHaveAttribute("aria-pressed", "true");
+    expect(map().querySelector('[data-map="flight"]')).not.toBeNull();
+    const stats = within(map().querySelector('[data-map="stats"]'));
+    expect(stats.getByText("200 yd")).toBeInTheDocument();
+    expect(stats.getByText("12 yd right")).toBeInTheDocument();
+    expect(stats.getByText("75 ft")).toBeInTheDocument();
+
+    fireEvent.click(tab("Current shot"));
+    expect(tab("Current shot")).toHaveAttribute("aria-pressed", "true");
+    expect(map().querySelector('[data-map="flight"]')).toBeNull();
+  });
+
+  test("gives an air target's altitude in advanced mode", () => {
+    renderApp("/?mode=advanced");
+    unfold();
+    const stats = map().querySelector('[data-map="stats"]');
+    expect(stats).toHaveTextContent(/Altitude\d+ yd · \d+ ft/);
+  });
+});
+
 describe("players and leaderboard", () => {
   const game = () => screen.getByRole("status", { name: "Game" });
   const HIT = { hit: true, longYards: 1, rightYards: 0 };
