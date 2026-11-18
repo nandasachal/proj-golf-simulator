@@ -9,7 +9,7 @@
   [product-specs/driving-range-game.md](product-specs/driving-range-game.md) and
   [eng-plans/driving-range-game.md](eng-plans/driving-range-game.md).
 
-- **Players, leaderboard and visitor tracking** (approved 2026-11-17, Render backend; building) — save a
+- **Players, leaderboard and visitor tracking** (names and leaderboard live 2026-11-17; visitor analytics waits on the Cloudflare token) — save a
   name, record every game, rank players by share of targets hit; visitor
   analytics; gamification in later phases. Needs a small backend. Awaiting
   approval and a hosting decision. See
