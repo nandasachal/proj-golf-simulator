@@ -22,8 +22,7 @@ describe("randomTarget", () => {
       expect(target.z).toBeGreaterThanOrEqual(140);
       expect(target.z).toBeLessThanOrEqual(330);
       expect(Math.abs(target.x)).toBeLessThanOrEqual(40);
-      expect(target.radius).toBeGreaterThan(10);
-      expect(target.radius).toBeLessThan(21);
+      expect(target.radius).toBe(3.6);
     }
   });
 
@@ -37,11 +36,11 @@ describe("randomTarget", () => {
     }
   });
 
-  test("farther targets are bigger", () => {
+  test("targets are the same size near and far", () => {
     const near = randomTarget(sequence(0, 0.5));
     const far = randomTarget(sequence(0.999, 0.5));
     expect(near.z).toBeCloseTo(140);
-    expect(far.radius).toBeGreaterThan(near.radius);
+    expect(far.radius).toBe(near.radius);
   });
 
   test("reports distance from the tee and which side of the line it is on", () => {

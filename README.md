@@ -22,12 +22,12 @@ than abstract.
 - **Game mode** (`src/simulate/game.js`) — a game is 5 targets with one shot at
   each, chosen at the bottom of the shot panel as Normal or Advanced (`?mode=practice` turns the game
   off, `?mode=advanced` picks advanced; normal is the default).
-  - **Normal**: a random target circle on the ground, 140–330 yd out with the driver
+  - **Normal**: a random target on the ground, the 3.6 yd radius circle at the foot of a beam, 140–330 yd out with the driver
     (between a soft and a full swing's carry with any other club) and up to 40 yd
-    either side, bigger the farther it is (12–18 yd radius). A shot scores if the
+    either side. A shot scores if the
     ball touches the ground inside the circle at any point: landing, bouncing,
     rolling through or stopping. Hit 3 of 5 to win.
-  - **Advanced**: a small sphere floating in the air that the ball has to fly through
+  - **Advanced**: a small banded sphere, spinning in the air, that the ball has to fly through
     (2.2 yd radius at 100 yd, 2.9 at 200). Each one is placed on the flight of a random
     swing with the club in hand, 30–85% of the way along it, so it is always
     reachable and turns up low and early, at the apex, or late on the way down. A

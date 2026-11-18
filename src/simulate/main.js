@@ -55,6 +55,37 @@ function labelTexture(text) {
   return texture;
 }
 
+// Slanted light and dark bands for the air target: wrapped round a spinning
+// sphere they climb it like a barber's pole, so it reads as a target and not
+// as a ball hanging in the sky. The material's colour tints them.
+function bandTexture() {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = "#3a3a3a";
+  ctx.beginPath();
+  ctx.moveTo(0, size);
+  ctx.lineTo(size / 2, size);
+  ctx.lineTo(size, size / 2);
+  ctx.lineTo(size, 0);
+  ctx.closePath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, size / 2);
+  ctx.lineTo(size / 2, 0);
+  ctx.closePath();
+  ctx.fill();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(6, 3);
+  return texture;
+}
+
 // How far the golfer's far shoulder is from the target line, and how far the
 // address camera is behind the ball, in yards.
 const GOLFER_CLEARANCE = 1.35;
@@ -161,7 +192,7 @@ export function createSimulator(container, callbacks = {}) {
   landingMarker.add(landingRing, landingLabel);
   scene.add(landingMarker);
 
-  // --- game-mode target: a circle on the ground with a beacon above it ---
+  // --- game-mode target: a beam, and the circle at its foot ---
   const TARGET_COLOR = 0xffb020;
   const TARGET_HIT_COLOR = 0x8dff3a;
   const targetMaterial = new THREE.MeshBasicMaterial({
@@ -202,7 +233,7 @@ export function createSimulator(container, callbacks = {}) {
   groundOverlay(targetEdge, 5);
   targetEdge.position.y = 0.07;
   const targetBeacon = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.2, 1.2, 45, 16, 1, true),
+    new THREE.CylinderGeometry(1, 1, 45, 24, 1, true),
     targetBeaconMaterial,
   );
   targetBeacon.position.y = 22.5;
@@ -215,10 +246,17 @@ export function createSimulator(container, callbacks = {}) {
   // An advanced target: a small sphere in the air, with a tether down to a
   // mark on the turf so its distance can be read.
   const airTarget = new THREE.Group();
+  const airBallMaterial = new THREE.MeshBasicMaterial({
+    color: TARGET_COLOR,
+    map: bandTexture(),
+    fog: false,
+  });
   const airBall = new THREE.Mesh(
     new THREE.SphereGeometry(1, 32, 20),
-    targetEdgeMaterial,
+    airBallMaterial,
   );
+  // Tipped over, so the bands are seen to turn from the tee.
+  airBall.rotation.z = 0.35;
   const airTether = new THREE.Mesh(
     new THREE.CylinderGeometry(0.12, 0.12, 1, 8, 1, true),
     targetBeaconMaterial,
@@ -240,6 +278,7 @@ export function createSimulator(container, callbacks = {}) {
     const color = hit ? TARGET_HIT_COLOR : TARGET_COLOR;
     targetMaterial.color.set(color);
     targetEdgeMaterial.color.set(color);
+    airBallMaterial.color.set(color);
     targetBeaconMaterial.color.set(color);
     targetMaterial.opacity = hit ? 0.55 : 0.3;
   }
@@ -266,6 +305,7 @@ export function createSimulator(container, callbacks = {}) {
     } else {
       targetDisc.scale.setScalar(next.radius);
       targetEdge.scale.setScalar(next.radius);
+      targetBeacon.scale.set(next.radius, 1, next.radius);
       targetLabel.position.y = 6 + next.z * 0.05;
     }
     const material = targetLabel.material;
@@ -524,7 +564,7 @@ export function createSimulator(container, callbacks = {}) {
     scenerySeconds += dt;
     range.userData.update(scenerySeconds, camera);
     celebration.update(dt);
-    if (airTarget.visible) airBall.rotation.y = scenerySeconds * 0.4;
+    if (airTarget.visible) airBall.rotation.y = scenerySeconds * 1.6;
     if (state !== ADDRESS) {
       // The swing keeps running into its follow-through after the ball has gone.
       swingSeconds = Math.min(swingSeconds + dt, SWING_DURATION);

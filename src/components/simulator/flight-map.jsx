@@ -197,7 +197,7 @@ const FlightMap = ({ result, target = null, startOpen = true }) => {
               data-map="target"
               cx={track.target.right}
               cy={-track.target.downrange}
-              // An air target is too small to see at this scale.
+              // Targets are too small to see at this scale.
               r={Math.max(track.target.radius, 5)}
               fill={
                 marked?.hit ? "rgba(163,230,53,0.35)" : "rgba(252,211,77,0.18)"
