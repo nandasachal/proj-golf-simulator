@@ -362,7 +362,9 @@ send nothing. Autocapture and session replay are off; the visitor id is kept in
 localStorage, not a cookie. Events: `shot_landed` (every shot, practice
 included), `game_started` (first scored shot of a game), `target_attempted`,
 `game_finished`, `name_saved`, `leaderboard_opened`. A saved player is
-identified by player id and name.
+identified by player id and name. Opening the site once with `?internal=1`
+marks that browser as ours (`?internal=0` unmarks it): its events carry
+`internal: true`, which the project's internal-users filter in PostHog hides.
 
 ### Hosting
 

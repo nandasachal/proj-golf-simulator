@@ -4,7 +4,22 @@
 import posthog from "posthog-js";
 
 const KEY = process.env.REACT_APP_POSTHOG_KEY;
+const INTERNAL = "golf.internal";
 let on = false;
+
+// Our own devices: opening the site once with ?internal=1 marks this browser,
+// and every event from it then carries internal: true, which PostHog's
+// "filter out internal and test users" rule hides. ?internal=0 unmarks it.
+export function internalDevice(search, storage) {
+  try {
+    const asked = new URLSearchParams(search).get("internal");
+    if (asked === "1") storage.setItem(INTERNAL, "1");
+    if (asked === "0") storage.removeItem(INTERNAL);
+    return storage.getItem(INTERNAL) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export function startAnalytics() {
   if (!KEY || process.env.NODE_ENV === "test") return;
@@ -19,6 +34,8 @@ export function startAnalytics() {
     // events below are worth counting.
     autocapture: false,
   });
+  if (internalDevice(window.location.search, window.localStorage))
+    posthog.register({ internal: true });
   on = true;
 }
 
