@@ -344,7 +344,7 @@ server/           FastAPI + Postgres API: see server/README.md
 ```
 
 The client reads the API base from `REACT_APP_API_URL` (default
-`http://localhost:8000` in development, `https://api.golfswingsimulator.com` in
+`http://localhost:8000` in development, `https://golf-leaderboard-api.onrender.com` in
 production). Scores are worked out in the browser, so the API limits abuse (rate
 limits, five shots a game, sane target distances, admin removal) rather than
 preventing it.

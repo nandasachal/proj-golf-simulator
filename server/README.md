@@ -74,5 +74,5 @@ and the Postgres `golf-leaderboard-db`, in the same workspace as the static site
 Render generates `ADMIN_TOKEN`; read it from the service's Environment page.
 Deploys are manual, like the site's.
 
-Migrations apply themselves when the service starts. The site reaches it at
-`api.golfswingsimulator.com` once that DNS record exists.
+Migrations apply themselves when the service starts. Live at
+https://golf-leaderboard-api.onrender.com, which is the address the site uses.

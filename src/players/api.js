@@ -1,7 +1,7 @@
 const BASE =
   process.env.REACT_APP_API_URL ||
   (process.env.NODE_ENV === "production"
-    ? "https://api.golfswingsimulator.com"
+    ? "https://golf-leaderboard-api.onrender.com"
     : "http://localhost:8000");
 
 // A hung API must not hold the shot queue or a Save button for ever.

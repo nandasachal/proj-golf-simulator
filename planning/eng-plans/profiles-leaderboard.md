@@ -1,6 +1,6 @@
 # Phase plan: Players, Leaderboard and Visitor Tracking
 
-Status: approved 2026-11-17 (backend: option A, Render); phases 2 and 3 built and reviewed 2026-11-17, not yet deployed; phase 1 waits on the Cloudflare token
+Status: approved 2026-11-17 (backend: option A, Render); phases 2 and 3 built and reviewed 2026-11-17, API deployed on Render 2026-11-17; phase 1 waits on the Cloudflare token
 Tier: 1
 Spec: [../product-specs/profiles-leaderboard.md](../product-specs/profiles-leaderboard.md)
 
@@ -34,7 +34,8 @@ Recommendation: A. It matches every other project, and the cost is small. B is
 the answer if paying monthly for a friends' leaderboard is not worth it.
 
 The API lives in this repo under `server/` and is served from
-`api.golfswingsimulator.com` (a DNS record: Sachal's action).
+https://golf-leaderboard-api.onrender.com (2026-11-17; an `api.` subdomain
+would need a DNS record and is not needed).
 
 **Data model**
 
