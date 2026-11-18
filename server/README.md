@@ -69,33 +69,10 @@ Errors are `{"error": "<code>"}`.
 
 ## Deploying on Render
 
-Not deployed yet. When it is, a web service plus a Postgres in the same
-workspace as the static site:
-
-```yaml
-services:
-  - type: web
-    name: golf-leaderboard-api
-    runtime: python
-    rootDir: server
-    buildCommand: pip install uv && uv sync --frozen --no-dev
-    startCommand: uv run --no-dev uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /healthz
-    numInstances: 1   # rate limits are in memory
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.2
-      - key: DATABASE_URL
-        fromDatabase:
-          name: golf-leaderboard-db
-          property: connectionString
-      - key: ALLOWED_ORIGINS
-        value: https://golfswingsimulator.com,https://www.golfswingsimulator.com,https://golf-swing-simulator.onrender.com
-      - key: ADMIN_TOKEN
-        generateValue: true
-databases:
-  - name: golf-leaderboard-db
-```
+Defined in [`../render.yaml`](../render.yaml): the web service `golf-leaderboard-api`
+and the Postgres `golf-leaderboard-db`, in the same workspace as the static site.
+Render generates `ADMIN_TOKEN`; read it from the service's Environment page.
+Deploys are manual, like the site's.
 
 Migrations apply themselves when the service starts. The site reaches it at
 `api.golfswingsimulator.com` once that DNS record exists.
