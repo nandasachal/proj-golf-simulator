@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Single pass/fail entrypoint: tests + build. Offline, no secrets, no evals.
+# Single pass/fail entrypoint: client tests, server tests, build. Offline, no secrets, no evals.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CI=true npx react-scripts test --watchAll=false
+
+# Server tests start their own throwaway Postgres (pgserver); nothing to install.
+(cd server && PATH="$HOME/.local/bin:$PATH" uv run --frozen pytest -q)
 
 # BUILD_PATH keeps this out of the tracked build/ dir (committed for GitHub Pages).
 tmp_build="$(mktemp -d)"
