@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Listbox } from "@headlessui/react";
-import { ArrowCounterclockwise, ChevronDown } from "react-bootstrap-icons";
+import {
+  ArrowCounterclockwise,
+  ChevronDown,
+  InfoCircle,
+} from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
 import { CATEGORIES, CLUBS } from "../../simulate/clubs";
 import { neutralOf, stateOf } from "../../utils/shortcuts";
@@ -22,14 +26,17 @@ const PATH = "#a3e635";
 const START = "#fb923c";
 const STRIKE = "#fbbf24";
 const AIM = "#7dd3fc";
+const ATTACK = "#c4b5fd";
+const LOFT = "#f9a8d4";
+const SPEED = "#2dd4bf";
 
 const words = (value, positive, negative, zero, unit = "°") =>
   value === 0
     ? zero
     : `${Math.abs(value)}${unit} ${value > 0 ? positive : negative}`;
 
-// What each control is called, how its value reads, and what a typed number
-// means. A value reads as a word and a number, shown as two fields: `words`
+// What each control is called, how its value reads, what a typed number
+// means, and (`info`) what it does to the shot, said when its (i) is clicked. A value reads as a word and a number, shown as two fields: `words`
 // are the word below, at and above neutral, and `number` is the size.
 const degrees = (v) => `${Math.abs(v)}°`;
 const describe = {
@@ -40,6 +47,7 @@ const describe = {
     number: degrees,
     typing: "degrees: + open, − closed",
     colour: FACE,
+    info: "Where the club face points at impact, measured from your aim. It mostly decides where the ball starts: open starts it right, closed left (for a right-hander).",
   },
   clubPathAngle: {
     name: "Club path",
@@ -48,6 +56,7 @@ const describe = {
     number: degrees,
     typing: "degrees: + in-to-out, − out-to-in",
     colour: PATH,
+    info: "The direction the club head is travelling through impact. Against the face it decides the curve: a face open to the path fades or slices, a face closed to it draws or hooks.",
   },
   strike: {
     name: "Strike",
@@ -56,6 +65,7 @@ const describe = {
     number: (v) => `${Math.abs(v)} in`,
     typing: "inches: + toe, − heel",
     colour: STRIKE,
+    info: "Where on the face the ball is struck. Off the toe it tends to draw and off the heel to fade, and either way it loses distance.",
   },
   aim: {
     name: "Aim",
@@ -64,6 +74,7 @@ const describe = {
     number: degrees,
     typing: "degrees: + right, − left",
     colour: AIM,
+    info: "Where you line up, left or right of the centre line. Face and path are measured from it, so it moves the whole shot.",
   },
   attackAngle: {
     name: "Attack angle",
@@ -71,13 +82,15 @@ const describe = {
     words: ["down", "level", "up"],
     number: degrees,
     typing: "degrees: + up, − down",
-    colour: PATH,
+    colour: ATTACK,
+    info: "Whether the club head is moving up or down at impact. Hitting up launches higher with less spin; hitting down launches lower with more.",
   },
   loftChange: {
     name: "Loft",
     words: ["less", "stock", "more"],
     typing: "degrees added to the standard loft",
-    colour: FACE,
+    colour: LOFT,
+    info: "The loft the club presents at impact. More loft launches higher with more spin; less launches lower and runs farther.",
   },
   swingSpeed: {
     name: "Swing speed",
@@ -85,14 +98,15 @@ const describe = {
     words: ["slower", "stock", "faster"],
     number: (v) => `${Math.round(v * 10) / 10} mph`,
     typing: "mph",
-    colour: PATH,
+    colour: SPEED,
+    info: "How fast the club head is moving at impact. More speed is more distance, and more curve on a shot that is already bending.",
   },
 };
 
-// One value box: the control's name over two fields. The word (square, open,
-// closed) is a button that puts the control back to neutral; the number can
-// be clicked to type over (Enter or clicking away keeps it, Escape puts it
-// back). The box the keyboard is on is outlined.
+// One value box: the control's name, with an (i) that says what it does, over
+// two fields. The word (square, open, closed) is a menu of the three it can
+// be; the number can be clicked to type over (Enter or clicking away keeps
+// it, Escape puts it back). The box the keyboard is on is outlined.
 const ValueChip = ({
   control,
   range,
@@ -104,6 +118,8 @@ const ValueChip = ({
   onChange,
   onActive,
   onSelect,
+  about,
+  onAbout,
 }) => {
   const [draft, setDraft] = useState(null);
   const button = useRef(null);
@@ -120,7 +136,13 @@ const ValueChip = ({
   const neutral = neutralOf(control, range);
   const state = stateOf(control, value, range);
   const word = describe[control].words[state + 1];
-  const neutralWord = describe[control].words[1];
+  // Choosing a word: neutral, or the same size on the other side of it (one
+  // step out from neutral).
+  const choose = (next) => {
+    if (next === state) return;
+    const size = Math.abs(value - neutral) || range.STEP;
+    onChange(control, snap(neutral + next * size, range));
+  };
 
   const commit = () => {
     const typed = Number.parseFloat(draft);
@@ -148,24 +170,43 @@ const ValueChip = ({
         style={{ background: colour }}
       />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[11px] leading-tight text-white/60">
-          {name}
-        </div>
-        <div className="flex items-baseline gap-1">
+        <div className="flex items-center gap-1 text-[11px] leading-tight text-white/60">
+          <span className="truncate">{name}</span>
           <button
             type="button"
-            className={classNames(
-              "-ml-1 min-w-0 truncate rounded px-1 text-left text-sm font-semibold leading-tight hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
-              state === 0 ? "text-white/70" : "text-white",
-            )}
-            aria-label={`${name}: ${word}. Set to ${neutralWord}`}
-            data-field="word"
-            data-tooltip-id="main-tooltip"
-            data-tooltip-content={`Click for ${neutralWord} · ⌘ ↑ ↓ steps ${describe[control].words.join(" / ")}`}
-            onClick={() => onChange(control, neutral)}
+            aria-label={`About ${name.toLowerCase()}`}
+            aria-expanded={about}
+            aria-controls="control-info"
+            className="-my-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/50 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
+            onClick={() => onAbout(about ? null : control)}
           >
-            {word}
+            <InfoCircle size={11} aria-hidden="true" />
           </button>
+        </div>
+        <div className="flex items-baseline gap-1">
+          <span className="relative -ml-1 flex min-w-0 items-center">
+            <select
+              aria-label={`${name}: ${word}`}
+              data-field="word"
+              className={classNames(
+                "min-w-0 cursor-pointer appearance-none truncate rounded bg-transparent py-0 pl-1 pr-4 text-sm font-semibold leading-tight hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
+                state === 0 ? "text-white/70" : "text-white",
+              )}
+              value={state}
+              onChange={(event) => choose(Number(event.target.value))}
+            >
+              {describe[control].words.map((option, i) => (
+                <option key={option} value={i - 1} className="text-slate-900">
+                  {option}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={9}
+              className="pointer-events-none absolute right-1 text-white/50"
+              aria-hidden="true"
+            />
+          </span>
           {draft === null ? (
             <button
               ref={button}
@@ -173,8 +214,6 @@ const ValueChip = ({
               className="ml-auto shrink-0 rounded bg-white/10 px-1.5 py-px text-center text-sm font-semibold tabular-nums leading-tight hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
               aria-label={`Edit ${name.toLowerCase()}: ${text}`}
               data-field="number"
-              data-tooltip-id="main-tooltip"
-              data-tooltip-content="Click to type a value · ⌘ ← → changes it"
               onClick={() => setDraft(String(value))}
             >
               {number}
@@ -521,9 +560,29 @@ const ClubPads = ({
   onChange,
   onClub,
   onReset,
+  views = true,
 }) => {
   const mirror = side === "Left" ? -1 : 1;
   const [active, setActive] = useState(null);
+  // The control whose (i) is open. A click anywhere else, or Escape, puts
+  // its explanation away.
+  const [about, setAbout] = useState(null);
+  const chips = useRef(null);
+  useEffect(() => {
+    if (!about) return undefined;
+    const away = (event) => {
+      if (!chips.current?.contains(event.target)) setAbout(null);
+    };
+    const escape = (event) => {
+      if (event.key === "Escape") setAbout(null);
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [about]);
   const [dragging, setDragging] = useState(null);
   // The two scenes, once built. `layout` only exists to redraw the handles
   // when a view is created, resized or flipped for the other hand.
@@ -742,6 +801,8 @@ const ClubPads = ({
     onChange,
     onActive: setActive,
     onSelect,
+    about: about === control,
+    onAbout: setAbout,
   });
 
   const speedFraction =
@@ -780,91 +841,72 @@ const ClubPads = ({
           aria-label="Reset"
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/[0.07] text-white/70 transition-colors hover:bg-white/20 hover:text-white md:h-11 md:w-11"
           onClick={onReset}
-          data-tooltip-id="main-tooltip"
-          data-tooltip-content="Back to the default shot for this club"
         >
           <ArrowCounterclockwise size={16} />
         </button>
       </div>
 
-      <Pad3D
-        name="Club from above"
-        key={`top-${club.id}`}
-        caption={`Above ×${GAIN.face}`}
-        options={topOptions}
-        setup={topSetup}
-        className="h-[clamp(180px,27dvh,280px)]"
-        onScene={onTopScene}
-      >
-        {inOrder(["strike", "clubPathAngle", "clubFaceAngle", "aim"]).map(
-          (control) => handle(control, boundsOf(scenes.current.top)),
-        )}
-      </Pad3D>
-
-      <div className="grid grid-cols-2 gap-2">
-        <ValueChip {...chipProps("clubFaceAngle")} />
-        <ValueChip {...chipProps("clubPathAngle")} />
-        <ValueChip {...chipProps("strike")} />
-        <ValueChip {...chipProps("aim")} />
-      </div>
-
-      <Pad3D
-        name="Club from the side"
-        key={`side-${club.id}`}
-        caption={`Toe ×${GAIN.attack}`}
-        options={sideOptions}
-        setup={sideSetup}
-        className="h-[clamp(110px,16dvh,164px)]"
-        note={`launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
-          launch.backspinRPM,
-        )} rpm`}
-        // keep it clear of the attack handle, which swaps sides with the golfer
-        noteOnLeft={mirror < 0}
-        onScene={onSideScene}
-      >
-        {inOrder(["attackAngle", "loftChange"]).map((control) =>
-          handle(control, boundsOf(scenes.current.side)),
-        )}
-      </Pad3D>
-      <div className="grid grid-cols-2 gap-2">
-        <ValueChip {...chipProps("attackAngle")} />
-        <ValueChip {...chipProps("loftChange")} />
-      </div>
-
-      {/* Speed: one wide bar. Click or drag anywhere on it. */}
-      <div className="flex items-center gap-2">
-        <div className="w-[calc(50%-0.25rem)] shrink-0">
-          <ValueChip {...chipProps("swingSpeed")} />
+      {/* Every control together; the explanation of the one asked about
+          opens under them. */}
+      <div ref={chips} className="relative flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-2">
+          <ValueChip {...chipProps("clubFaceAngle")} />
+          <ValueChip {...chipProps("clubPathAngle")} />
+          <ValueChip {...chipProps("strike")} />
+          <ValueChip {...chipProps("aim")} />
+          <ValueChip {...chipProps("attackAngle")} />
+          <ValueChip {...chipProps("loftChange")} />
         </div>
-        <div
-          ref={speedBar}
-          role="slider"
-          tabIndex={0}
-          data-control="swingSpeed"
-          aria-label={describe.swingSpeed.name}
-          aria-valuemin={ranges.swingSpeed.MIN}
-          aria-valuemax={ranges.swingSpeed.MAX}
-          aria-valuenow={swingSpeed}
-          aria-valuetext={text.swingSpeed}
-          className="club-handle relative h-12 flex-1 cursor-pointer overflow-hidden rounded-lg bg-white/[0.07] md:h-11"
-          style={{ touchAction: "none" }}
-          onDoubleClick={() =>
-            onChange("swingSpeed", ranges.swingSpeed.DEFAULT)
-          }
-          onFocus={() => onSelect("swingSpeed")}
-          onPointerEnter={() => setActive("swingSpeed")}
-          onPointerLeave={() => setActive(null)}
-          {...drag("swingSpeed")}
-        >
+        {/* Speed: one wide bar. Click or drag anywhere on it. */}
+        <div className="flex items-center gap-2">
+          <div className="w-[58%] shrink-0">
+            <ValueChip {...chipProps("swingSpeed")} />
+          </div>
           <div
-            className="absolute inset-y-0 left-0 bg-lime-400/80"
-            style={{ width: `${speedFraction * 100}%` }}
-          />
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-3 text-[10px] font-semibold text-white/70">
-            <span>{ranges.swingSpeed.MIN}</span>
-            <span>{ranges.swingSpeed.MAX}</span>
+            ref={speedBar}
+            role="slider"
+            tabIndex={0}
+            data-control="swingSpeed"
+            aria-label={describe.swingSpeed.name}
+            aria-valuemin={ranges.swingSpeed.MIN}
+            aria-valuemax={ranges.swingSpeed.MAX}
+            aria-valuenow={swingSpeed}
+            aria-valuetext={text.swingSpeed}
+            className="club-handle relative h-12 flex-1 cursor-pointer overflow-hidden rounded-lg bg-white/[0.07] md:h-11"
+            style={{ touchAction: "none" }}
+            onDoubleClick={() =>
+              onChange("swingSpeed", ranges.swingSpeed.DEFAULT)
+            }
+            onFocus={() => onSelect("swingSpeed")}
+            onPointerEnter={() => setActive("swingSpeed")}
+            onPointerLeave={() => setActive(null)}
+            {...drag("swingSpeed")}
+          >
+            <div
+              className="absolute inset-y-0 left-0 opacity-80"
+              style={{ width: `${speedFraction * 100}%`, background: SPEED }}
+            />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-3 text-[10px] font-semibold text-white/70">
+              <span>{ranges.swingSpeed.MIN}</span>
+              <span>{ranges.swingSpeed.MAX}</span>
+            </div>
           </div>
         </div>
+        {about && (
+          <p
+            id="control-info"
+            role="note"
+            className="absolute inset-x-0 top-full z-40 mt-2 rounded-lg border border-white/15 bg-slate-950/95 px-3 py-2 text-xs leading-snug text-white/90 shadow-lg"
+          >
+            <span
+              className="font-bold"
+              style={{ color: describe[about].colour }}
+            >
+              {describe[about].name}.{" "}
+            </span>
+            {describe[about].info}
+          </p>
+        )}
       </div>
       <p
         className="hidden text-center text-[10px] leading-tight text-white/45 md:block"
@@ -872,6 +914,44 @@ const ClubPads = ({
       >
         ←↑↓→ move · ⌘←→ number · ⌘↑↓ word · Space hit
       </p>
+
+      {/* The club at impact, twice. Left off on phones, where the boxes are
+          the controls and the pictures would push them off the screen. */}
+      {views && (
+        <>
+          <Pad3D
+            name="Club from above"
+            key={`top-${club.id}`}
+            caption={`Above ×${GAIN.face}`}
+            options={topOptions}
+            setup={topSetup}
+            className="h-[clamp(150px,22dvh,230px)]"
+            onScene={onTopScene}
+          >
+            {inOrder(["strike", "clubPathAngle", "clubFaceAngle", "aim"]).map(
+              (control) => handle(control, boundsOf(scenes.current.top)),
+            )}
+          </Pad3D>
+          <Pad3D
+            name="Club from the side"
+            key={`side-${club.id}`}
+            caption={`Toe ×${GAIN.attack}`}
+            options={sideOptions}
+            setup={sideSetup}
+            className="h-[clamp(96px,13dvh,140px)]"
+            note={`launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
+              launch.backspinRPM,
+            )} rpm`}
+            // keep it clear of the attack handle, which swaps sides with the golfer
+            noteOnLeft={mirror < 0}
+            onScene={onSideScene}
+          >
+            {inOrder(["attackAngle", "loftChange"]).map((control) =>
+              handle(control, boundsOf(scenes.current.side)),
+            )}
+          </Pad3D>
+        </>
+      )}
     </div>
   );
 };

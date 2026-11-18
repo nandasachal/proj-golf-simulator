@@ -76,6 +76,7 @@ beforeEach(() => {
     setViewInset: jest.fn(),
     dispose: jest.fn(),
   };
+  viewport(true);
   clubScenes = {};
   createClubScene.mockReset();
   createClubScene.mockImplementation((_container, options) =>
@@ -87,6 +88,17 @@ beforeEach(() => {
     return simulator;
   });
 });
+
+// Laptop width, where the two club views are part of the panel, unless a
+// test asks for a phone.
+const viewport = (desktop) => {
+  window.matchMedia = (query) => ({
+    matches: desktop,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  });
+};
 
 // Shows what the address bar's query string would be.
 const Address = () => (
@@ -312,8 +324,10 @@ describe("shot controls", () => {
 });
 
 describe("keyboard", () => {
-  test("arrows move between the boxes; the keyboard starts on Club face", () => {
+  test("arrows move between the boxes; the keyboard starts on Aim", () => {
     renderApp();
+    expect(selectedBox()).toBe("aim");
+    selectBox("club face");
     expect(selectedBox()).toBe("clubFaceAngle");
     press("ArrowRight");
     expect(selectedBox()).toBe("clubPathAngle");
@@ -336,6 +350,7 @@ describe("keyboard", () => {
 
   test("Command with left and right changes the number of the box the keyboard is on", () => {
     renderApp();
+    selectBox("club face");
     command("ArrowRight");
     command("ArrowRight");
     expect(valueOf("Club face")).toBe(2);
@@ -375,12 +390,14 @@ describe("keyboard", () => {
 
   test("Ctrl works in place of Command", () => {
     renderApp();
+    selectBox("club face");
     press("ArrowRight", { ctrlKey: true });
     expect(valueOf("Club face")).toBe(1);
   });
 
   test("Command with up and down steps the word: one side, neutral, the other side", () => {
     renderApp("/?face=4");
+    selectBox("club face");
     shows("club face", "4° open");
     command("ArrowDown");
     shows("club face", "square");
@@ -410,7 +427,8 @@ describe("keyboard", () => {
         .map((button) => button.closest("[data-chip]"))
         .find((box) => box.dataset.chip === control);
       return [
-        chip.querySelector('[data-field="word"]').textContent,
+        chip.querySelector('[data-field="word"]').selectedOptions[0]
+          .textContent,
         chip.querySelector('[data-field="number"]').textContent,
       ];
     };
@@ -423,18 +441,94 @@ describe("keyboard", () => {
     expect(fields("swingSpeed")).toEqual(["faster", "100 mph"]);
   });
 
-  test("clicking the word puts the control back to neutral", () => {
+  test("the word is a menu of the three it can be; choosing one sets the control", () => {
     renderApp("/?face=3&attack=-2");
-    fireEvent.click(
-      screen.getByRole("button", { name: "Club face: open. Set to square" }),
-    );
+    const word = (name) => screen.getByRole("combobox", { name });
+    const choose = (name, option) =>
+      fireEvent.change(word(name), {
+        target: {
+          value: within(word(name)).getByRole("option", { name: option }).value,
+        },
+      });
+    expect(
+      within(word("Club face: open"))
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["closed", "square", "open"]);
+
+    // neutral
+    choose("Club face: open", "square");
     expect(valueOf("Club face")).toBe(0);
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Attack angle: down. Set to level",
-      }),
+    // from neutral, one step out
+    choose("Club face: square", "closed");
+    expect(valueOf("Club face")).toBe(-1);
+    // the other side keeps the size
+    choose("Attack angle: down", "up");
+    expect(valueOf("Attack angle")).toBe(2);
+    // the word it already is changes nothing
+    choose("Attack angle: up", "up");
+    expect(valueOf("Attack angle")).toBe(2);
+  });
+
+  test("each control has an (i) that says what it does, only when clicked", () => {
+    renderApp();
+    const pads = screen.getByLabelText("Shot controls");
+    const about = (name) =>
+      within(pads).getByRole("button", { name: `About ${name}` });
+    expect(within(pads).queryByRole("note")).not.toBeInTheDocument();
+    for (const name of [
+      "club face",
+      "club path",
+      "strike",
+      "aim",
+      "attack angle",
+      "loft",
+      "swing speed",
+    ]) {
+      fireEvent.click(about(name));
+      expect(within(pads).getByRole("note")).toHaveTextContent(
+        new RegExp(`^${name}\\. .{40,}`, "i"),
+      );
+    }
+    fireEvent.click(about("swing speed"));
+    expect(within(pads).queryByRole("note")).not.toBeInTheDocument();
+
+    fireEvent.click(about("aim"));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(within(pads).queryByRole("note")).not.toBeInTheDocument();
+    // nothing in the panel explains itself on hover any more
+    expect(pads.querySelector("[data-tooltip-content]")).toBeNull();
+  });
+
+  test("the dots are seven different colours", () => {
+    renderApp();
+    const dots = [...document.querySelectorAll("[data-chip] > span")].map(
+      (dot) => dot.style.background,
     );
-    expect(valueOf("Attack angle")).toBe(0);
+    expect(dots).toHaveLength(7);
+    expect(new Set(dots).size).toBe(7);
+  });
+
+  test("every new shot starts with the keyboard on Aim", () => {
+    renderApp("/?mode=practice");
+    selectBox("loft");
+    expect(selectedBox()).toBe("loftChange");
+    hit();
+    act(() => callbacks.onState("address"));
+    expect(selectedBox()).toBe("aim");
+  });
+
+  test("on a phone the panel is the boxes alone, without the two club views", () => {
+    viewport(false);
+    renderApp();
+    expect(createClubScene).not.toHaveBeenCalled();
+    expect(screen.queryByRole("slider", { name: "Aim" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /^Edit aim:/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("slider", { name: "Swing speed" }),
+    ).toBeInTheDocument();
   });
 
   test("clicking a box, or grabbing its handle, puts the keyboard on it", () => {
@@ -449,6 +543,7 @@ describe("keyboard", () => {
 
   test("key presses that arrive before the screen redraws all count", () => {
     renderApp("/?face=1");
+    selectBox("club face");
     act(() => {
       for (let i = 0; i < 3; i++) {
         document.body.dispatchEvent(
@@ -465,6 +560,7 @@ describe("keyboard", () => {
 
   test("a control stops at the end of its range", () => {
     renderApp("/?face=6&speed=80");
+    selectBox("club face");
     command("ArrowRight");
     expect(valueOf("Club face")).toBe(6);
     selectBox("swing speed");
@@ -474,6 +570,7 @@ describe("keyboard", () => {
 
   test("Space hits with the current setup", () => {
     renderApp();
+    selectBox("club face");
     command("ArrowRight");
     press(" ");
     expect(simulator.hit).toHaveBeenCalledTimes(1);
@@ -505,16 +602,8 @@ describe("keyboard", () => {
     expect(pads).toHaveTextContent(
       "←↑↓→ move · ⌘←→ number · ⌘↑↓ word · Space hit",
     );
-    expect(
-      screen
-        .getByRole("button", { name: /^Edit club face:/i })
-        .getAttribute("data-tooltip-content"),
-    ).toBe("Click to type a value · ⌘ ← → changes it");
     expect(pads).not.toHaveTextContent(/\bQ E\b|\bA D\b|\bS W\b/);
-    expect(screen.getByRole("button", { name: /^hit$/i })).toHaveAttribute(
-      "data-tooltip-content",
-      "Key: Space",
-    );
+    expect(document.querySelector("[data-tooltip-content]")).toBeNull();
   });
 });
 
@@ -1404,6 +1493,8 @@ describe("club selection", () => {
 });
 
 describe("bird's-eye view", () => {
+  // Phones start with it folded away.
+  beforeEach(() => viewport(false));
   const landed = {
     shape: "Fade",
     carryYards: 200,
@@ -1503,6 +1594,7 @@ describe("what each mode is", () => {
 });
 
 describe("bird's-eye view in a game", () => {
+  beforeEach(() => viewport(false));
   const map = () => screen.getByRole("region", { name: "Bird's-eye view" });
   const tab = (name) => within(map()).getByRole("button", { name });
   const landed = {
@@ -1574,6 +1666,22 @@ describe("bird's-eye view in a game", () => {
       expect(map().querySelector('[data-map="flight"]')).not.toBeNull();
       act(() => jest.advanceTimersByTime(10000));
       expect(tab("Previous shot")).toHaveAttribute("aria-pressed", "true");
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("a view asked for during the 5 seconds stays", () => {
+    jest.useFakeTimers();
+    try {
+      renderApp("/");
+      unfold();
+      act(() => callbacks.onResult(landed));
+      act(() => jest.advanceTimersByTime(2000));
+      fireEvent.click(tab("Previous shot"));
+      act(() => jest.advanceTimersByTime(10000));
+      expect(tab("Previous shot")).toHaveAttribute("aria-pressed", "true");
+      expect(map().querySelector('[data-map="flight"]')).not.toBeNull();
     } finally {
       jest.useRealTimers();
     }

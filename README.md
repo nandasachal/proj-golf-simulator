@@ -140,10 +140,12 @@ React UI (App.js, components/)          src/simulate/ (no React)
 - **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
   viewport with a HUD over it (stacked under the scene on phones).
   - **Shot controls are the club itself** (`components/simulator/club-pads.jsx`).
-    The left panel shows the club in hand at impact in two live 3D views, built from
-    the same scene as the old close-up (`club-scene.js`, below): from above
-    (aim, face, path, strike) and from the toe (attack angle, loft), plus one
-    bar for swing speed. Drag handles are laid over each view at the screen
+    The left panel holds every control's value box together (face, path,
+    strike, aim, attack angle, loft, swing speed and its bar), each with a dot
+    of its own colour, and under them the club in hand at impact in two live
+    3D views, built from the same scene as the old close-up (`club-scene.js`,
+    below): from above (aim, face, path, strike) and from the toe (attack
+    angle, loft). Phones get the boxes alone: the views are not built there. Drag handles are laid over each view at the screen
     position of a point in the scene, and a drag is read back by casting a
     ray from the pointer onto the turf (or the upright plane through the ball
     and target). Every control can be set three ways: drag its handle, use
@@ -153,7 +155,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
     keys move between them, Command (Ctrl) with ←/→ changes the selected
     box's number by a step, Command with ↑/↓ steps its word (one side,
     neutral, the other side), and Space hits. There are no letter shortcuts.
-    Clicking the word sets the control back to neutral. Handles are real `role="slider"` elements (Home/End,
+    The word is a menu of the three it can be: neutral, or the same size on the
+    other side. Each box has an (i) that says what the control does when
+    clicked; nothing in the app explains itself on hover. The keyboard starts
+    on Aim, and goes back to it for every new shot. Handles are real `role="slider"` elements (Home/End,
     double-click to reset; arrows belong to the boxes) and show their value in a tag while
     hovered or held. The panel names the shot shape for the current setup with
     a thumbnail of its flight, but gives no distance, so game mode still has

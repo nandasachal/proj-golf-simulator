@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./App.scss";
-import { Tooltip } from "react-tooltip";
 
 import ClubPads from "./components/simulator/club-pads";
 import ButtonRow, { HitButton } from "./components/simulator/button-row";
@@ -29,7 +28,6 @@ import { getClub, swingSpeedRange, DEFAULT_CLUB_ID } from "./simulate/clubs";
 import { standardAttackAngle } from "./simulate/launch-conditions";
 import { carryLimits, speedForCarry } from "./simulate/club-distances";
 import {
-  FIRST_CONTROL,
   keyAction,
   moveSelection,
   shouldIgnoreKey,
@@ -46,6 +44,8 @@ import {
 } from "./utils/constant";
 
 const DESKTOP_QUERY = "(min-width: 768px)";
+// The box the keyboard is on when the page opens and for each new shot.
+const START_CONTROL = "aim";
 
 // The query string is user-editable, so keep whatever it says on the sliders.
 const clamp = (value, range) =>
@@ -353,6 +353,8 @@ function App() {
         }
       },
       onState: (state) => {
+        // Every new shot starts with the keyboard on Aim.
+        if (state === "address") setSelected(START_CONTROL);
         if (state === "address" && targetDone.current) {
           targetDone.current = false;
           const { shots, goal, next } = game.current;
@@ -566,7 +568,7 @@ function App() {
 
   // The value box the keyboard is on: arrows move it, Command-arrows change
   // its value.
-  const [selected, setSelected] = useState(FIRST_CONTROL);
+  const [selected, setSelected] = useState(START_CONTROL);
 
   // Keyboard control of the shot. The handler is replaced every render so it
   // always sees the current values.
@@ -608,8 +610,6 @@ function App() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-slate-950 pb-[72px] text-white md:block md:pb-0">
-      <Tooltip id="main-tooltip" style={{ maxWidth: "280px", zIndex: 50 }} />
-
       <div className="relative h-[50dvh] md:h-[100dvh]">
         <div id="display-container" ref={stage} className="absolute inset-0" />
 
@@ -655,8 +655,6 @@ function App() {
               aria-label="Reset view"
               className="hud-panel flex h-10 w-10 items-center justify-center !rounded-full text-white/90 transition-colors hover:text-white"
               onClick={() => simulator.current.resetView()}
-              data-tooltip-id="main-tooltip"
-              data-tooltip-content="Reset view"
             >
               <ArrowCounterclockwise size={18} />
             </button>
@@ -703,6 +701,7 @@ function App() {
             ranges={ranges}
             selected={selected}
             onSelect={setSelected}
+            views={isDesktop}
             preview={preview}
             onChange={handleValueChange}
             onClub={handleClub}

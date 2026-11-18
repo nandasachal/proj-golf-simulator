@@ -20,6 +20,8 @@ const RADIANS = Math.PI / 180;
 export const FACE_COLOR = 0xffffff;
 export const PATH_COLOR = 0xa3e635;
 export const START_COLOR = 0xfb923c;
+export const ATTACK_COLOR = 0xc4b5fd;
+export const LOFT_COLOR = 0xf9a8d4;
 // How far the loft lever reaches up from the middle of the face.
 export const LOFT_LEVER_LENGTH = 20;
 
@@ -510,7 +512,7 @@ export function createClubScene(container, options = {}) {
 
   // In the air: how the head arrives and how the ball leaves.
   const attackRod = rod({
-    color: PATH_COLOR,
+    color: ATTACK_COLOR,
     length: attackRodLength,
     radius: 0.2,
   });
@@ -544,7 +546,7 @@ export function createClubScene(container, options = {}) {
     // Rises from the middle of the face along the face's own plane, so it
     // leans exactly as far as the loft.
     const lever = rod({
-      color: FACE_COLOR,
+      color: LOFT_COLOR,
       length: LOFT_LEVER_LENGTH,
       radius: 0.16,
     });

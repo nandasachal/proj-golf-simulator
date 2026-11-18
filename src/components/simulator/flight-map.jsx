@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "react-bootstrap-icons";
 import { mapLength } from "../../simulate/shot-track";
 
@@ -44,12 +44,21 @@ const FlightMap = ({ result, target = null, startOpen = true }) => {
   const shot = result?.track ? result : null;
   // A shot that has just stopped is what to look at, for a few seconds; then
   // it is back to the target that is up. Either can be asked for again.
+  const back = useRef(null);
   useEffect(() => {
     if (!shot) return undefined;
     setView("previous");
-    const back = setTimeout(() => setView("current"), PREVIOUS_SECONDS * 1000);
-    return () => clearTimeout(back);
+    back.current = setTimeout(
+      () => setView("current"),
+      PREVIOUS_SECONDS * 1000,
+    );
+    return () => clearTimeout(back.current);
   }, [shot]);
+  // A view that was asked for stays: it is not turned back after the 5 s.
+  const choose = (id) => {
+    clearTimeout(back.current);
+    setView(id);
+  };
   if (!shot && !target) return null;
 
   const showing = !target ? "previous" : !shot ? "current" : view;
@@ -131,7 +140,7 @@ const FlightMap = ({ result, target = null, startOpen = true }) => {
               }`}
               aria-pressed={showing === id}
               disabled={id === "previous" && !shot}
-              onClick={() => setView(id)}
+              onClick={() => choose(id)}
             >
               {name}
             </button>

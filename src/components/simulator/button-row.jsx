@@ -8,8 +8,6 @@ export const HitButton = ({ onClick, className = "" }) => (
     className={`flex items-center justify-center rounded-lg bg-lime-400 text-base font-bold text-slate-900 transition-colors hover:bg-lime-300 active:bg-lime-500 ${className}`}
     onClick={onClick}
     aria-keyshortcuts="Space"
-    data-tooltip-id="main-tooltip"
-    data-tooltip-content="Key: Space"
   >
     <PlayFill size={20} className="mr-1" />
     Hit
@@ -98,7 +96,8 @@ const ButtonRow = ({ mode, onMode, simulate, bar = false }) => {
                   aria-pressed={chosen}
                   aria-label={caption ? `${caption}: ${name}` : undefined}
                   className={classNames(
-                    "flex flex-1 flex-col items-center justify-center rounded-md px-1 py-1.5 font-medium leading-tight transition-colors",
+                    // Room on the right for the (i).
+                    "flex flex-1 flex-col items-center justify-center rounded-md py-1.5 pl-1 pr-4 font-medium leading-tight transition-colors",
                     chosen
                       ? "bg-lime-400 text-slate-900"
                       : "text-white/70 hover:text-white",
