@@ -426,6 +426,14 @@ function App() {
     simulator.current.setTarget(target);
   }, [target]);
 
+  const savePlayer = (saved) => {
+    setPlayer(saved);
+    identify(saved);
+    track("name_saved");
+    // Anything held from the game being played goes under the new name.
+    flush();
+  };
+
   // Shots that could not be sent earlier go once the API can be reached.
   useEffect(() => {
     identify(loadProfile());
@@ -619,11 +627,7 @@ function App() {
                 onRestart={startGame}
                 player={player}
                 board={board}
-                onPlayer={(saved) => {
-                  setPlayer(saved);
-                  identify(saved);
-                  track("name_saved");
-                }}
+                onPlayer={savePlayer}
               />
             )}
             {/* Folded away to start with on phones, where the picture is
@@ -676,6 +680,7 @@ function App() {
           <LeaderboardModal
             player={player}
             startMode={mode === "advanced" ? "advanced" : "normal"}
+            onPlayer={savePlayer}
           />
         </div>
       </div>

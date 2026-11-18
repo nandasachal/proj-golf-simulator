@@ -13,10 +13,12 @@ const ERRORS = {
 const INPUT =
   "w-full min-w-0 rounded-md bg-white/10 px-2 py-1 text-xs font-semibold text-white outline-none placeholder:font-normal placeholder:text-white/40 focus:bg-white focus:text-slate-900 md:text-sm";
 
-// The end of a game with no name saved: one field to put the score on the
-// leaderboard, or a name and recovery code to carry on as an existing player.
-// onSaved gets the player and, for a new name, its recovery code.
-const SaveName = ({ hits, targets, onSaved }) => {
+// With no name saved: one field to get on the leaderboard, or a name and
+// recovery code to carry on as an existing player. It is on the game card
+// after a game, which gives its score, and in the leaderboard, which gives
+// its own `prompt`. onSaved gets the player and, for a new name, its recovery
+// code.
+const SaveName = ({ hits, targets, prompt, onSaved }) => {
   const [recovering, setRecovering] = useState(false);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -49,7 +51,7 @@ const SaveName = ({ hits, targets, onSaved }) => {
       <p className="text-[11px] font-semibold leading-snug md:text-sm">
         {recovering
           ? "Use your name on this device"
-          : `${hits} of ${targets}. Save it to the leaderboard?`}
+          : prompt || `${hits} of ${targets}. Save it to the leaderboard?`}
       </p>
       <div
         className={`mt-1.5 flex flex-col gap-1.5 ${recovering ? "" : "md:flex-row"}`}

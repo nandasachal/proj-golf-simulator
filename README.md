@@ -294,7 +294,7 @@ that is up, before it is hit at, with its distance, line and (in advanced) its
 altitude; **Previous shot** is the last shot's flight (solid), run (dotted),
 where it landed and stopped, the target it was hit at, and its carry, run,
 offline and apex. It turns to the previous shot when one stops and back to
-the current one when the next target comes up. In practice there is only the
+the current one 5 seconds later; either can be asked for again. In practice there is only the
 last shot, shown once it has stopped. The heading folds the card away; it
 starts folded on phones. A shot's points come with its result as `track`
 (`simulate/shot-track.js`, pure and tested).
@@ -319,7 +319,8 @@ starts folded on phones. A shot's points come with its result as `track`
 
 ### Players and leaderboard
 
-A player saves a name after a finished game; from then on every scored game shot
+A player saves a name on the game card after a finished game, or at any time
+in the leaderboard dialog; from then on every scored game shot
 is recorded under it and ranked on a leaderboard by share of targets hit. The
 rules a contributor needs:
 

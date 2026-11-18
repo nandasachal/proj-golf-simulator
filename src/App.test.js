@@ -1466,6 +1466,42 @@ describe("bird's-eye view", () => {
   });
 });
 
+describe("what each mode is", () => {
+  const about = (name) => screen.getByRole("button", { name });
+
+  test("is said only when its (i) is clicked, and put away again", () => {
+    renderApp();
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+
+    fireEvent.click(about("About the normal game"));
+    expect(screen.getByRole("note")).toHaveTextContent(/^Normal\. 5 targets/);
+    expect(screen.getByRole("note")).toHaveTextContent("Hit 3 to win");
+    expect(about("About the normal game")).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    fireEvent.click(about("About the advanced game"));
+    expect(screen.getByRole("note")).toHaveTextContent("Hit 4 to win");
+
+    fireEvent.click(about("About the advanced game"));
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+
+    fireEvent.click(about("About practice"));
+    expect(screen.getByRole("note")).toHaveTextContent("nothing is scored");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+  });
+
+  test("asking about a mode does not switch to it", () => {
+    renderApp();
+    fireEvent.click(about("About the advanced game"));
+    expect(
+      screen.getByRole("button", { name: "Game Mode: Normal" }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
 describe("bird's-eye view in a game", () => {
   const map = () => screen.getByRole("region", { name: "Bird's-eye view" });
   const tab = (name) => within(map()).getByRole("button", { name });
@@ -1519,6 +1555,28 @@ describe("bird's-eye view in a game", () => {
     fireEvent.click(tab("Current shot"));
     expect(tab("Current shot")).toHaveAttribute("aria-pressed", "true");
     expect(map().querySelector('[data-map="flight"]')).toBeNull();
+  });
+
+  test("goes back to the current shot by itself 5 seconds after one lands", () => {
+    jest.useFakeTimers();
+    try {
+      renderApp("/");
+      unfold();
+      act(() => callbacks.onResult(landed));
+      act(() => jest.advanceTimersByTime(4900));
+      expect(tab("Previous shot")).toHaveAttribute("aria-pressed", "true");
+      act(() => jest.advanceTimersByTime(200));
+      expect(tab("Current shot")).toHaveAttribute("aria-pressed", "true");
+      expect(map().querySelector('[data-map="flight"]')).toBeNull();
+
+      // and the shot can be asked for again
+      fireEvent.click(tab("Previous shot"));
+      expect(map().querySelector('[data-map="flight"]')).not.toBeNull();
+      act(() => jest.advanceTimersByTime(10000));
+      expect(tab("Previous shot")).toHaveAttribute("aria-pressed", "true");
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test("gives an air target's altitude in advanced mode", () => {
@@ -1969,6 +2027,30 @@ describe("players and leaderboard", () => {
       period: "all",
       player: "p1",
     });
+  });
+
+  test("a name can be saved from the leaderboard before any game is played", async () => {
+    api({
+      "POST /players": () =>
+        respond(201, { ...SACHAL, recoveryCode: "TEE-4821" }),
+      "GET /leaderboard": () => respond(200, board({})),
+    });
+    renderApp();
+    const dialog = await openLeaderboard();
+    const form = dialog.getByRole("form", { name: "Save to the leaderboard" });
+    expect(form).toHaveTextContent("Save a name to get on the board");
+    fireEvent.change(within(form).getByLabelText("Name"), {
+      target: { value: "Sachal" },
+    });
+    fireEvent.click(within(form).getByRole("button", { name: "Save" }));
+
+    expect(await dialog.findByText("TEE-4821")).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem("golf.player")).name).toBe(
+      "Sachal",
+    );
+    expect(
+      dialog.queryByRole("form", { name: "Save to the leaderboard" }),
+    ).not.toBeInTheDocument();
   });
 
   test("the leaderboard has a board per mode and period", async () => {

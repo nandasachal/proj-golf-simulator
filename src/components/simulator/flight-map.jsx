@@ -12,6 +12,7 @@ const path = (points) =>
 
 const FEET_PER_YARD = 3;
 const NO_TRACK = { air: [], run: [], target: null };
+const PREVIOUS_SECONDS = 5;
 
 const offline = (yards) => {
   const rounded = Math.round(Math.abs(yards));
@@ -41,13 +42,14 @@ const FlightMap = ({ result, target = null, startOpen = true }) => {
   const [open, setOpen] = useState(startOpen);
   const [view, setView] = useState("current");
   const shot = result?.track ? result : null;
-  // A shot that has just stopped is what to look at; a new target is next.
+  // A shot that has just stopped is what to look at, for a few seconds; then
+  // it is back to the target that is up. Either can be asked for again.
   useEffect(() => {
-    if (shot) setView("previous");
+    if (!shot) return undefined;
+    setView("previous");
+    const back = setTimeout(() => setView("current"), PREVIOUS_SECONDS * 1000);
+    return () => clearTimeout(back);
   }, [shot]);
-  useEffect(() => {
-    if (target) setView("current");
-  }, [target]);
   if (!shot && !target) return null;
 
   const showing = !target ? "previous" : !shot ? "current" : view;
