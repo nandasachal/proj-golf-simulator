@@ -1,6 +1,6 @@
 # Phase plan: Analytics instrumentation and dashboards
 
-Status: proposed 2026-11-21
+Status: done 2026-11-21 except AC8 (bot filtering) and a real `app_version` (both need Sachal: a PostHog permission and a Render build-command change)
 Tier: 1
 Spec: [../product-specs/analytics.md](../product-specs/analytics.md)
 
@@ -75,6 +75,33 @@ Built one at a time, each ending with `scripts/check.sh` green and a commit.
 Per criterion: the test names and their output (AC1 to AC4), the PostHog event
 rows with properties (AC5 to AC7), the setting screenshot or connector read (AC8),
 dashboard links and tile screenshots (AC9), the changed README lines (AC10).
+
+## Outcome (2026-11-21)
+
+Phases 1 to 4 built; 436 client tests, 36 server tests and the strict build green;
+phases 1 to 3 deployed to Render (live on commit 36df31e).
+
+- AC1 to AC4: pass (`src/analytics-events.test.js`, `src/analytics.test.js`, App tests that
+  play whole games and check the ids).
+- AC5: pass. With `golfer.glb` moved aside on a local dev run, PostHog received
+  `app_error` `model_load_failed` then `app_ready` `figure_fallback`.
+- AC6: pass. A normal game left after one shot, then a switch to practice, sent
+  one `game_abandoned` with the game's own id and `shots_taken: 1`.
+- AC7: pass. Events from a local run and from the live site (both `?internal=1`)
+  appeared in PostHog with their properties. In dev, StrictMode double-mounts, so
+  `app_ready` and `save_name_shown` arrive twice; production sends one each.
+- AC8: not met. Bot rules need the `web_analytics:write` permission, which the
+  PostHog connection lacks, and the three crawler visits seen so far were real
+  Chrome and Edge user agents from data centres, which user-agent rules would not
+  catch. The Traffic dashboard puts visitors next to players, so a crawler shows
+  as visits with no shots.
+- AC9: pass. Three dashboards with 24 insights (8, 10, 6); funnel, formula, SQL
+  and retention queries run without error. Tiles are mostly empty until traffic
+  arrives, because test accounts are excluded.
+- AC10: README updated. No knowledge-base change: no user-visible behaviour changed.
+
+Open: `app_version` reads `dev` until the Render build command gains
+`REACT_APP_VERSION=${RENDER_GIT_COMMIT:0:7}`.
 
 ## Open details settled during the build
 

@@ -385,6 +385,7 @@ carries `app_version`, `player_saved` and `viewport`. A saved player is
 identified by player id only (no name). Opening the site once with `?internal=1`
 marks that browser as ours (`?internal=0` unmarks it): its events carry
 `internal: true`, which the project's internal-users filter in PostHog hides.
+The dashboards (Traffic, Gameplay, Players and retention) are linked from the spec.
 
 ### Hosting
 

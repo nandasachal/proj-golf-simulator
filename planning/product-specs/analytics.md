@@ -1,6 +1,6 @@
 # Analytics: tracking plan and dashboards
 
-Status: agreed with Sachal 2026-11-21, not yet built
+Status: built and live 2026-11-21 (bot filtering and a real `app_version` outstanding, see eng plan)
 
 ## Why
 
@@ -70,6 +70,13 @@ Each insight excludes `internal: true` and known bots by default.
 3. **Players and retention**: weekly players (north star), sign-up funnel by
    source, name-save failures, leaderboard opens, day-1 and day-7 retention,
    stickiness.
+
+## Where the dashboards are
+
+PostHog project 745617: [Traffic](https://us.posthog.com/project/745617/dashboard/2393786),
+[Gameplay](https://us.posthog.com/project/745617/dashboard/2393787),
+[Players and retention](https://us.posthog.com/project/745617/dashboard/2393788).
+Every insight filters out test accounts (the project's internal-device filter).
 
 ## Decisions (Sachal, 2026-11-21)
 
