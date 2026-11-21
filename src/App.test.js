@@ -11,11 +11,17 @@ import App from "./App";
 import { createSimulator } from "./simulate/main";
 import { createClubScene } from "./simulate/club-scene";
 import { TURF_PRESETS } from "./simulate/ground";
+import { setContext, track } from "./analytics";
 
 // jsdom has no WebGL, so the 3D scene can't start under Jest; the fake stands
 // in for it and records what the UI asks it to do.
 jest.mock("./simulate/main", () => ({ createSimulator: jest.fn() }));
 jest.mock("./simulate/club-scene", () => ({ createClubScene: jest.fn() }));
+jest.mock("./analytics", () => ({
+  track: jest.fn(),
+  identify: jest.fn(),
+  setContext: jest.fn(),
+}));
 
 let simulator;
 let callbacks;
@@ -2284,5 +2290,79 @@ describe("players and leaderboard", () => {
     expect(mine).toHaveTextContent("Sachal6 of 10 hit · 5 to go");
     expect(mine).toHaveAttribute("aria-current", "true");
     expect(dialog.getByText("No one is ranked yet.")).toBeInTheDocument();
+  });
+});
+
+describe("analytics events", () => {
+  const landed = (target) =>
+    act(() =>
+      callbacks.onResult({
+        shape: "Fade",
+        carryYards: 200,
+        runYards: 20,
+        totalYards: 220,
+        offlineYards: 5,
+        apexYards: 25,
+        target,
+      }),
+    );
+  const play = (target) => {
+    hit();
+    landed(target);
+    act(() => callbacks.onState("address"));
+  };
+  const sent = (event) =>
+    track.mock.calls
+      .filter(([name]) => name === event)
+      .map(([, props]) => props);
+
+  beforeEach(() => {
+    track.mockClear();
+    setContext.mockClear();
+  });
+
+  test("a whole game shares one game id across its events", () => {
+    renderApp();
+    for (let i = 0; i < 4; i += 1)
+      play({ hit: i < 3, longYards: -9, rightYards: 2 });
+    play({ hit: true, longYards: 0, rightYards: 0 });
+
+    const [started] = sent("game_started");
+    const [finished] = sent("game_finished");
+    expect(started.game_id).toBeTruthy();
+    expect(finished).toMatchObject({
+      game_id: started.game_id,
+      hits: 4,
+      won: true,
+    });
+    for (const props of [...sent("target_attempted"), ...sent("shot_landed")]) {
+      expect(props.game_id).toBe(started.game_id);
+    }
+    expect(sent("target_attempted").map((p) => p.target_number)).toEqual([
+      1, 2, 3, 4, 5,
+    ]);
+    expect(sent("target_attempted")[3].miss).toBe("short");
+    expect(sent("target_attempted")[0].miss).toBeNull();
+  });
+
+  test("a practice shot has no game id and starts no game", () => {
+    renderApp("/?mode=practice");
+    hit();
+    landed(null);
+    const [shot] = sent("shot_landed");
+    expect(shot).toMatchObject({
+      mode: "practice",
+      in_game: false,
+      game_id: null,
+    });
+    expect(shot).toHaveProperty("carry_yards", 200);
+    expect(shot).toHaveProperty("swing_speed");
+    expect(sent("game_started")).toHaveLength(0);
+  });
+
+  test("the viewport is registered for later events", () => {
+    viewport(false);
+    renderApp();
+    expect(setContext).toHaveBeenCalledWith({ viewport: "phone" });
   });
 });

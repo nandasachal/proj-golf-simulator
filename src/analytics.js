@@ -34,6 +34,10 @@ export function startAnalytics() {
     // events below are worth counting.
     autocapture: false,
   });
+  posthog.register({
+    app_version: process.env.REACT_APP_VERSION || "dev",
+    player_saved: false,
+  });
   if (internalDevice(window.location.search, window.localStorage))
     posthog.register({ internal: true });
   on = true;
@@ -43,7 +47,15 @@ export const track = (event, properties) => {
   if (on) posthog.capture(event, properties);
 };
 
-// Ties this browser's events to the saved player.
+// Properties every later event carries (viewport, player_saved).
+export const setContext = (properties) => {
+  if (on) posthog.register(properties);
+};
+
+// Ties this browser's events to the saved player. The id only: the name is
+// already public on the leaderboard and PostHog does not need it.
 export const identify = (player) => {
-  if (on && player) posthog.identify(player.id, { name: player.name });
+  if (!on || !player) return;
+  posthog.identify(player.id);
+  posthog.register({ player_saved: true });
 };

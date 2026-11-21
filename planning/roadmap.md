@@ -16,6 +16,15 @@
   [product-specs/profiles-leaderboard.md](product-specs/profiles-leaderboard.md)
   and [eng-plans/profiles-leaderboard.md](eng-plans/profiles-leaderboard.md).
   - [done] Shorter game: 5 targets, 3 to win, 4 in advanced (2026-11-17).
+  - **Analytics instrumentation and dashboards** (spec agreed 2026-11-21, plan
+    awaiting approval) — every action tracked with a game id, load and error
+    events, three PostHog dashboards. See
+    [product-specs/analytics.md](product-specs/analytics.md) and
+    [eng-plans/analytics.md](eng-plans/analytics.md).
+  - **Optimize activation** (asked 2026-11-21, after analytics ships) — raise
+    the share of visitors who take a first shot and finish a game; baseline and
+    drop-off points come from the Gameplay dashboard. Needs a definition of
+    "activated" and a spec.
 
 ## Should Have
 

@@ -11,7 +11,13 @@ import LeaderboardModal from "./components/simulator/leaderboard-modal";
 import { getLeaderboard } from "./players/api";
 import { loadProfile } from "./players/profile";
 import { flush, newGameId, recordShot } from "./players/queue";
-import { identify, track } from "./analytics";
+import { identify, setContext, track } from "./analytics";
+import {
+  gameFinished,
+  gameStarted,
+  shotLanded,
+  targetAttempted,
+} from "./analytics-events";
 import { useQueryState, useSetQueries } from "./hooks/use-query";
 import { ArrowCounterclockwise } from "react-bootstrap-icons";
 import { createSimulator } from "./simulate/main";
@@ -215,6 +221,9 @@ function App() {
     () => window.matchMedia(DESKTOP_QUERY).matches,
   );
   useEffect(() => {
+    setContext({ viewport: isDesktop ? "laptop" : "phone" });
+  }, [isDesktop]);
+  useEffect(() => {
     const desktop = window.matchMedia(DESKTOP_QUERY);
     const update = () => setIsDesktop(desktop.matches);
     desktop.addEventListener("change", update);
@@ -298,11 +307,16 @@ function App() {
         // A shot only counts against the target it was hit at: changing club
         // mid-flight puts up a new one.
         const { target: aimedAt, goal } = game.current;
-        track("shot_landed", {
-          mode: game.current.mode,
-          club: game.current.club,
-          total_yards: Math.round(shotResult.totalYards),
-        });
+        track(
+          "shot_landed",
+          shotLanded({
+            mode: game.current.mode,
+            club: game.current.club,
+            gameId: game.current.id,
+            result: shotResult,
+            controls: game.current.controls,
+          }),
+        );
         if (
           shotResult.target &&
           !staleShot.current &&
@@ -322,14 +336,21 @@ function App() {
           game.current.shots = shots;
           setRound(shots);
           targetDone.current = true;
-          const played = { mode: game.current.mode, club: game.current.club };
-          if (shots.length === 1) track("game_started", played);
-          track("target_attempted", {
-            ...played,
-            hit,
-            target_yards: aimedAt.distanceYards,
-            target_number: shots.length,
-          });
+          const played = {
+            gameId: game.current.id,
+            mode: game.current.mode,
+            club: game.current.club,
+          };
+          if (shots.length === 1) track("game_started", gameStarted(played));
+          track(
+            "target_attempted",
+            targetAttempted({
+              ...played,
+              target: aimedAt,
+              outcome: shotResult.target,
+              shotNumber: shots.length,
+            }),
+          );
           recordShot({
             gameId: game.current.id,
             mode: game.current.mode,
@@ -342,7 +363,7 @@ function App() {
           if (shots.length === goal.targets) {
             const hits = shots.filter((shot) => shot.hit).length;
             const won = hits >= goal.toWin;
-            track("game_finished", { ...played, hits, won });
+            track("game_finished", gameFinished({ ...played, hits, won }));
             if (won) {
               simulator.current?.celebrate?.(
                 hits === goal.targets ? "perfect" : "win",
@@ -421,6 +442,7 @@ function App() {
   game.current.target = target;
   game.current.mode = mode;
   game.current.club = club.id;
+  game.current.controls = shot;
   useEffect(() => {
     setSession(NO_SESSION);
     startGame();
