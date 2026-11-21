@@ -83,3 +83,21 @@ export const appReady = ({ loadMs, model }) => ({
 
 export const sceneErrorKind = (error) =>
   /webgl/i.test(String(error?.message)) ? "webgl_unsupported" : "scene_failed";
+
+export const gameAbandoned = ({ gameId, mode, club, shotsTaken }) => ({
+  game_id: gameId,
+  mode,
+  club,
+  shots_taken: shotsTaken,
+});
+
+const SAVE_FAILURES = {
+  name_taken: "taken",
+  invalid_name: "invalid",
+  wrong_code: "wrong_code",
+  rate_limited: "rate_limited",
+  unavailable: "network",
+};
+
+// Why a name could not be saved, from the API client's error code.
+export const saveFailReason = (error) => SAVE_FAILURES[error] || "network";

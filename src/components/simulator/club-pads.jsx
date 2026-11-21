@@ -6,6 +6,7 @@ import {
   InfoCircle,
 } from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
+import { track } from "../../analytics";
 import { CATEGORIES, CLUBS } from "../../simulate/clubs";
 import { neutralOf, stateOf } from "../../utils/shortcuts";
 import {
@@ -805,7 +806,10 @@ const ClubPads = ({
     onActive: setActive,
     onSelect,
     about: about === control,
-    onAbout: setAbout,
+    onAbout: (opened) => {
+      if (opened) track("info_opened", { topic: opened });
+      setAbout(opened);
+    },
   });
 
   // Each view is built for one club.

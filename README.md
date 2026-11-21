@@ -375,7 +375,9 @@ property sets are built by pure functions in `src/analytics-events.js` and
 tested. Events as built so far: `shot_landed` (every shot, practice included,
 with carry, offline, apex, shape and the seven controls at impact),
 `game_started`, `target_attempted`, `game_finished` (all four game events share
-a `game_id`), `name_saved`, `leaderboard_opened`, `app_ready` (load time and
+a `game_id`), `game_abandoned`, `setting_changed` (mode, club, bird's-eye view),
+`info_opened`, `save_name_shown`, `name_saved`, `name_save_failed`,
+`player_recovered`, `leaderboard_opened`, `leaderboard_filter_changed`, `app_ready` (load time and
 whether the modelled golfer or the fallback figure was used) and `app_error`
 (`webgl_unsupported`, `scene_failed`, `model_load_failed`, `api_unreachable`,
 once per kind per page load); unhandled errors go to `$exception`. Every event

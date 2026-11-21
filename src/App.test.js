@@ -2399,6 +2399,183 @@ describe("analytics events", () => {
     );
   });
 
+  const modeGroup = () => screen.getByRole("group", { name: "Mode" });
+
+  test("switching mode and club each send setting_changed", () => {
+    renderApp();
+    fireEvent.click(
+      within(modeGroup()).getByRole("button", { name: "Practice" }),
+    );
+    expect(track).toHaveBeenCalledWith("setting_changed", {
+      setting: "mode",
+      from: "normal",
+      to: "practice",
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Driver · 10\.5°/ }));
+    fireEvent.click(
+      within(screen.getByRole("listbox")).getByRole("option", {
+        name: /7 iron/,
+      }),
+    );
+    expect(track).toHaveBeenCalledWith("setting_changed", {
+      setting: "club",
+      from: "driver",
+      to: "7i",
+    });
+    expect(sent("setting_changed")).toHaveLength(2);
+  });
+
+  test("opening an (i) sends info_opened, and closing it sends nothing", () => {
+    renderApp();
+    const advanced = screen.getByRole("button", {
+      name: "About the advanced game",
+    });
+    fireEvent.click(advanced);
+    expect(track).toHaveBeenCalledWith("info_opened", { topic: "advanced" });
+    fireEvent.click(advanced);
+    fireEvent.click(
+      screen.getByRole("button", { name: /^About swing speed$/i }),
+    );
+    expect(sent("info_opened")).toHaveLength(2);
+  });
+
+  test("a game left part-played is abandoned once, under its own game id", () => {
+    renderApp();
+    play({ hit: true, longYards: 0, rightYards: 0 });
+    play({ hit: false, longYards: -9, rightYards: 2 });
+    fireEvent.click(
+      within(modeGroup()).getByRole("button", { name: "Practice" }),
+    );
+    fireEvent.click(
+      within(modeGroup()).getByRole("button", { name: /Game Mode: Normal/ }),
+    );
+    fireEvent.click(
+      within(modeGroup()).getByRole("button", { name: "Practice" }),
+    );
+
+    const [started] = sent("game_started");
+    expect(sent("game_abandoned")).toEqual([
+      expect.objectContaining({
+        game_id: started.game_id,
+        mode: "normal",
+        club: "driver",
+        shots_taken: 2,
+      }),
+    ]);
+  });
+
+  test("a finished game is not abandoned when the next one starts", () => {
+    renderApp();
+    for (let i = 0; i < 5; i += 1)
+      play({ hit: true, longYards: 0, rightYards: 0 });
+    fireEvent.click(
+      within(modeGroup()).getByRole("button", { name: "Practice" }),
+    );
+    expect(sent("game_abandoned")).toHaveLength(0);
+  });
+
+  test("turning the bird's-eye card to the current shot sends setting_changed", () => {
+    renderApp();
+    act(() =>
+      callbacks.onResult({
+        shape: "Fade",
+        carryYards: 200,
+        runYards: 20,
+        totalYards: 220,
+        offlineYards: 12,
+        apexYards: 25,
+        track: {
+          air: [
+            [0, 0],
+            [10, 200],
+          ],
+          run: [],
+          target: null,
+        },
+      }),
+    );
+    expect(sent("setting_changed")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Current shot" }));
+    expect(track).toHaveBeenCalledWith("setting_changed", {
+      setting: "view",
+      from: "previous",
+      to: "current",
+    });
+  });
+
+  test("changing the leaderboard's mode or period sends leaderboard_filter_changed", async () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Leaderboard" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    fireEvent.click(dialog.getByRole("button", { name: "This week" }));
+    expect(sent("leaderboard_filter_changed")).toEqual([
+      { mode: "normal", period: "week" },
+    ]);
+    fireEvent.click(dialog.getByRole("button", { name: "Advanced" }));
+    expect(sent("leaderboard_filter_changed").at(-1)).toEqual({
+      mode: "advanced",
+      period: "week",
+    });
+  });
+
+  describe("sign-up", () => {
+    const finishGame = () => {
+      for (let i = 0; i < 5; i += 1)
+        play({ hit: i < 3, longYards: -9, rightYards: 2 });
+    };
+    const form = () =>
+      screen.getByRole("form", { name: "Save to the leaderboard" });
+    const fill = (label, value) =>
+      fireEvent.change(within(form()).getByRole("textbox", { name: label }), {
+        target: { value },
+      });
+    const answer = (body) =>
+      (global.fetch = jest.fn(() =>
+        Promise.resolve({ ok: true, status: 201, json: async () => body }),
+      ));
+
+    test("the prompt is counted, and a name saved says where it was saved", async () => {
+      renderApp();
+      finishGame();
+      expect(sent("save_name_shown")).toEqual([{ source: "game_card" }]);
+      answer({ id: "p1", name: "Ada", key: "k", recoveryCode: "TEE-1" });
+      fill("Name", "Ada");
+      fireEvent.click(within(form()).getByRole("button", { name: "Save" }));
+      await waitFor(() =>
+        expect(sent("name_saved")).toEqual([{ source: "game_card" }]),
+      );
+    });
+
+    test("a failed save says why", async () => {
+      renderApp();
+      finishGame();
+      fill("Name", "Ada");
+      fireEvent.click(within(form()).getByRole("button", { name: "Save" }));
+      await waitFor(() =>
+        expect(sent("name_save_failed")).toEqual([
+          { source: "game_card", reason: "network" },
+        ]),
+      );
+      expect(sent("name_saved")).toHaveLength(0);
+    });
+
+    test("a recovery code used on a second device is player_recovered, not a new name", async () => {
+      renderApp();
+      finishGame();
+      fireEvent.click(
+        within(form()).getByRole("button", { name: /Already have a name/ }),
+      );
+      answer({ id: "p1", name: "Ada", key: "k" });
+      fill("Name", "Ada");
+      fill("Recovery code", "TEE-1");
+      fireEvent.click(within(form()).getByRole("button", { name: "Use name" }));
+      await waitFor(() =>
+        expect(track).toHaveBeenCalledWith("player_recovered"),
+      );
+      expect(sent("name_saved")).toHaveLength(0);
+    });
+  });
+
   test("the viewport is registered for later events", () => {
     viewport(false);
     renderApp();

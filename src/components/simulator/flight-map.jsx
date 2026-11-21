@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "react-bootstrap-icons";
 import { mapLength } from "../../simulate/shot-track";
+import { track as trackEvent } from "../../analytics";
 
 const HALF_WIDTH = 80; // yards shown either side of the centre line
 const FAIRWAY_HALF_WIDTH = 60;
@@ -58,6 +59,8 @@ const FlightMap = ({ result, target = null, startOpen = true, onPast }) => {
     return () => clearTimeout(back.current);
   }, [shot]);
   const choose = (id) => {
+    if (id !== showing)
+      trackEvent("setting_changed", { setting: "view", from: showing, to: id });
     clearTimeout(back.current);
     setChoice({ shot, view: id });
   };

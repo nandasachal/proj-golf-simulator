@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { track } from "../../analytics";
+import { saveFailReason } from "../../analytics-events";
 import { createPlayer, recoverPlayer } from "../../players/api";
 import { saveProfile } from "../../players/profile";
 
@@ -18,12 +20,16 @@ const INPUT =
 // after a game, which gives its score, and in the leaderboard, which gives
 // its own `prompt`. onSaved gets the player and, for a new name, its recovery
 // code.
-const SaveName = ({ hits, targets, prompt, onSaved }) => {
+const SaveName = ({ hits, targets, prompt, source, onSaved }) => {
   const [recovering, setRecovering] = useState(false);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    track("save_name_shown", { source });
+  }, [source]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -34,11 +40,17 @@ const SaveName = ({ hits, targets, prompt, onSaved }) => {
       ? recoverPlayer(name.trim(), code.trim())
       : createPlayer(name.trim()));
     if (answer.error) {
+      track("name_save_failed", {
+        source,
+        reason: saveFailReason(answer.error),
+      });
       setBusy(false);
       setError(ERRORS[answer.error] || ERRORS.unavailable);
       return;
     }
     saveProfile(answer.player);
+    if (recovering) track("player_recovered");
+    else track("name_saved", { source });
     onSaved(answer.player, answer.recoveryCode);
   };
 

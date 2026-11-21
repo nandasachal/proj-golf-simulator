@@ -243,6 +243,7 @@ const GameCard = ({
           )
         ) : (
           <SaveName
+            source="game_card"
             hits={hits}
             targets={goal.targets}
             onSaved={(saved, code) => {

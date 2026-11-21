@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { InfoCircle, PlayFill } from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
+import { track } from "../../analytics";
 
 export const HitButton = ({ onClick, className = "" }) => (
   <button
@@ -122,7 +123,10 @@ const ButtonRow = ({ mode, onMode, simulate, bar = false }) => {
                       ? "text-slate-900/60 hover:text-slate-900"
                       : "text-white/50 hover:text-white",
                   )}
-                  onClick={() => setAbout(about === id ? null : id)}
+                  onClick={() => {
+                    if (about !== id) track("info_opened", { topic: id });
+                    setAbout(about === id ? null : id);
+                  }}
                 >
                   <InfoCircle size={11} aria-hidden="true" />
                 </button>

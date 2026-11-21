@@ -225,7 +225,10 @@ const LeaderboardModal = ({ player, startMode, onPlayer }) => {
                   ["advanced", "Advanced"],
                 ]}
                 value={mode}
-                onChange={setMode}
+                onChange={(value) => {
+                  setMode(value);
+                  track("leaderboard_filter_changed", { mode: value, period });
+                }}
               />
               <Segmented
                 label="Period"
@@ -234,7 +237,10 @@ const LeaderboardModal = ({ player, startMode, onPlayer }) => {
                   ["all", "All time"],
                 ]}
                 value={period}
-                onChange={setPeriod}
+                onChange={(value) => {
+                  setPeriod(value);
+                  track("leaderboard_filter_changed", { mode, period: value });
+                }}
               />
             </div>
 
@@ -267,6 +273,7 @@ const LeaderboardModal = ({ player, startMode, onPlayer }) => {
               </div>
             ) : player ? null : (
               <SaveName
+                source="leaderboard"
                 prompt="Save a name to get on the board"
                 onSaved={(saved, code) => {
                   setRecoveryCode(code || null);

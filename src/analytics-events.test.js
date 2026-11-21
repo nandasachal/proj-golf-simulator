@@ -1,8 +1,10 @@
 import {
   appReady,
+  gameAbandoned,
   gameFinished,
   gameStarted,
   missKind,
+  saveFailReason,
   sceneErrorKind,
   shotLanded,
   targetAttempted,
@@ -138,4 +140,19 @@ test("a scene error is named for missing WebGL, otherwise scene_failed", () => {
   );
   expect(sceneErrorKind(new Error("boom"))).toBe("scene_failed");
   expect(sceneErrorKind(undefined)).toBe("scene_failed");
+});
+
+test("an abandoned game says how far it got", () => {
+  expect(
+    gameAbandoned({ gameId: "g1", mode: "normal", club: "7i", shotsTaken: 2 }),
+  ).toEqual({ game_id: "g1", mode: "normal", club: "7i", shots_taken: 2 });
+});
+
+test("a failed save is named from the API error code", () => {
+  expect(saveFailReason("name_taken")).toBe("taken");
+  expect(saveFailReason("invalid_name")).toBe("invalid");
+  expect(saveFailReason("wrong_code")).toBe("wrong_code");
+  expect(saveFailReason("rate_limited")).toBe("rate_limited");
+  expect(saveFailReason("unavailable")).toBe("network");
+  expect(saveFailReason("anything else")).toBe("network");
 });

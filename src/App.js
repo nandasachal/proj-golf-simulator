@@ -14,6 +14,7 @@ import { flush, newGameId, recordShot } from "./players/queue";
 import { identify, reportError, setContext, track } from "./analytics";
 import {
   appReady,
+  gameAbandoned,
   gameFinished,
   gameStarted,
   sceneErrorKind,
@@ -448,7 +449,32 @@ function App() {
         : (previous) => randomTarget(Math.random, previous, reach),
     [mode, club, reach],
   );
+  // A game left part-played, by starting another or by closing the page.
+  // `began` is what the game in hand was, since mode and club are already the
+  // new ones when a new game starts.
+  const reportAbandoned = () => {
+    const { began, shots, id } = game.current;
+    if (!began?.targets || !shots.length || shots.length >= began.targets)
+      return;
+    if (game.current.reported === id) return;
+    game.current.reported = id;
+    track(
+      "game_abandoned",
+      gameAbandoned({
+        gameId: id,
+        mode: began.mode,
+        club: began.club,
+        shotsTaken: shots.length,
+      }),
+    );
+  };
   const startGame = () => {
+    reportAbandoned();
+    game.current.began = {
+      mode: game.current.mode,
+      club: game.current.club,
+      targets: goal?.targets ?? 0,
+    };
     targetDone.current = false;
     // A ball already in the air was not hit at the new game's first target.
     staleShot.current = true;
@@ -477,10 +503,15 @@ function App() {
     simulator.current.showShot?.(past);
   }, [past]);
 
+  useEffect(() => {
+    window.addEventListener("pagehide", reportAbandoned);
+    return () => window.removeEventListener("pagehide", reportAbandoned);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const savePlayer = (saved) => {
     setPlayer(saved);
     identify(saved);
-    track("name_saved");
     // Anything held from the game being played goes under the new name.
     flush();
   };
@@ -528,7 +559,10 @@ function App() {
   // Swing speed, attack angle and loft belong to the club, so a new club
   // starts from its own.
   const handleClub = (id) => {
-    if (id !== club.id) staleShot.current = true;
+    if (id !== club.id) {
+      staleShot.current = true;
+      track("setting_changed", { setting: "club", from: club.id, to: id });
+    }
     setDraft(
       ({
         swingSpeed: _speed,
@@ -566,8 +600,11 @@ function App() {
     else if (SHOT_PARAMS[type])
       setDraft((previous) => ({ ...previous, [type]: newValue }));
     else if (type === "turf") handleTurfPreset(newValue);
-    else if (type === "mode")
+    else if (type === "mode") {
+      if (newValue !== mode)
+        track("setting_changed", { setting: "mode", from: mode, to: newValue });
       setQueries({ mode: newValue === "normal" ? null : newValue });
+    }
   };
 
   // Back to the default shot. Settings (mode, side, turf) stay as they are.

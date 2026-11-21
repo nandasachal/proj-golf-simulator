@@ -37,7 +37,7 @@ server holds it).
 | `app_ready` | new | `load_ms`, `model` (`glb` or `figure_fallback`), `viewport` (`phone` or `laptop`) | the scene calls `onReady` and the loading screen fades |
 | `app_error` | new | `kind` (`webgl_unsupported`, `model_load_failed`, `api_unreachable`), `detail` (short, no personal data) | each failure, once per kind per page load |
 | `$exception` | turn on | PostHog exception capture | unhandled errors |
-| `shot_landed` | extend | existing `mode`, `club`, `total_yards`; add `game_id` (null in practice), `in_game`, `carry_yards`, `offline_yards`, `apex_yards`, `shape`, and the seven shot controls as set at impact | every shot, practice included |
+| `shot_landed` | extend | existing `mode`, `club`, `total_yards`; add `game_id` (null in practice), `in_game`, `carry_yards`, `offline_yards`, `apex_yards`, `shape`, and the seven shot controls as set at impact (flat: `aim`, `face`, `path`, `attack`, `loft_change`, `swing_speed`, `strike_inches`) | every shot, practice included |
 | `setting_changed` | new | `setting` (`mode`, `club`, `view`), `from`, `to` | the player changes one |
 | `game_started` | extend | add `game_id` | first scored shot |
 | `target_attempted` | extend | add `game_id`, `target_height_yards` (advanced), `miss` (short miss category, null on a hit) | each scored shot |
@@ -45,8 +45,8 @@ server holds it).
 | `game_abandoned` | new | `game_id`, `mode`, `club`, `shots_taken` | a new game starts, or the tab closes, with a partial game |
 | `info_opened` | new | `topic` (the control or mode) | an (i) button is opened |
 | `save_name_shown` | new | `source` (`game_card` or `leaderboard`) | the sign-up step appears |
-| `name_saved` | extend | add `source` | name saved |
-| `name_save_failed` | new | `source`, `reason` (`taken`, `invalid`, `network`) | save fails |
+| `name_saved` | extend | add `source` | a new name saved (a recovery code used is `player_recovered`) |
+| `name_save_failed` | new | `source`, `reason` (`taken`, `invalid`, `wrong_code`, `rate_limited`, `network`) | save fails |
 | `leaderboard_opened` | existing | `mode` | dialog opens |
 | `leaderboard_filter_changed` | new | `mode`, `period` | mode or period tab changes |
 | `player_recovered` | new | none | recovery code used on a second device |
