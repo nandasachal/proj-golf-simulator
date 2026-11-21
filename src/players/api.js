@@ -1,3 +1,5 @@
+import { reportError } from "../analytics";
+
 const BASE =
   process.env.REACT_APP_API_URL ||
   (process.env.NODE_ENV === "production"
@@ -34,6 +36,7 @@ async function playerRequest(path, body) {
       return { error: data.error || "invalid_name" };
     return { error: "unavailable" };
   } catch {
+    reportError("api_unreachable", path);
     return { error: "unavailable" };
   }
 }
@@ -48,6 +51,7 @@ export async function postShot(key, shot) {
   try {
     return (await post("/shots", shot, key)).status;
   } catch {
+    reportError("api_unreachable", "/shots");
     return 0;
   }
 }
@@ -58,6 +62,9 @@ export async function getLeaderboard({ mode, period, player }) {
   if (player) query.set("player", player);
   const response = await fetch(`${BASE}/leaderboard?${query}`, {
     signal: timeout(),
+  }).catch((error) => {
+    reportError("api_unreachable", "/leaderboard");
+    throw error;
   });
   if (!response.ok) throw new Error(`leaderboard ${response.status}`);
   return response.json();

@@ -33,6 +33,8 @@ export function startAnalytics() {
     // The swing controls are dragged and nudged constantly; only the named
     // events below are worth counting.
     autocapture: false,
+    // Unhandled errors, so a broken scene shows up as $exception.
+    capture_exceptions: true,
   });
   posthog.register({
     app_version: process.env.REACT_APP_VERSION || "dev",
@@ -45,6 +47,15 @@ export function startAnalytics() {
 
 export const track = (event, properties) => {
   if (on) posthog.capture(event, properties);
+};
+
+// A failure, once per kind per page load: an outage would otherwise send one
+// for every shot.
+const reported = new Set();
+export const reportError = (kind, detail) => {
+  if (reported.has(kind)) return;
+  reported.add(kind);
+  track("app_error", { kind, detail });
 };
 
 // Properties every later event carries (viewport, player_saved).

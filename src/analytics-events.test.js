@@ -1,7 +1,9 @@
 import {
+  appReady,
   gameFinished,
   gameStarted,
   missKind,
+  sceneErrorKind,
   shotLanded,
   targetAttempted,
 } from "./analytics-events";
@@ -118,4 +120,22 @@ test("game events share the game id", () => {
     hits: 3,
     won: true,
   });
+});
+
+test("app_ready rounds the load time and defaults to the modelled golfer", () => {
+  expect(appReady({ loadMs: 2345.67 })).toEqual({
+    load_ms: 2346,
+    model: "glb",
+  });
+  expect(appReady({ loadMs: 900, model: "figure_fallback" }).model).toBe(
+    "figure_fallback",
+  );
+});
+
+test("a scene error is named for missing WebGL, otherwise scene_failed", () => {
+  expect(sceneErrorKind(new Error("Error creating WebGL context."))).toBe(
+    "webgl_unsupported",
+  );
+  expect(sceneErrorKind(new Error("boom"))).toBe("scene_failed");
+  expect(sceneErrorKind(undefined)).toBe("scene_failed");
 });

@@ -73,3 +73,13 @@ export const gameFinished = ({ gameId, mode, club, hits, won }) => ({
   hits,
   won,
 });
+
+// model: "glb" for the modelled golfer, "figure_fallback" for the one built in
+// code after a failed download.
+export const appReady = ({ loadMs, model }) => ({
+  load_ms: Math.round(loadMs),
+  model: model || "glb",
+});
+
+export const sceneErrorKind = (error) =>
+  /webgl/i.test(String(error?.message)) ? "webgl_unsupported" : "scene_failed";

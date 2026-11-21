@@ -11,10 +11,12 @@ import LeaderboardModal from "./components/simulator/leaderboard-modal";
 import { getLeaderboard } from "./players/api";
 import { loadProfile } from "./players/profile";
 import { flush, newGameId, recordShot } from "./players/queue";
-import { identify, setContext, track } from "./analytics";
+import { identify, reportError, setContext, track } from "./analytics";
 import {
+  appReady,
   gameFinished,
   gameStarted,
+  sceneErrorKind,
   shotLanded,
   targetAttempted,
 } from "./analytics-events";
@@ -50,6 +52,16 @@ import {
 } from "./utils/constant";
 
 const DESKTOP_QUERY = "(min-width: 768px)";
+
+// A scene that cannot be built (no WebGL) is reported, then still throws.
+const guardScene = (create) => {
+  try {
+    return create();
+  } catch (error) {
+    reportError(sceneErrorKind(error), String(error.message).slice(0, 100));
+    throw error;
+  }
+};
 // The box the keyboard is on when the page opens and for each new shot.
 const START_CONTROL = "aim";
 
@@ -285,111 +297,119 @@ function App() {
   const targetDone = useRef(false);
 
   useEffect(() => {
-    const sim = createSimulator(stage.current, {
-      side,
-      fleet: empire != null,
-      // The golfer is on the tee: fade out the loading screen in index.html
-      // once a frame with him in it has been drawn.
-      onReady: () =>
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => {
-            const loading = document.getElementById("loading");
-            if (!loading) return;
-            loading.addEventListener("transitionend", () => loading.remove());
-            loading.classList.add("done");
-          }),
-        ),
-      onOrbit: setOrbiting,
-      onProgress: setLive,
-      onResult: (shotResult) => {
-        setResult(shotResult);
-        setLive(null);
-        // A shot only counts against the target it was hit at: changing club
-        // mid-flight puts up a new one.
-        const { target: aimedAt, goal } = game.current;
-        track(
-          "shot_landed",
-          shotLanded({
-            mode: game.current.mode,
-            club: game.current.club,
-            gameId: game.current.id,
-            result: shotResult,
-            controls: game.current.controls,
-          }),
-        );
-        if (
-          shotResult.target &&
-          !staleShot.current &&
-          aimedAt &&
-          !targetDone.current
-        ) {
-          const { hit } = shotResult.target;
-          const shots = [
-            ...game.current.shots,
-            {
-              hit,
-              distanceYards: aimedAt.distanceYards,
-              heightYards: aimedAt.heightYards,
-              miss: hit ? null : describeMiss(shotResult.target),
-            },
-          ];
-          game.current.shots = shots;
-          setRound(shots);
-          targetDone.current = true;
-          const played = {
-            gameId: game.current.id,
-            mode: game.current.mode,
-            club: game.current.club,
-          };
-          if (shots.length === 1) track("game_started", gameStarted(played));
-          track(
-            "target_attempted",
-            targetAttempted({
-              ...played,
-              target: aimedAt,
-              outcome: shotResult.target,
-              shotNumber: shots.length,
+    const sim = guardScene(() =>
+      createSimulator(stage.current, {
+        side,
+        fleet: empire != null,
+        // The golfer is on the tee: fade out the loading screen in index.html
+        // once a frame with him in it has been drawn.
+        onReady: ({ model } = {}) => {
+          if (model === "figure_fallback") reportError("model_load_failed");
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              track(
+                "app_ready",
+                appReady({ loadMs: performance.now(), model }),
+              );
+              const loading = document.getElementById("loading");
+              if (!loading) return;
+              loading.addEventListener("transitionend", () => loading.remove());
+              loading.classList.add("done");
             }),
           );
-          recordShot({
-            gameId: game.current.id,
-            mode: game.current.mode,
-            club: game.current.club,
-            targetYards: aimedAt.distanceYards,
-            hit,
-            shotId: newGameId(),
-            playedAt: new Date().toISOString(),
-          });
-          if (shots.length === goal.targets) {
-            const hits = shots.filter((shot) => shot.hit).length;
-            const won = hits >= goal.toWin;
-            track("game_finished", gameFinished({ ...played, hits, won }));
-            if (won) {
-              simulator.current?.celebrate?.(
-                hits === goal.targets ? "perfect" : "win",
-              );
-            }
-            setSession((previous) => ({
-              played: previous.played + 1,
-              won: previous.won + (won ? 1 : 0),
-            }));
-          }
-        }
-      },
-      onState: (state) => {
-        // Every new shot starts with the keyboard on Aim.
-        if (state === "address") setSelected(START_CONTROL);
-        if (state === "address" && targetDone.current) {
-          targetDone.current = false;
-          const { shots, goal, next } = game.current;
-          // The game is over after the last target: the range is cleared
-          // until a new game is started.
-          setTarget((previous) =>
-            shots.length >= goal.targets ? null : next(previous),
+        },
+        onOrbit: setOrbiting,
+        onProgress: setLive,
+        onResult: (shotResult) => {
+          setResult(shotResult);
+          setLive(null);
+          // A shot only counts against the target it was hit at: changing club
+          // mid-flight puts up a new one.
+          const { target: aimedAt, goal } = game.current;
+          track(
+            "shot_landed",
+            shotLanded({
+              mode: game.current.mode,
+              club: game.current.club,
+              gameId: game.current.id,
+              result: shotResult,
+              controls: game.current.controls,
+            }),
           );
-        }
-      },
-    });
+          if (
+            shotResult.target &&
+            !staleShot.current &&
+            aimedAt &&
+            !targetDone.current
+          ) {
+            const { hit } = shotResult.target;
+            const shots = [
+              ...game.current.shots,
+              {
+                hit,
+                distanceYards: aimedAt.distanceYards,
+                heightYards: aimedAt.heightYards,
+                miss: hit ? null : describeMiss(shotResult.target),
+              },
+            ];
+            game.current.shots = shots;
+            setRound(shots);
+            targetDone.current = true;
+            const played = {
+              gameId: game.current.id,
+              mode: game.current.mode,
+              club: game.current.club,
+            };
+            if (shots.length === 1) track("game_started", gameStarted(played));
+            track(
+              "target_attempted",
+              targetAttempted({
+                ...played,
+                target: aimedAt,
+                outcome: shotResult.target,
+                shotNumber: shots.length,
+              }),
+            );
+            recordShot({
+              gameId: game.current.id,
+              mode: game.current.mode,
+              club: game.current.club,
+              targetYards: aimedAt.distanceYards,
+              hit,
+              shotId: newGameId(),
+              playedAt: new Date().toISOString(),
+            });
+            if (shots.length === goal.targets) {
+              const hits = shots.filter((shot) => shot.hit).length;
+              const won = hits >= goal.toWin;
+              track("game_finished", gameFinished({ ...played, hits, won }));
+              if (won) {
+                simulator.current?.celebrate?.(
+                  hits === goal.targets ? "perfect" : "win",
+                );
+              }
+              setSession((previous) => ({
+                played: previous.played + 1,
+                won: previous.won + (won ? 1 : 0),
+              }));
+            }
+          }
+        },
+        onState: (state) => {
+          // Every new shot starts with the keyboard on Aim.
+          if (state === "address") setSelected(START_CONTROL);
+          if (state === "address" && targetDone.current) {
+            targetDone.current = false;
+            const { shots, goal, next } = game.current;
+            // The game is over after the last target: the range is cleared
+            // until a new game is started.
+            setTarget((previous) =>
+              shots.length >= goal.targets ? null : next(previous),
+            );
+          }
+        },
+      }),
+    );
     simulator.current = sim;
 
     return () => {

@@ -11,7 +11,7 @@ import App from "./App";
 import { createSimulator } from "./simulate/main";
 import { createClubScene } from "./simulate/club-scene";
 import { TURF_PRESETS } from "./simulate/ground";
-import { setContext, track } from "./analytics";
+import { reportError, setContext, track } from "./analytics";
 
 // jsdom has no WebGL, so the 3D scene can't start under Jest; the fake stands
 // in for it and records what the UI asks it to do.
@@ -21,6 +21,7 @@ jest.mock("./analytics", () => ({
   track: jest.fn(),
   identify: jest.fn(),
   setContext: jest.fn(),
+  reportError: jest.fn(),
 }));
 
 let simulator;
@@ -2319,6 +2320,7 @@ describe("analytics events", () => {
   beforeEach(() => {
     track.mockClear();
     setContext.mockClear();
+    reportError.mockClear();
   });
 
   test("a whole game shares one game id across its events", () => {
@@ -2358,6 +2360,43 @@ describe("analytics events", () => {
     expect(shot).toHaveProperty("carry_yards", 200);
     expect(shot).toHaveProperty("swing_speed");
     expect(sent("game_started")).toHaveLength(0);
+  });
+
+  test("app_ready is sent once the scene is ready, with how long it took", async () => {
+    renderApp();
+    act(() => callbacks.onReady({ model: "glb" }));
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith(
+        "app_ready",
+        expect.objectContaining({ model: "glb", load_ms: expect.any(Number) }),
+      ),
+    );
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  test("a failed golfer download is reported and still gets app_ready", async () => {
+    renderApp();
+    act(() => callbacks.onReady({ model: "figure_fallback" }));
+    expect(reportError).toHaveBeenCalledWith("model_load_failed");
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith(
+        "app_ready",
+        expect.objectContaining({ model: "figure_fallback" }),
+      ),
+    );
+  });
+
+  test("a scene that cannot be built is reported as no WebGL, then still throws", () => {
+    createSimulator.mockImplementationOnce(() => {
+      throw new Error("Error creating WebGL context.");
+    });
+    const quiet = jest.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => renderApp()).toThrow("WebGL");
+    quiet.mockRestore();
+    expect(reportError).toHaveBeenCalledWith(
+      "webgl_unsupported",
+      "Error creating WebGL context.",
+    );
   });
 
   test("the viewport is registered for later events", () => {

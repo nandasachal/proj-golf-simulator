@@ -325,13 +325,15 @@ export function createSimulator(container, callbacks = {}) {
   const golfer = createGolfer({ figure: false });
   golfer.setSide(side);
   scene.add(golfer.group);
+  let golferModel = "glb";
   loadGolferModel()
     .then((model) => golfer.setModel(model))
     .catch(() => {
       console.warn("Golfer model did not load; building the built-in figure.");
+      golferModel = "figure_fallback";
       golfer.buildFigure();
     })
-    .then(() => onReady && onReady());
+    .then(() => onReady && onReady({ model: golferModel }));
   let swingSeconds = 0;
   let aim = 0;
   let state = ADDRESS;

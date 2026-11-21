@@ -73,6 +73,20 @@ describe("with analytics on", () => {
     expect(posthog.register).toHaveBeenCalledWith({ player_saved: true });
   });
 
+  test("an error kind is sent once per page load", () => {
+    analytics.reportError("api_unreachable", "/shots");
+    analytics.reportError("api_unreachable", "/leaderboard");
+    analytics.reportError("webgl_unsupported", "no context");
+    expect(posthog.capture.mock.calls).toEqual([
+      ["app_error", { kind: "api_unreachable", detail: "/shots" }],
+      ["app_error", { kind: "webgl_unsupported", detail: "no context" }],
+    ]);
+  });
+
+  test("exceptions are captured", () => {
+    expect(posthog.init.mock.calls[0][1].capture_exceptions).toBe(true);
+  });
+
   test("setContext registers properties for later events", () => {
     analytics.setContext({ viewport: "phone" });
     expect(posthog.register).toHaveBeenCalledWith({ viewport: "phone" });

@@ -369,10 +369,18 @@ PostHog, for web analytics (page views) and product analytics (`src/analytics.js
 It is off unless the build has `REACT_APP_POSTHOG_KEY` (the project key, public
 by design; `REACT_APP_POSTHOG_HOST` for an EU project), so tests and local runs
 send nothing. Autocapture and session replay are off; the visitor id is kept in
-localStorage, not a cookie. Events: `shot_landed` (every shot, practice
-included), `game_started` (first scored shot of a game), `target_attempted`,
-`game_finished`, `name_saved`, `leaderboard_opened`. A saved player is
-identified by player id and name. Opening the site once with `?internal=1`
+localStorage, not a cookie. The tracking plan (events, properties, dashboards) is
+[planning/product-specs/analytics.md](planning/product-specs/analytics.md); the
+property sets are built by pure functions in `src/analytics-events.js` and
+tested. Events as built so far: `shot_landed` (every shot, practice included,
+with carry, offline, apex, shape and the seven controls at impact),
+`game_started`, `target_attempted`, `game_finished` (all four game events share
+a `game_id`), `name_saved`, `leaderboard_opened`, `app_ready` (load time and
+whether the modelled golfer or the fallback figure was used) and `app_error`
+(`webgl_unsupported`, `scene_failed`, `model_load_failed`, `api_unreachable`,
+once per kind per page load); unhandled errors go to `$exception`. Every event
+carries `app_version`, `player_saved` and `viewport`. A saved player is
+identified by player id only (no name). Opening the site once with `?internal=1`
 marks that browser as ours (`?internal=0` unmarks it): its events carry
 `internal: true`, which the project's internal-users filter in PostHog hides.
 
