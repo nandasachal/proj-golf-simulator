@@ -200,3 +200,78 @@ test("the goal is 3 of 5 in normal and 4 of 5 in advanced", () => {
   expect(GOALS.normal).toEqual({ targets: 5, toWin: 3 });
   expect(GOALS.advanced).toEqual({ targets: 5, toWin: 4 });
 });
+
+describe("easyTarget", () => {
+  const { easyTarget, evaluateTarget: judge } = require("./game");
+  const { TURF_PRESETS } = require("./ground");
+
+  test("sits on the centre line where the stock straight drive stops", () => {
+    const target = easyTarget({ speed: 105, turf: TURF_PRESETS.normal });
+    expect(target.x).toBe(0);
+    expect(target.offlineYards).toBe(0);
+    expect(target.easy).toBe(true);
+    expect(target.z).toBeGreaterThan(200);
+    expect(target.z).toBeLessThan(300);
+  });
+
+  test("a firmer turf moves it out", () => {
+    const soft = easyTarget({ speed: 105, turf: TURF_PRESETS.soft });
+    const firm = easyTarget({ speed: 105, turf: TURF_PRESETS.firm });
+    expect(firm.z).toBeGreaterThan(soft.z);
+  });
+
+  test("works for a short club", () => {
+    const target = easyTarget({
+      clubId: "pw",
+      speed: 80,
+      turf: TURF_PRESETS.normal,
+    });
+    expect(target.z).toBeGreaterThan(80);
+    expect(target.z).toBeLessThan(160);
+    // a ball resting at its centre is a hit
+    expect(judge(target, [{ x: 0, y: 0, z: target.z }]).hit).toBe(true);
+  });
+});
+
+describe("easyTarget against the scene's own shot", () => {
+  const { easyTarget, evaluateTarget: judge } = require("./game");
+  const { groundRun, turfParameters, TURF_PRESETS } = require("./ground");
+  const { getClub, swingSpeedRange } = require("./clubs");
+  // As main.js flies and scores a shot: a 1 ms step, the run after
+  // touchdown lifted by the ball's radius, all in yards.
+  const sceneOutcome = (target, clubId, speed, turf) => {
+    const shot = new Shot({
+      dt: 0.001,
+      ...launchConditions({
+        swingSpeedMPH: speed,
+        faceAngle: 0,
+        pathAngle: 0,
+        side: "Right",
+        club: clubId,
+      }),
+    });
+    const touchdown = shot.points[shot.points.length - 1];
+    const run = groundRun(touchdown, turfParameters(turf));
+    const yards = toYards(1);
+    return judge(
+      target,
+      run.points.map(({ position: p }) => ({
+        x: p.x * yards,
+        y: p.y * yards + 0.0234,
+        z: p.z * yards,
+      })),
+    );
+  };
+
+  test.each(["driver", "7i", "pw"])(
+    "the stock straight %s hits it on every turf",
+    (clubId) => {
+      const speed = swingSpeedRange(getClub(clubId)).DEFAULT;
+      for (const preset of ["soft", "normal", "firm"]) {
+        const turf = TURF_PRESETS[preset];
+        const target = easyTarget({ clubId, speed, turf });
+        expect(sceneOutcome(target, clubId, speed, turf).hit).toBe(true);
+      }
+    },
+  );
+});

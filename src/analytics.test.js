@@ -46,8 +46,11 @@ describe("with analytics on", () => {
         register: jest.fn(),
         capture: jest.fn(),
         identify: jest.fn(),
+        startSessionRecording: jest.fn(),
       },
     }));
+    window.localStorage.clear();
+    window.sessionStorage.clear();
     process.env.REACT_APP_POSTHOG_KEY = "phc_test";
     process.env.NODE_ENV = "development";
     posthog = require("posthog-js").default;
@@ -87,8 +90,58 @@ describe("with analytics on", () => {
     expect(posthog.init.mock.calls[0][1].capture_exceptions).toBe(true);
   });
 
+  test("a first visit is marked and recorded; recording is off otherwise", () => {
+    expect(posthog.register).toHaveBeenCalledWith({ first_visit: true });
+    expect(posthog.startSessionRecording).toHaveBeenCalledTimes(1);
+    expect(posthog.init.mock.calls[0][1].disable_session_recording).toBe(true);
+    expect(posthog.init.mock.calls[0][1].session_recording.maskAllInputs).toBe(
+      true,
+    );
+
+    window.sessionStorage.clear();
+    posthog.startSessionRecording.mockClear();
+    analytics.startAnalytics();
+    expect(posthog.register).toHaveBeenLastCalledWith({ first_visit: false });
+    expect(posthog.startSessionRecording).not.toHaveBeenCalled();
+  });
+
   test("setContext registers properties for later events", () => {
     analytics.setContext({ viewport: "phone" });
     expect(posthog.register).toHaveBeenCalledWith({ viewport: "phone" });
+  });
+});
+
+describe("firstVisit", () => {
+  const { firstVisit } = require("./analytics");
+  const store = () => {
+    const data = {};
+    return {
+      getItem: (key) => (key in data ? data[key] : null),
+      setItem: (key, value) => {
+        data[key] = String(value);
+      },
+    };
+  };
+
+  test("a new browser is on its first visit for the whole tab session", () => {
+    const local = store();
+    const session = store();
+    expect(firstVisit(local, session)).toBe(true);
+    // a reload in the same tab
+    expect(firstVisit(local, session)).toBe(true);
+    // a later visit, new tab session
+    expect(firstVisit(local, store())).toBe(false);
+  });
+
+  test("blocked storage counts as a first visit", () => {
+    const blocked = {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+      setItem: () => {
+        throw new Error("blocked");
+      },
+    };
+    expect(firstVisit(blocked, blocked)).toBe(true);
   });
 });

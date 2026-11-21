@@ -8,7 +8,7 @@ import {
 import { classNames } from "../../utils/functions";
 import { track } from "../../analytics";
 import { CATEGORIES, CLUBS } from "../../simulate/clubs";
-import { neutralOf, stateOf } from "../../utils/shortcuts";
+import { ALL_CONTROLS, neutralOf, stateOf } from "../../utils/shortcuts";
 import {
   GAIN,
   fromGround,
@@ -573,7 +573,9 @@ const ClubPads = ({
   onClub,
   onReset,
   views = true,
+  controls = ALL_CONTROLS,
 }) => {
+  const shows = (control) => controls.includes(control);
   const mirror = side === "Left" ? -1 : 1;
   const [active, setActive] = useState(null);
   // The control whose (i) is open. A click anywhere else, or Escape, puts
@@ -725,9 +727,8 @@ const ClubPads = ({
   // The aim, face and path handles can sit close together, so a press goes
   // to whichever of them is nearest the pointer, not whichever is on top.
   const nearestHandle = (control, event) => {
-    if (!["aim", "clubFaceAngle", "clubPathAngle"].includes(control)) {
-      return control;
-    }
+    const crowded = ["aim", "clubFaceAngle", "clubPathAngle"].filter(shows);
+    if (!crowded.includes(control)) return control;
     const rect = event.currentTarget.closest("svg").getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
@@ -735,7 +736,7 @@ const ClubPads = ({
       const point = placed(name);
       return Math.hypot(x - point.x, y - point.y);
     };
-    return ["aim", "clubFaceAngle", "clubPathAngle"].reduce((best, name) =>
+    return crowded.reduce((best, name) =>
       distance(name) < distance(best) ? name : best,
     );
   };
@@ -853,12 +854,18 @@ const ClubPads = ({
           opens under them. */}
       <div ref={chips} className="relative flex flex-col gap-2">
         <div className="grid grid-cols-2 gap-2">
-          <ValueChip {...chipProps("clubFaceAngle")} />
-          <ValueChip {...chipProps("clubPathAngle")} />
-          <ValueChip {...chipProps("strike")} />
-          <ValueChip {...chipProps("aim")} />
-          <ValueChip {...chipProps("attackAngle")} />
-          <ValueChip {...chipProps("loftChange")} />
+          {[
+            "clubFaceAngle",
+            "clubPathAngle",
+            "strike",
+            "aim",
+            "attackAngle",
+            "loftChange",
+          ]
+            .filter(shows)
+            .map((control) => (
+              <ValueChip key={control} {...chipProps(control)} />
+            ))}
         </div>
         {/* Swing speed, and beside it the club it is swung with. */}
         <div className="grid grid-cols-2 gap-2">
@@ -901,28 +908,30 @@ const ClubPads = ({
             className="h-[clamp(150px,22dvh,230px)]"
             onScene={onTopScene}
           >
-            {inOrder(["strike", "clubPathAngle", "clubFaceAngle", "aim"]).map(
-              (control) => handle(control, boundsOf(scenes.current.top)),
-            )}
+            {inOrder(
+              ["strike", "clubPathAngle", "clubFaceAngle", "aim"].filter(shows),
+            ).map((control) => handle(control, boundsOf(scenes.current.top)))}
           </Pad3D>
-          <Pad3D
-            name="Club from the side"
-            key={`side-${club.id}`}
-            caption={`Toe ×${GAIN.attack}`}
-            options={sideOptions}
-            setup={sideSetup}
-            className="h-[clamp(96px,13dvh,140px)]"
-            note={`launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
-              launch.backspinRPM,
-            )} rpm`}
-            // keep it clear of the attack handle, which swaps sides with the golfer
-            noteOnLeft={mirror < 0}
-            onScene={onSideScene}
-          >
-            {inOrder(["attackAngle", "loftChange"]).map((control) =>
-              handle(control, boundsOf(scenes.current.side)),
-            )}
-          </Pad3D>
+          {(shows("attackAngle") || shows("loftChange")) && (
+            <Pad3D
+              name="Club from the side"
+              key={`side-${club.id}`}
+              caption={`Toe ×${GAIN.attack}`}
+              options={sideOptions}
+              setup={sideSetup}
+              className="h-[clamp(96px,13dvh,140px)]"
+              note={`launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
+                launch.backspinRPM,
+              )} rpm`}
+              // keep it clear of the attack handle, which swaps sides with the golfer
+              noteOnLeft={mirror < 0}
+              onScene={onSideScene}
+            >
+              {inOrder(["attackAngle", "loftChange"].filter(shows)).map(
+                (control) => handle(control, boundsOf(scenes.current.side)),
+              )}
+            </Pad3D>
+          )}
         </>
       )}
     </div>

@@ -2,6 +2,7 @@
 // project key (REACT_APP_POSTHOG_KEY, public by design), so tests and local
 // runs send nothing.
 import posthog from "posthog-js";
+import { FIRST, hasDone, markDone } from "./first-visit";
 
 const KEY = process.env.REACT_APP_POSTHOG_KEY;
 const INTERNAL = "golf.internal";
@@ -21,6 +22,15 @@ export function internalDevice(search, storage) {
   }
 }
 
+// A browser's first visit lasts its first tab session, reloads included.
+const FIRST_SESSION = "golf.first-session";
+export function firstVisit(local, session) {
+  const first = !hasDone(FIRST.visit, local) || hasDone(FIRST_SESSION, session);
+  markDone(FIRST.visit, local);
+  if (first) markDone(FIRST_SESSION, session);
+  return first;
+}
+
 export function startAnalytics() {
   if (!KEY || process.env.NODE_ENV === "test") return;
   posthog.init(KEY, {
@@ -29,7 +39,9 @@ export function startAnalytics() {
     // No cookie: the visitor id lives in localStorage, like the saved player.
     persistence: "localStorage",
     person_profiles: "identified_only",
+    // Recording starts below, and only for a first visit.
     disable_session_recording: true,
+    session_recording: { maskAllInputs: true },
     // The swing controls are dragged and nudged constantly; only the named
     // events below are worth counting.
     autocapture: false,
@@ -42,6 +54,11 @@ export function startAnalytics() {
   });
   if (internalDevice(window.location.search, window.localStorage))
     posthog.register({ internal: true });
+  const first = firstVisit(window.localStorage, window.sessionStorage);
+  posthog.register({ first_visit: first });
+  // Replays only of first visits, to see where new players get stuck. Inputs
+  // are masked.
+  if (first) posthog.startSessionRecording();
   on = true;
 }
 

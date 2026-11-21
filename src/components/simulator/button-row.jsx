@@ -3,10 +3,13 @@ import { InfoCircle, PlayFill } from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
 import { track } from "../../analytics";
 
-export const HitButton = ({ onClick, className = "" }) => (
+// `beckon` makes it pulse, for a visitor who has not hit a shot yet.
+export const HitButton = ({ onClick, className = "", beckon = false }) => (
   <button
     type="button"
-    className={`flex items-center justify-center rounded-lg bg-lime-400 text-base font-bold text-slate-900 transition-colors hover:bg-lime-300 active:bg-lime-500 ${className}`}
+    className={`flex items-center justify-center rounded-lg bg-lime-400 text-base font-bold text-slate-900 transition-colors hover:bg-lime-300 active:bg-lime-500 ${
+      beckon ? "hit-beckon" : ""
+    } ${className}`}
     onClick={onClick}
     aria-keyshortcuts="Space"
   >
@@ -23,25 +26,18 @@ const MODES = [
     info: "No targets and nothing is scored. Hit as many shots as you like to learn what each control does.",
   },
   {
-    id: "normal",
-    name: "Normal",
-    caption: "Game Mode",
-    about: "About the normal game",
-    info: "5 targets, one shot at each. The target is the circle at the foot of a beam: the ball has to touch the ground inside it. Hit 3 to win.",
-  },
-  {
-    id: "advanced",
-    name: "Advanced",
-    caption: "Game Mode",
-    about: "About the advanced game",
-    info: "5 targets, one shot at each. The target is a small spinning sphere in the air: the ball has to fly through it. Hit 4 to win.",
+    id: "game",
+    name: "Game",
+    about: "About the game",
+    info: "5 targets, one shot at each. Normal: the ball has to touch the circle at the foot of a beam; hit 3 to win. Advanced: it has to fly through a small sphere in the air; hit 4 to win. Switch between them on the game card.",
   },
 ];
 
-// Practice or a game, each with an (i) that says what it is when clicked. On
+// Practice or a game (its difficulty is chosen on the game card), each with an (i) that says what it is when clicked. On
 // laptops it closes the shot panel; on phones it is a bar fixed to the bottom
 // of the screen, with Hit beside it.
-const ButtonRow = ({ mode, onMode, simulate, bar = false }) => {
+const ButtonRow = ({ mode, onMode, simulate, bar = false, beckon = false }) => {
+  const chosenId = mode === "practice" ? "practice" : "game";
   const [about, setAbout] = useState(null);
   const row = useRef(null);
   const open = MODES.find(({ id }) => id === about);
@@ -82,34 +78,28 @@ const ButtonRow = ({ mode, onMode, simulate, bar = false }) => {
           </p>
         )}
         <div
-          className={`grid grid-cols-3 rounded-lg bg-white/10 p-1 ${
+          className={`grid grid-cols-2 rounded-lg bg-white/10 p-1 ${
             bar ? "h-full text-[13px]" : "text-sm"
           }`}
           role="group"
           aria-label="Mode"
         >
-          {MODES.map(({ id, name, caption, about: label }) => {
-            const chosen = mode === id;
+          {MODES.map(({ id, name, about: label }) => {
+            const chosen = chosenId === id;
             return (
               <div key={id} className="relative flex">
                 <button
                   type="button"
                   aria-pressed={chosen}
-                  aria-label={caption ? `${caption}: ${name}` : undefined}
                   className={classNames(
                     // Room on the right for the (i).
-                    "flex flex-1 flex-col items-center justify-center rounded-md py-1.5 pl-1 pr-4 font-medium leading-tight transition-colors",
+                    "flex flex-1 flex-col items-center justify-center rounded-md py-2 pl-1 pr-4 font-medium leading-tight transition-colors",
                     chosen
                       ? "bg-lime-400 text-slate-900"
                       : "text-white/70 hover:text-white",
                   )}
                   onClick={() => onMode(id)}
                 >
-                  {caption && (
-                    <span className="whitespace-nowrap text-[9px] font-semibold uppercase tracking-wide opacity-60">
-                      {caption}
-                    </span>
-                  )}
                   {name}
                 </button>
                 <button
@@ -135,7 +125,13 @@ const ButtonRow = ({ mode, onMode, simulate, bar = false }) => {
           })}
         </div>
       </div>
-      {bar && <HitButton onClick={simulate} className="w-24 shrink-0" />}
+      {bar && (
+        <HitButton
+          onClick={simulate}
+          beckon={beckon}
+          className="w-24 shrink-0"
+        />
+      )}
     </div>
   );
 };

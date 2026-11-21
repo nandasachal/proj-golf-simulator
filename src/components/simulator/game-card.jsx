@@ -6,16 +6,36 @@ const describeSide = (offlineYards) => {
   return `${Math.abs(offlineYards)} yd ${offlineYards > 0 ? "right" : "left"}`;
 };
 
-const TITLES = { normal: "Normal game", advanced: "Advanced game" };
+const DIFFICULTIES = [
+  { id: "normal", name: "Normal" },
+  { id: "advanced", name: "Advanced" },
+];
 
-// Where the game stands against its goal, in a few words.
-function standing(hits, left, toWin) {
-  if (hits >= toWin) return { text: "Goal reached", tone: "text-lime-300" };
+// Where the game stands against its goal, in a few words; `short` fits the
+// phone card.
+function standing(hits, left, toWin, total) {
+  if (hits >= toWin)
+    return {
+      text: "Goal reached",
+      short: "Goal reached",
+      tone: "text-lime-300",
+    };
   const needed = toWin - hits;
   if (needed > left)
-    return { text: `Out of reach: needed ${toWin}`, tone: "text-rose-300" };
+    return {
+      text: `Out of reach: needed ${toWin}`,
+      short: "Out of reach",
+      tone: "text-rose-300",
+    };
+  if (left === total)
+    return {
+      text: `Hit ${toWin} of ${total} to win`,
+      short: `Hit ${toWin} of ${total} to win`,
+      tone: "text-white/80",
+    };
   return {
     text: `${needed} more to win · ${left} left`,
+    short: `Need ${needed} · ${left} left`,
     tone: "text-white/70",
   };
 }
@@ -94,13 +114,20 @@ const GameCard = ({
   player,
   board,
   onPlayer,
+  onDifficulty,
+  tip,
 }) => {
   // Shown once, straight after a name is saved, until it is dismissed.
   const [recoveryCode, setRecoveryCode] = useState(null);
   const hits = round.filter((shot) => shot.hit).length;
   const over = round.length >= goal.targets;
   const won = hits >= goal.toWin;
-  const state = standing(hits, goal.targets - round.length, goal.toWin);
+  const state = standing(
+    hits,
+    goal.targets - round.length,
+    goal.toWin,
+    goal.targets,
+  );
   let streak = 0;
   for (let i = round.length - 1; i >= 0 && round[i].hit; i--) streak++;
 
@@ -110,11 +137,29 @@ const GameCard = ({
       role="status"
       aria-label="Game"
     >
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-300 md:text-[11px]">
-          {TITLES[mode]}
-        </p>
-        <p className="hidden text-[11px] tabular-nums text-white/50 md:block">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <div
+          className="flex rounded-md bg-white/10 p-0.5 text-[10px] font-semibold uppercase tracking-wider md:text-[11px]"
+          role="group"
+          aria-label="Difficulty"
+        >
+          {DIFFICULTIES.map(({ id, name }) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={mode === id}
+              className={`rounded px-1.5 py-0.5 transition-colors ${
+                mode === id
+                  ? "bg-amber-300 text-slate-900"
+                  : "text-white/60 hover:text-white"
+              }`}
+              onClick={() => onDifficulty(id)}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+        <p className="text-[10px] tabular-nums text-white/50 md:text-[11px]">
           {over ? "Finished" : `Target ${round.length + 1} of ${goal.targets}`}
         </p>
       </div>
@@ -162,7 +207,11 @@ const GameCard = ({
         )}
       </div>
       <div className="mt-1.5 flex items-baseline justify-between gap-2 text-[11px] tabular-nums md:text-xs">
-        <p className="font-semibold">
+        <p
+          className={`font-semibold ${
+            over ? "" : round.length ? "hidden md:block" : "hidden"
+          }`}
+        >
           {hits} hit
           <span className="font-normal text-white/50">
             {" "}
@@ -170,9 +219,21 @@ const GameCard = ({
           </span>
         </p>
         {!over && (
-          <p className={`hidden md:block ${state.tone}`}>{state.text}</p>
+          <p className={state.tone} aria-label="Standing">
+            <span className="md:hidden">{state.short}</span>
+            <span className="hidden md:inline">{state.text}</span>
+          </p>
         )}
       </div>
+      {tip && !over && (
+        <p
+          className="mt-1.5 whitespace-normal rounded-md bg-amber-300/10 px-2 py-1 text-[10px] leading-snug text-amber-200 md:text-xs"
+          aria-label="Tip"
+        >
+          <span className="font-semibold">Tip: </span>
+          {tip}
+        </p>
+      )}
 
       {round.length > 0 && (
         <ol

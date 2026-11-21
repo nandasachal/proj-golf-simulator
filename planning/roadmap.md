@@ -23,8 +23,18 @@
     [eng-plans/analytics.md](eng-plans/analytics.md).
   - **Optimize activation** (asked 2026-11-21, after analytics ships) — raise
     the share of visitors who take a first shot and finish a game; baseline and
-    drop-off points come from the Gameplay dashboard. Needs a definition of
-    "activated" and a spec.
+    drop-off points come from the Gameplay dashboard. Activated = attempted a
+    target in a game in the first session. First pass built 2026-11-21: Hit
+    prompt, easy first target, miss coaching, card progress, Practice / Game
+    with difficulty on the card, three controls in a normal game, first-visit
+    replay, 15 s model timeout. See
+    [product-specs/activation.md](product-specs/activation.md) and
+    [eng-plans/activation.md](eng-plans/activation.md).
+    - **Shrink the golfer model** (3.3 MB, sent uncompressed; phone load p75
+      ~8.8 s on 2 loads) — Draco or meshopt geometry. Blocked on a clean
+      re-export: exporting `tools/blender/golfer.blend` today gives a 4.8 MB
+      file, not the shipped 3.3 MB, so the build pipeline needs checking first.
+    - **Hallway tests** — five people who've never seen it, half on phones.
 
 ## Should Have
 

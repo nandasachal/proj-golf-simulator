@@ -122,6 +122,15 @@ const renderApp = (url = "/") =>
     </MemoryRouter>,
   );
 
+// Every control shows in practice (and advanced); a normal game shows three.
+// Tests of the controls themselves open in practice unless the URL says.
+const renderPanel = (url = "/") =>
+  renderApp(
+    /[?&]mode=/.test(url)
+      ? url
+      : `${url}${url.includes("?") ? "&" : "?"}mode=practice`,
+  );
+
 const hit = () =>
   fireEvent.click(screen.getByRole("button", { name: /^hit$/i }));
 const lastHit = () => simulator.hit.mock.calls.at(-1);
@@ -189,7 +198,7 @@ const result = () => screen.getByRole("status", { name: "Shot result" });
 
 describe("shot controls", () => {
   test("the panel holds the shot controls and the mode; turf and handedness are in Settings", () => {
-    renderApp();
+    renderPanel();
     expect(screen.queryByText(/golf simulator/i)).not.toBeInTheDocument();
     expect(valueOf("Club face")).toBe(0);
     expect(valueOf("Club path")).toBe(0);
@@ -208,13 +217,36 @@ describe("shot controls", () => {
       screen.queryByRole("button", { name: /left-handed/i }),
     ).not.toBeInTheDocument();
     // the mode is on the panel, below the controls
+    expect(screen.getByRole("button", { name: "Game" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Practice" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  test("a normal game shows face, path and speed; the rest play at their defaults", () => {
+    renderApp("/?aim=5&attack=4&loft=-2&strike=0.5&face=2");
+    expect(valueOf("Club face")).toBe(2);
+    expect(valueOf("Club path")).toBe(0);
+    expect(valueOf("Swing speed")).toBe(95);
+    for (const name of ["Aim", "Attack angle", "Loft", "Strike"])
+      expect(screen.queryByRole("slider", { name })).toBeNull();
     expect(
-      screen.getByRole("button", { name: "Game Mode: Advanced" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("group", { name: "Club from the side" }),
+    ).toBeNull();
+    expect(selectedBox()).toBe("clubFaceAngle");
+    hit();
+    expect(simulator.setAim).toHaveBeenLastCalledWith(0);
+    expect(lastHit()[3]).toBe(0);
+
+    // advanced shows all seven, with the values from the URL
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    expect(valueOf("Aim")).toBe(5);
+    expect(valueOf("Strike")).toBe(0.5);
   });
 
   test("a changed control is used by the very next hit", () => {
-    renderApp();
+    renderPanel();
     hit();
     expect(lastLaunch()).toMatchObject({ initSpeedMPH: 95 });
     expect(lastLaunch().initHorizontalAngleDegrees).toBeCloseTo(0);
@@ -242,7 +274,7 @@ describe("shot controls", () => {
   });
 
   test("shot setup is read from the URL, and junk values fall back into range", () => {
-    renderApp("/?face=-3&path=5&speed=110&aim=4");
+    renderPanel("/?face=-3&path=5&speed=110&aim=4");
     expect(valueOf("Club face")).toBe(-3);
     expect(valueOf("Club path")).toBe(5);
     expect(valueOf("Swing speed")).toBe(110);
@@ -250,7 +282,7 @@ describe("shot controls", () => {
   });
 
   test("out-of-range or junk URL values are clamped", () => {
-    renderApp("/?face=abc&path=40&speed=500&aim=-90&side=Banana");
+    renderPanel("/?face=abc&path=40&speed=500&aim=-90&side=Banana");
     expect(valueOf("Club face")).toBe(0);
     expect(valueOf("Club path")).toBe(6);
     expect(valueOf("Swing speed")).toBe(140);
@@ -261,7 +293,7 @@ describe("shot controls", () => {
   });
 
   test("attack angle and loft change the launch of the next hit", () => {
-    renderApp("/?speed=105");
+    renderPanel("/?speed=105");
     hit();
     const level = lastLaunch();
     expect(screen.getAllByText("level").length).toBeGreaterThan(0);
@@ -286,13 +318,13 @@ describe("shot controls", () => {
   });
 
   test("attack and loft are read from the URL", () => {
-    renderApp("/?attack=-3&loft=2");
+    renderPanel("/?attack=-3&loft=2");
     expect(valueOf("Attack angle")).toBe(-3);
     expect(valueOf("Loft")).toBe(2);
   });
 
   test("strike location is used by the next hit, shown in words, and read from the URL", () => {
-    renderApp("/?speed=105");
+    renderPanel("/?speed=105");
     expect(screen.getByText("centre")).toBeInTheDocument();
     hit();
     const centre = lastLaunch();
@@ -310,24 +342,24 @@ describe("shot controls", () => {
   });
 
   test("strike is read from the URL and clamped", () => {
-    renderApp("/?strike=0.75");
+    renderPanel("/?strike=0.75");
     expect(valueOf("Strike")).toBe(0.75);
   });
 
   test("a junk or out-of-range strike falls back into range", () => {
-    renderApp("/?strike=9");
+    renderPanel("/?strike=9");
     expect(valueOf("Strike")).toBe(1);
   });
 
   test("aiming shows the stance in the scene before the shot", () => {
-    renderApp();
+    renderPanel();
     typeValue("Aim", "6");
     expect(simulator.setAim).toHaveBeenLastCalledWith(6);
   });
 
   test("Reset clears the shot but keeps the session settings", () => {
-    renderApp(
-      "/?face=3&path=-2&speed=120&aim=5&attack=4&loft=-2&strike=0.5&side=Left&turf=firm&mode=game",
+    renderPanel(
+      "/?face=3&path=-2&speed=120&aim=5&attack=4&loft=-2&strike=0.5&side=Left&turf=firm&mode=advanced",
     );
     fireEvent.click(screen.getByRole("button", { name: /reset/i }));
     expect(valueOf("Club face")).toBe(0);
@@ -347,7 +379,7 @@ describe("shot controls", () => {
 
 describe("keyboard", () => {
   test("arrows move between the boxes; the keyboard starts on Aim", () => {
-    renderApp();
+    renderPanel();
     expect(selectedBox()).toBe("aim");
     selectBox("club face");
     expect(selectedBox()).toBe("clubFaceAngle");
@@ -371,7 +403,7 @@ describe("keyboard", () => {
   });
 
   test("Command with left and right changes the number of the box the keyboard is on", () => {
-    renderApp();
+    renderPanel();
     selectBox("club face");
     command("ArrowRight");
     command("ArrowRight");
@@ -411,14 +443,14 @@ describe("keyboard", () => {
   });
 
   test("Ctrl works in place of Command", () => {
-    renderApp();
+    renderPanel();
     selectBox("club face");
     press("ArrowRight", { ctrlKey: true });
     expect(valueOf("Club face")).toBe(1);
   });
 
   test("Command with up and down steps the word: one side, neutral, the other side", () => {
-    renderApp("/?face=4");
+    renderPanel("/?face=4");
     selectBox("club face");
     shows("club face", "4° open");
     command("ArrowDown");
@@ -442,7 +474,7 @@ describe("keyboard", () => {
   });
 
   test("each box shows its word and its number as two separate fields", () => {
-    renderApp("/?face=3&path=-2&strike=0.5&aim=-4&attack=2&speed=100");
+    renderPanel("/?face=3&path=-2&strike=0.5&aim=-4&attack=2&speed=100");
     const fields = (control) => {
       const chip = screen
         .getAllByRole("button", { name: /^Edit / })
@@ -464,7 +496,7 @@ describe("keyboard", () => {
   });
 
   test("the word is a menu of the three it can be; choosing one sets the control", () => {
-    renderApp("/?face=3&attack=-2");
+    renderPanel("/?face=3&attack=-2");
     const word = (name) => screen.getByRole("combobox", { name });
     const choose = (name, option) =>
       fireEvent.change(word(name), {
@@ -493,7 +525,7 @@ describe("keyboard", () => {
   });
 
   test("each control has an (i) that says what it does, only when clicked", () => {
-    renderApp();
+    renderPanel();
     const pads = screen.getByLabelText("Shot controls");
     const about = (name) =>
       within(pads).getByRole("button", { name: `About ${name}` });
@@ -523,7 +555,7 @@ describe("keyboard", () => {
   });
 
   test("the dots are seven different colours", () => {
-    renderApp();
+    renderPanel();
     const dots = [...document.querySelectorAll("[data-chip] > span")].map(
       (dot) => dot.style.background,
     );
@@ -532,7 +564,7 @@ describe("keyboard", () => {
   });
 
   test("every new shot starts with the keyboard on Aim", () => {
-    renderApp("/?mode=practice");
+    renderPanel("/?mode=practice");
     selectBox("loft");
     expect(selectedBox()).toBe("loftChange");
     hit();
@@ -542,7 +574,7 @@ describe("keyboard", () => {
 
   test("on a phone the panel is the boxes alone, without the two club views", () => {
     viewport(false);
-    renderApp();
+    renderPanel();
     expect(createClubScene).not.toHaveBeenCalled();
     expect(screen.queryByRole("slider", { name: "Aim" })).toBeNull();
     expect(
@@ -553,7 +585,7 @@ describe("keyboard", () => {
   });
 
   test("clicking a box, or grabbing its handle, puts the keyboard on it", () => {
-    renderApp();
+    renderPanel();
     selectBox("aim");
     expect(selectedBox()).toBe("aim");
     command("ArrowRight");
@@ -563,7 +595,7 @@ describe("keyboard", () => {
   });
 
   test("key presses that arrive before the screen redraws all count", () => {
-    renderApp("/?face=1");
+    renderPanel("/?face=1");
     selectBox("club face");
     act(() => {
       for (let i = 0; i < 3; i++) {
@@ -580,7 +612,7 @@ describe("keyboard", () => {
   });
 
   test("a control stops at the end of its range", () => {
-    renderApp("/?face=6&speed=80");
+    renderPanel("/?face=6&speed=80");
     selectBox("club face");
     command("ArrowRight");
     expect(valueOf("Club face")).toBe(6);
@@ -590,7 +622,7 @@ describe("keyboard", () => {
   });
 
   test("Space hits with the current setup", () => {
-    renderApp();
+    renderPanel();
     selectBox("club face");
     command("ArrowRight");
     press(" ");
@@ -599,7 +631,7 @@ describe("keyboard", () => {
   });
 
   test("letters do nothing any more", () => {
-    renderApp("/?face=2");
+    renderPanel("/?face=2");
     for (const letter of "qeadswzcgthybnrQER") press(letter);
     expect(valueOf("Club face")).toBe(2);
     expect(valueOf("Club path")).toBe(0);
@@ -608,7 +640,7 @@ describe("keyboard", () => {
   });
 
   test("the keyboard stands down while Settings is open", () => {
-    renderApp();
+    renderPanel();
     openSettings();
     command("ArrowRight");
     press("ArrowDown");
@@ -618,7 +650,7 @@ describe("keyboard", () => {
   });
 
   test("the keys are explained in the panel, with no letters on the boxes", () => {
-    renderApp();
+    renderPanel();
     const pads = screen.getByLabelText("Shot controls");
     expect(pads).toHaveTextContent(
       "←↑↓→ move · ⌘←→ number · ⌘↑↓ word · Space hit",
@@ -642,7 +674,7 @@ describe("club pads", () => {
   };
 
   test("dragging a handle follows the pointer, even off the handle and off the pad", () => {
-    renderApp();
+    renderPanel();
     const [x, y] = centreOf("Club face");
     pointer("pointerdown", handle("Club face"), x, y);
     // the pointer is now over the page, not the handle
@@ -657,7 +689,7 @@ describe("club pads", () => {
   });
 
   test("a press between two handles goes to the nearer one, not the one drawn on top", () => {
-    renderApp();
+    renderPanel();
     const [fx, fy] = centreOf("Club face");
     const [, ay] = centreOf("Aim");
     // inside the Aim handle's grab area, but closer to the face handle
@@ -684,17 +716,17 @@ describe("club pads", () => {
   test("the address is not rewritten on every step, only once the control settles", () => {
     jest.useFakeTimers();
     try {
-      renderApp();
+      renderPanel();
       selectBox("swing speed");
       for (let i = 0; i < 40; i++) command("ArrowRight");
       selectBox("club face");
       for (let i = 0; i < 5; i++) command("ArrowRight");
       expect(valueOf("Swing speed")).toBe(135);
       expect(valueOf("Club face")).toBe(5);
-      expect(address()).toBe("");
+      expect(address()).toBe("?mode=practice");
 
       act(() => jest.advanceTimersByTime(300));
-      expect(address()).toBe("?speed=135&face=5");
+      expect(address()).toBe("?mode=practice&speed=135&face=5");
       expect(valueOf("Swing speed")).toBe(135);
 
       // a hit in that window still uses what is on screen
@@ -710,19 +742,19 @@ describe("club pads", () => {
   test("Reset straight after a change does not let the change come back", () => {
     jest.useFakeTimers();
     try {
-      renderApp("/?face=2");
+      renderPanel("/?face=2");
       command("ArrowRight");
       fireEvent.click(screen.getByRole("button", { name: /reset/i }));
       act(() => jest.advanceTimersByTime(300));
       expect(valueOf("Club face")).toBe(0);
-      expect(address()).toBe("");
+      expect(address()).toBe("?mode=practice");
     } finally {
       jest.useRealTimers();
     }
   });
 
   test("after typing with the keyboard, focus goes back to the value; clicking away leaves focus where the click put it", () => {
-    renderApp();
+    renderPanel();
     typeValue("Club face", "2");
     expect(
       screen.getByRole("button", { name: "Edit club face: 2° open" }),
@@ -741,7 +773,7 @@ describe("club pads", () => {
   });
 
   test("every control is a handle that says its value in words", () => {
-    renderApp("/?face=2&path=-3&speed=105&attack=1&loft=2&strike=-0.5&aim=4");
+    renderPanel("/?face=2&path=-3&speed=105&attack=1&loft=2&strike=-0.5&aim=4");
     expect(textOf("Club face")).toBe("2° open");
     expect(textOf("Club path")).toBe("3° out-to-in");
     expect(textOf("Swing speed")).toBe("105 mph");
@@ -752,7 +784,7 @@ describe("club pads", () => {
   });
 
   test("clicking a value turns it into a field; Enter keeps what was typed", () => {
-    renderApp();
+    renderPanel();
     const input = startTyping("Club face");
     expect(input).toHaveFocus();
     expect(input).toHaveValue(0);
@@ -767,7 +799,7 @@ describe("club pads", () => {
   });
 
   test("clicking away also keeps it, Escape throws it away", () => {
-    renderApp();
+    renderPanel();
     const speed = startTyping("Swing speed");
     fireEvent.change(speed, { target: { value: "121" } });
     fireEvent.blur(speed);
@@ -779,7 +811,7 @@ describe("club pads", () => {
   });
 
   test("typed values are snapped to the step and held to the range; junk is ignored", () => {
-    renderApp();
+    renderPanel();
     typeValue("Club path", "-2.4");
     expect(valueOf("Club path")).toBe(-2);
     typeValue("Strike", "0.6");
@@ -793,7 +825,7 @@ describe("club pads", () => {
   });
 
   test("typing in a field does not set off the arrow keys or Hit", () => {
-    renderApp();
+    renderPanel();
     const input = startTyping("Club face");
     fireEvent.keyDown(input, { key: "ArrowRight", metaKey: true });
     fireEvent.keyDown(input, { key: " " });
@@ -804,7 +836,7 @@ describe("club pads", () => {
   });
 
   test("a focused handle takes Command-arrows, jumps with Home and End, and resets on double-click", () => {
-    renderApp();
+    renderPanel();
     // focusing a handle puts the keyboard on its box
     fireEvent.focus(handle("Club face"));
     fireEvent.keyDown(handle("Club face"), {
@@ -842,7 +874,7 @@ describe("club pads", () => {
   });
 
   test("names the shot shape for the current setup as it changes, and sketches the flight", () => {
-    renderApp();
+    renderPanel();
     const pads = screen.getByLabelText("Shot controls");
     expect(within(pads).getByText("Straight")).toBeInTheDocument();
     expect(pads.querySelector("[data-preview]")).toBeInTheDocument();
@@ -859,7 +891,7 @@ describe("club pads", () => {
   const posed = (view) => clubScenes[view].update.mock.calls.at(-1)[0];
 
   test("the two views are live 3D scenes on fixed cameras, not orbiting ones", () => {
-    const { unmount } = renderApp();
+    const { unmount } = renderPanel();
     expect(createClubScene).toHaveBeenCalledTimes(2);
     for (const view of ["above", "toe"]) {
       expect(clubScenes[view].options.orbit).toBe(false);
@@ -878,7 +910,7 @@ describe("club pads", () => {
   });
 
   test("the view from above is posed with the horizontal angles drawn five times bigger", () => {
-    renderApp("/?face=2&path=-3&aim=4&strike=0.5");
+    renderPanel("/?face=2&path=-3&aim=4&strike=0.5");
     expect(posed("above")).toMatchObject({
       mirror: 1,
       aimDegrees: 10,
@@ -894,7 +926,7 @@ describe("club pads", () => {
   });
 
   test("the side view is square to the camera and shows only attack and loft", () => {
-    renderApp("/?face=4&path=-3&aim=6&speed=105&attack=2&loft=1");
+    renderPanel("/?face=4&path=-3&aim=6&speed=105&attack=2&loft=1");
     expect(posed("toe")).toMatchObject({
       aimDegrees: 0,
       faceDegrees: 0,
@@ -911,13 +943,13 @@ describe("club pads", () => {
   });
 
   test("a left-hander's club is mirrored in both views", () => {
-    renderApp("/?face=2&side=Left");
+    renderPanel("/?face=2&side=Left");
     expect(posed("above")).toMatchObject({ mirror: -1, faceDegrees: -10 });
     expect(posed("toe").mirror).toBe(-1);
   });
 
   test("hovering and re-rendering do not re-pose the 3D views; a change does", () => {
-    renderApp();
+    renderPanel();
     const before = clubScenes.above.update.mock.calls.length;
     fireEvent.pointerEnter(handle("Club face"));
     fireEvent.pointerLeave(handle("Club face"));
@@ -927,7 +959,7 @@ describe("club pads", () => {
   });
 
   test("a handle shows its value in a tag while it is hovered or held", () => {
-    renderApp("/?face=3");
+    renderPanel("/?face=3");
     expect(handle("Club face").querySelector("[data-tag]")).toBeNull();
     fireEvent.pointerEnter(handle("Club face"));
     expect(handle("Club face").querySelector("[data-tag]")).toHaveTextContent(
@@ -938,7 +970,7 @@ describe("club pads", () => {
   });
 
   test("the side-view handles drag attack and loft, mirrored for a left-hander", () => {
-    renderApp("/?speed=105");
+    renderPanel("/?speed=105");
     let [x, y] = centreOf("Attack angle");
     pointer("pointerdown", handle("Attack angle"), x, y);
     // the tail of the arrow drops: hitting up
@@ -955,7 +987,7 @@ describe("club pads", () => {
   });
 
   test("the head itself drags the strike point toward the toe or heel", () => {
-    renderApp();
+    renderPanel();
     const [x, y] = centreOf("Strike");
     pointer("pointerdown", handle("Strike"), x, y);
     // a right-hander stands on the left of this view: toward them is a toe strike
@@ -1139,11 +1171,14 @@ describe("game mode", () => {
       }),
     );
 
-  // Mode sits at the bottom of the shot panel.
+  // Practice or Game sits at the bottom of the shot panel; the difficulty
+  // is on the game card.
   const modeButton = (name) =>
-    within(screen.getByRole("group", { name: "Mode" })).getByRole("button", {
-      name: name === "Practice" ? name : `Game Mode: ${name}`,
-    });
+    within(
+      screen.getByRole("group", {
+        name: ["Practice", "Game"].includes(name) ? "Mode" : "Difficulty",
+      }),
+    ).getByRole("button", { name });
   const HIT = { hit: true, longYards: 1, rightYards: 0 };
   const MISS = { hit: false, longYards: -9.2, rightYards: -4.1 };
   // One shot at the target that is up, then the camera back at the tee.
@@ -1157,10 +1192,63 @@ describe("game mode", () => {
     renderApp();
     expect(lastTarget().z).toBeGreaterThanOrEqual(140);
     expect(lastTarget().air).toBeUndefined();
-    expect(game()).toHaveTextContent("Normal game");
     expect(game()).toHaveTextContent("Target 1 of 5");
-    expect(game()).toHaveTextContent("0 hit / 3 to win");
+    expect(game()).toHaveTextContent("Hit 3 of 5 to win");
     expect(modeButton("Normal")).toHaveAttribute("aria-pressed", "true");
+    expect(modeButton("Game")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("a first visit pulses Hit with a prompt, until the first shot", () => {
+    const { unmount } = renderApp();
+    const prompt = () =>
+      screen.queryByText("Press Hit or Space to take your first shot");
+    expect(prompt()).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^hit$/i })).toHaveClass(
+      "hit-beckon",
+    );
+    hit();
+    expect(prompt()).toBeNull();
+    expect(screen.getByRole("button", { name: /^hit$/i })).not.toHaveClass(
+      "hit-beckon",
+    );
+    unmount();
+    renderApp();
+    expect(prompt()).toBeNull();
+  });
+
+  test("the very first target is one the stock straight shot reaches; later ones are random", () => {
+    const { unmount } = renderApp();
+    const first = lastTarget();
+    expect(first.easy).toBe(true);
+    expect(first.x).toBe(0);
+    play(HIT);
+    expect(lastTarget().easy).toBeUndefined();
+
+    // a browser that has had a go at a target gets a random first one
+    unmount();
+    renderApp();
+    expect(lastTarget().easy).toBeUndefined();
+  });
+
+  test("a miss says what to change for the next target; a hit clears it", () => {
+    renderApp("/?face=3&path=-1");
+    const tip = () => screen.queryByLabelText("Tip");
+    expect(tip()).toBeNull();
+    play({ hit: false, longYards: 2, rightYards: 15.4 });
+    expect(tip()).toHaveTextContent(
+      "15 yd right: it curved right because the club face was open to the path.",
+    );
+    play({ hit: false, longYards: 22, rightYards: 1 });
+    expect(tip()).toHaveTextContent("22 yd long: try less swing speed.");
+    play(HIT);
+    expect(tip()).toBeNull();
+  });
+
+  test("Game goes back to the difficulty last played", () => {
+    renderApp("/?mode=advanced");
+    fireEvent.click(modeButton("Practice"));
+    fireEvent.click(modeButton("Game"));
+    expect(modeButton("Advanced")).toHaveAttribute("aria-pressed", "true");
   });
 
   test("practice mode has no target", () => {
@@ -1173,10 +1261,11 @@ describe("game mode", () => {
 
   test("switching mode on the panel puts a target on the range and shows it", () => {
     renderApp("/?mode=practice");
-    fireEvent.click(modeButton("Normal"));
+    fireEvent.click(modeButton("Game"));
 
     const target = lastTarget();
     expect(target.z).toBeGreaterThanOrEqual(140);
+    expect(modeButton("Normal")).toHaveAttribute("aria-pressed", "true");
     expect(game()).toHaveTextContent(`${target.distanceYards}`);
 
     fireEvent.click(modeButton("Practice"));
@@ -1188,12 +1277,13 @@ describe("game mode", () => {
 
   test("advanced puts the targets in the air and asks for 4 of 5", () => {
     renderApp("/?mode=practice");
+    fireEvent.click(modeButton("Game"));
     fireEvent.click(modeButton("Advanced"));
 
     const target = lastTarget();
     expect(target.air).toBe(true);
     expect(target.y).toBeGreaterThan(target.radius);
-    expect(game()).toHaveTextContent("Advanced game");
+    expect(modeButton("Advanced")).toHaveAttribute("aria-pressed", "true");
     expect(game()).toHaveTextContent(`${target.heightYards} yd up`);
     expect(game()).toHaveTextContent("0 hit / 4 to win");
 
@@ -1205,7 +1295,7 @@ describe("game mode", () => {
 
   test("mode=game in an old link is a normal game", () => {
     renderApp("/?mode=game");
-    expect(game()).toHaveTextContent("Normal game");
+    expect(modeButton("Normal")).toHaveAttribute("aria-pressed", "true");
   });
 
   test("every shot is logged and the next target comes up once the camera is back", () => {
@@ -1320,7 +1410,7 @@ describe("club selection", () => {
     fireEvent.click(settings.getByRole("button", { name: new RegExp(name) }));
 
   test("the driver is in hand on load, teed up", () => {
-    renderApp();
+    renderPanel();
     expect(lastClub().id).toBe("driver");
     expect(lastClub().teed).toBe(true);
     expect(screen.getByText("Driver · 10.5°")).toBeInTheDocument();
@@ -1328,7 +1418,7 @@ describe("club selection", () => {
   });
 
   test("the club chip on the panel opens the bag and picks a club", () => {
-    renderApp();
+    renderPanel();
     fireEvent.click(screen.getByRole("button", { name: /Driver · 10\.5°/ }));
     const bag = within(screen.getByRole("listbox"));
     expect(bag.getByRole("option", { name: /Driver/ })).toHaveAttribute(
@@ -1343,13 +1433,13 @@ describe("club selection", () => {
   });
 
   test("Reset is an icon at the top of the panel", () => {
-    renderApp("/?face=3");
+    renderPanel("/?face=3");
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(address()).not.toContain("face=");
   });
 
   test("Settings lists every kind of club with its loft and a carry distance", () => {
-    renderApp();
+    renderPanel();
     const settings = openSettings();
     for (const group of ["Fairway woods", "Hybrids", "Irons", "Wedges"]) {
       expect(settings.getByRole("group", { name: group })).toBeInTheDocument();
@@ -1373,7 +1463,7 @@ describe("club selection", () => {
   });
 
   test("picking a club puts it in hand: its own speed and attack angle, off the turf, in the URL", () => {
-    renderApp("/?speed=120&attack=3&loft=2&face=2");
+    renderPanel("/?speed=120&attack=3&loft=2&face=2");
     const settings = openSettings();
     pick(settings, "7 iron");
 
@@ -1400,18 +1490,18 @@ describe("club selection", () => {
   });
 
   test("the club is read from the URL, and a name that is no club means the driver", () => {
-    renderApp("/?club=sw");
+    renderPanel("/?club=sw");
     expect(lastClub().id).toBe("sw");
     expect(screen.getByText("Sand wedge · 54°")).toBeInTheDocument();
   });
 
   test("an unknown club in the URL is the driver", () => {
-    renderApp("/?club=putter");
+    renderPanel("/?club=putter");
     expect(lastClub().id).toBe("driver");
   });
 
   test("the swing-speed control covers the club's own range", () => {
-    renderApp("/?club=7i");
+    renderPanel("/?club=7i");
     selectBox("swing speed");
     command("ArrowLeft");
     expect(valueOf("Swing speed")).toBe(75);
@@ -1422,7 +1512,7 @@ describe("club selection", () => {
   });
 
   test("typing a distance sets that club's swing speed for the session", () => {
-    renderApp("/?club=7i");
+    renderPanel("/?club=7i");
     const settings = openSettings();
     const before = Number(carryInput(settings, "7 iron").value);
     const input = carryInput(settings, "7 iron");
@@ -1448,7 +1538,7 @@ describe("club selection", () => {
   });
 
   test("a distance the club cannot reach is held to what it can", () => {
-    renderApp();
+    renderPanel();
     const settings = openSettings();
     const input = carryInput(settings, "Lob wedge");
     fireEvent.change(input, { target: { value: "300" } });
@@ -1457,14 +1547,14 @@ describe("club selection", () => {
   });
 
   test("game targets are ones the club in hand can reach", () => {
-    renderApp("/?mode=game&club=lw");
+    renderPanel("/?mode=game&club=lw");
     const target = simulator.setTarget.mock.calls.at(-1)[0];
     expect(target.z).toBeLessThan(120);
     expect(target.z).toBeGreaterThan(55);
   });
 
   test("a ball in the air when the club changes is not scored against the new target", () => {
-    renderApp("/?mode=game");
+    renderPanel("/?mode=game");
     hit();
     const settings = openSettings();
     pick(settings, "Lob wedge");
@@ -1500,7 +1590,7 @@ describe("club selection", () => {
   });
 
   test("Escape in a distance field puts the number back and leaves Settings open", () => {
-    renderApp();
+    renderPanel();
     const settings = openSettings();
     const input = carryInput(settings, "7 iron");
     const before = input.value;
@@ -1583,18 +1673,13 @@ describe("what each mode is", () => {
     renderApp();
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
 
-    fireEvent.click(about("About the normal game"));
-    expect(screen.getByRole("note")).toHaveTextContent(/^Normal\. 5 targets/);
-    expect(screen.getByRole("note")).toHaveTextContent("Hit 3 to win");
-    expect(about("About the normal game")).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    fireEvent.click(about("About the game"));
+    expect(screen.getByRole("note")).toHaveTextContent(/^Game\. 5 targets/);
+    expect(screen.getByRole("note")).toHaveTextContent("hit 3 to win");
+    expect(screen.getByRole("note")).toHaveTextContent("hit 4 to win");
+    expect(about("About the game")).toHaveAttribute("aria-expanded", "true");
 
-    fireEvent.click(about("About the advanced game"));
-    expect(screen.getByRole("note")).toHaveTextContent("Hit 4 to win");
-
-    fireEvent.click(about("About the advanced game"));
+    fireEvent.click(about("About the game"));
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
 
     fireEvent.click(about("About practice"));
@@ -1605,10 +1690,11 @@ describe("what each mode is", () => {
 
   test("asking about a mode does not switch to it", () => {
     renderApp();
-    fireEvent.click(about("About the advanced game"));
-    expect(
-      screen.getByRole("button", { name: "Game Mode: Normal" }),
-    ).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(about("About practice"));
+    expect(screen.getByRole("button", { name: "Game" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });
 
@@ -2323,6 +2409,32 @@ describe("analytics events", () => {
     reportError.mockClear();
   });
 
+  test("a missed target sends coach_shown with the tip; a hit sends none", () => {
+    renderApp("/?speed=120");
+    play({ hit: true, longYards: 0, rightYards: 0 });
+    expect(sent("coach_shown")).toEqual([]);
+    play({ hit: false, longYards: 30, rightYards: 2 });
+    const [started] = sent("game_started");
+    expect(sent("coach_shown")).toEqual([
+      { game_id: started.game_id, mode: "normal", tip: "slower" },
+    ]);
+  });
+
+  test("the difficulty switch on the card sends setting_changed", () => {
+    renderApp();
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Difficulty" })).getByRole(
+        "button",
+        { name: "Advanced" },
+      ),
+    );
+    expect(sent("setting_changed")).toContainEqual({
+      setting: "mode",
+      from: "normal",
+      to: "advanced",
+    });
+  });
+
   test("a whole game shares one game id across its events", () => {
     renderApp();
     for (let i = 0; i < 4; i += 1)
@@ -2428,10 +2540,10 @@ describe("analytics events", () => {
   test("opening an (i) sends info_opened, and closing it sends nothing", () => {
     renderApp();
     const advanced = screen.getByRole("button", {
-      name: "About the advanced game",
+      name: "About the game",
     });
     fireEvent.click(advanced);
-    expect(track).toHaveBeenCalledWith("info_opened", { topic: "advanced" });
+    expect(track).toHaveBeenCalledWith("info_opened", { topic: "game" });
     fireEvent.click(advanced);
     fireEvent.click(
       screen.getByRole("button", { name: /^About swing speed$/i }),
@@ -2446,9 +2558,7 @@ describe("analytics events", () => {
     fireEvent.click(
       within(modeGroup()).getByRole("button", { name: "Practice" }),
     );
-    fireEvent.click(
-      within(modeGroup()).getByRole("button", { name: /Game Mode: Normal/ }),
-    );
+    fireEvent.click(within(modeGroup()).getByRole("button", { name: "Game" }));
     fireEvent.click(
       within(modeGroup()).getByRole("button", { name: "Practice" }),
     );

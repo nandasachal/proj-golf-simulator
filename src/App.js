@@ -30,13 +30,17 @@ import { GRASSES, TURF_LIMITS, TURF_PRESETS } from "./simulate/ground";
 import {
   randomTarget,
   randomAirTarget,
+  easyTarget,
   describeMiss,
   GOALS,
 } from "./simulate/game";
+import { coachMiss } from "./simulate/coach";
+import { FIRST, hasDone, markDone } from "./first-visit";
 import { getClub, swingSpeedRange, DEFAULT_CLUB_ID } from "./simulate/clubs";
 import { standardAttackAngle } from "./simulate/launch-conditions";
 import { carryLimits, speedForCarry } from "./simulate/club-distances";
 import {
+  controlsFor,
   keyAction,
   moveSelection,
   shouldIgnoreKey,
@@ -63,8 +67,10 @@ const guardScene = (create) => {
     throw error;
   }
 };
-// The box the keyboard is on when the page opens and for each new shot.
-const START_CONTROL = "aim";
+// The box the keyboard is on when the page opens and for each new shot: Aim
+// where it is shown, else the club face.
+const startControl = (controls) =>
+  controls.includes("aim") ? "aim" : "clubFaceAngle";
 
 // The query string is user-editable, so keep whatever it says on the sliders.
 const clamp = (value, range) =>
@@ -186,6 +192,11 @@ function App() {
   const turfPreset = matchingPreset(turf);
   // A normal game unless the URL says practice or advanced.
   const mode = ["practice", "advanced"].includes(rawMode) ? rawMode : "normal";
+  // The boxes this mode shows; the rest play at their defaults.
+  const visible = controlsFor(mode);
+  // Game, from practice, goes back to the difficulty last played.
+  const lastGame = useRef("normal");
+  if (mode !== "practice") lastGame.current = mode;
   const side = rawSide === "Left" ? "Left" : "Right";
   // Shot controls change many times a second while a handle is dragged or a
   // key is held. Those changes live here first and are written to the URL
@@ -201,7 +212,12 @@ function App() {
     loftChange: clamp(rawLoft, LOFT_CHANGE_VALUES),
     strike: clamp(Number.parseFloat(rawStrike), STRIKE_VALUES),
   };
-  const shot = { ...saved, ...draft };
+  const shot = Object.fromEntries(
+    Object.entries({ ...saved, ...draft }).map(([control, value]) => [
+      control,
+      visible.includes(control) ? value : (ranges[control]?.DEFAULT ?? value),
+    ]),
+  );
   const {
     clubFaceAngle: faceAngle,
     clubPathAngle: pathAngle,
@@ -292,6 +308,10 @@ function App() {
   // The saved player, if this browser has one, and the leaderboard's answer
   // for them once a game is over.
   const [player, setPlayer] = useState(loadProfile);
+  // First visit: Hit pulses with a prompt until the first shot.
+  const [beckon, setBeckon] = useState(() => !hasDone(FIRST.shot));
+  // What to change for the next target, after a miss.
+  const [tip, setTip] = useState(null);
   const [board, setBoard] = useState(null);
   // Set when a shot has been scored, so the next target appears once the
   // camera is back.
@@ -362,6 +382,21 @@ function App() {
               club: game.current.club,
             };
             if (shots.length === 1) track("game_started", gameStarted(played));
+            markDone(FIRST.target);
+            if (hit) setTip(null);
+            else {
+              const advice = coachMiss(
+                shotResult.target,
+                game.current.controls,
+                game.current.side,
+              );
+              setTip(advice.text);
+              track("coach_shown", {
+                game_id: game.current.id,
+                mode: game.current.mode,
+                tip: advice.tip,
+              });
+            }
             track(
               "target_attempted",
               targetAttempted({
@@ -398,7 +433,7 @@ function App() {
         },
         onState: (state) => {
           // Every new shot starts with the keyboard on Aim.
-          if (state === "address") setSelected(START_CONTROL);
+          if (state === "address") setSelected(game.current.startControl);
           if (state === "address" && targetDone.current) {
             targetDone.current = false;
             const { shots, goal, next } = game.current;
@@ -481,7 +516,14 @@ function App() {
     game.current.shots = [];
     game.current.id = newGameId();
     setRound([]);
-    setTarget((previous) => (goal ? nextTarget(previous) : null));
+    setTip(null);
+    // Someone who has never had a go at a target starts with one the stock
+    // straight shot reaches.
+    const easy =
+      mode === "normal" && !hasDone(FIRST.target)
+        ? easyTarget({ clubId: club.id, speed: speedRange.DEFAULT, turf })
+        : null;
+    setTarget((previous) => (goal ? easy || nextTarget(previous) : null));
   };
   game.current.goal = goal;
   game.current.next = nextTarget;
@@ -489,6 +531,8 @@ function App() {
   game.current.mode = mode;
   game.current.club = club.id;
   game.current.controls = shot;
+  game.current.side = side;
+  game.current.startControl = startControl(visible);
   useEffect(() => {
     setSession(NO_SESSION);
     startGame();
@@ -601,9 +645,11 @@ function App() {
       setDraft((previous) => ({ ...previous, [type]: newValue }));
     else if (type === "turf") handleTurfPreset(newValue);
     else if (type === "mode") {
-      if (newValue !== mode)
-        track("setting_changed", { setting: "mode", from: mode, to: newValue });
-      setQueries({ mode: newValue === "normal" ? null : newValue });
+      // "game" is the bar's Game button: the difficulty last played.
+      const next = newValue === "game" ? lastGame.current : newValue;
+      if (next !== mode)
+        track("setting_changed", { setting: "mode", from: mode, to: next });
+      setQueries({ mode: next === "normal" ? null : next });
     }
   };
 
@@ -622,6 +668,10 @@ function App() {
   };
 
   const handleHit = () => {
+    if (beckon) {
+      markDone(FIRST.shot);
+      setBeckon(false);
+    }
     setResult(null);
     setLive(null);
     staleShot.current = false;
@@ -654,7 +704,14 @@ function App() {
 
   // The value box the keyboard is on: arrows move it, Command-arrows change
   // its value.
-  const [selected, setSelected] = useState(START_CONTROL);
+  const [selected, setSelected] = useState(() => startControl(visible));
+  // A mode that hides the box the keyboard was on moves it to the first one.
+  useEffect(() => {
+    setSelected((previous) =>
+      visible.includes(previous) ? previous : startControl(visible),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   // Keyboard control of the shot. The handler is replaced every render so it
   // always sees the current values.
@@ -671,7 +728,7 @@ function App() {
     else if (pressed.action === "move") {
       // A focused handle or value would otherwise look selected too.
       document.activeElement?.blur?.();
-      setSelected((previous) => moveSelection(previous, pressed.key));
+      setSelected((previous) => moveSelection(previous, pressed.key, visible));
     } else {
       // Step from the latest value, not the one this render saw: key
       // repeats can arrive faster than the screen redraws.
@@ -714,6 +771,8 @@ function App() {
                 player={player}
                 board={board}
                 onPlayer={savePlayer}
+                onDifficulty={(value) => handleValueChange("mode", value)}
+                tip={tip}
               />
             )}
             {/* Folded away to start with on phones, where the picture is
@@ -731,10 +790,22 @@ function App() {
             the corner buttons, and Hit is in the bar at the bottom of the
             screen. */}
         <div className="pointer-events-none absolute bottom-[60px] left-3 right-3 z-20 flex justify-center md:bottom-4 md:left-20 md:right-20">
-          <div className="pointer-events-auto flex max-w-full items-stretch gap-2">
+          <div className="pointer-events-auto relative flex max-w-full items-stretch gap-2">
             <ShotReadout live={live} result={past ? result : null} />
             {isDesktop && (
-              <HitButton onClick={handleHit} className="min-h-[52px] px-7" />
+              <HitButton
+                onClick={handleHit}
+                beckon={beckon}
+                className="min-h-[52px] px-7"
+              />
+            )}
+            {isDesktop && beckon && (
+              <p
+                data-first-shot
+                className="absolute bottom-full right-0 mb-3 whitespace-nowrap rounded-lg bg-lime-400 px-3 py-1.5 text-sm font-semibold text-slate-900 shadow-lg"
+              >
+                Press Hit or Space to take your first shot
+              </p>
             )}
           </div>
         </div>
@@ -793,6 +864,7 @@ function App() {
             selected={selected}
             onSelect={setSelected}
             views={isDesktop}
+            controls={visible}
             preview={preview}
             onChange={handleValueChange}
             onClub={handleClub}
@@ -808,9 +880,18 @@ function App() {
       </div>
       {/* Phones: mode and Hit stay at the bottom of the screen. Outside the
           panel, whose blur would otherwise pin the bar to itself. */}
+      {!isDesktop && beckon && (
+        <p
+          data-first-shot
+          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-3 z-30 rounded-lg bg-lime-400 px-3 py-1.5 text-sm font-semibold text-slate-900 shadow-lg"
+        >
+          Tap Hit to take your first shot
+        </p>
+      )}
       {!isDesktop && (
         <ButtonRow
           bar
+          beckon={beckon}
           mode={mode}
           onMode={(value) => handleValueChange("mode", value)}
           simulate={handleHit}

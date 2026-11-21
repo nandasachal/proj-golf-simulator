@@ -20,8 +20,12 @@ than abstract.
   loft: about 4.5° of axis tilt per degree, in line with TrackMan's published
   driver examples.
 - **Game mode** (`src/simulate/game.js`) — a game is 5 targets with one shot at
-  each, chosen at the bottom of the shot panel as Normal or Advanced (`?mode=practice` turns the game
-  off, `?mode=advanced` picks advanced; normal is the default).
+  each. The bar at the bottom of the shot panel is Practice or Game; the
+  difficulty, Normal or Advanced, is switched on the game card (`?mode=practice`
+  turns the game off, `?mode=advanced` picks advanced; normal is the default).
+  A normal game shows only club face, club path and swing speed; the other four
+  controls play at their defaults. Practice and advanced show all seven
+  (`controlsFor` in `src/utils/shortcuts.js`).
   - **Normal**: a random target on the ground, the 3.6 yd radius circle at the foot of a beam, 140–330 yd out with the driver
     (between a soft and a full swing's carry with any other club) and up to 40 yd
     either side. A shot scores if the
@@ -36,6 +40,15 @@ than abstract.
   - The card top right shows the target that is up, a pip per target, hits against
     the goal, a log of every shot in the game and the games won this session
     (reset by changing mode or club, and by a reload).
+  - **First visit** (`src/first-visit.js`, spec
+    `planning/product-specs/activation.md`): until a browser's first shot, Hit
+    pulses with a one-line prompt; until its first scored shot, a normal game's
+    first target is `easyTarget()`, on the centre line where the stock straight
+    shot stops, so pressing Hit untouched scores. After a miss the card shows one
+    line of advice from `src/simulate/coach.js` (swing speed for long/short,
+    club face or face-to-path for left/right, loft for over/under an air target).
+    A browser's first tab session sends `first_visit: true` and is the only one
+    PostHog records as a replay.
 - **Strike location** — where on the face the ball is hit, up to 1 in toward the
   toe or heel. A toe strike starts the ball on the open side (3.5° per inch, from
   the face's bulge and the head twisting) and gear effect tilts the spin axis

@@ -165,3 +165,25 @@ describe("shouldIgnoreKey", () => {
     expect(shouldIgnoreKey(press(" ", "BODY"))).toBe(false);
   });
 });
+
+describe("moveSelection among the controls a normal game shows", () => {
+  const { controlsFor } = require("./shortcuts");
+  const basic = controlsFor("normal");
+
+  test("normal shows face, path and speed; the others show all seven", () => {
+    expect(basic).toEqual(["clubFaceAngle", "clubPathAngle", "swingSpeed"]);
+    expect(controlsFor("advanced")).toHaveLength(7);
+    expect(controlsFor("practice")).toHaveLength(7);
+  });
+
+  test("down from face goes straight to speed", () => {
+    expect(moveSelection("clubFaceAngle", "ArrowDown", basic)).toBe(
+      "swingSpeed",
+    );
+    expect(moveSelection("swingSpeed", "ArrowUp", basic)).toBe("clubFaceAngle");
+  });
+
+  test("a hidden box moves onto the first shown one", () => {
+    expect(moveSelection("aim", "ArrowDown", basic)).toBe("clubFaceAngle");
+  });
+});

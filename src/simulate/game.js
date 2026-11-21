@@ -6,6 +6,7 @@ import { getClub, swingSpeedRange, DEFAULT_CLUB_ID } from "./clubs";
 import { launchConditions } from "./launch-conditions";
 import { Shot } from "./shot";
 import { toYards } from "./conversions-lib";
+import { groundRun, turfParameters } from "./ground";
 
 // A round is this many targets, one shot at each; hit `toWin` of them to win.
 export const ROUND_TARGETS = 5;
@@ -49,6 +50,34 @@ export function randomTarget(
     distanceYards: Math.round(Math.hypot(x, z)),
     // positive is right of the centre line
     offlineYards: Math.round(-x),
+  };
+}
+
+// A visitor's very first target: on the centre line where a straight shot
+// with the club's stock swing comes to rest, so pressing Hit without touching
+// anything scores. `speed` is the stock swing speed (it can be changed in
+// Settings); `turf` decides how far the ball runs.
+export function easyTarget({ clubId = DEFAULT_CLUB_ID, speed, turf }) {
+  const shot = new Shot({
+    dt: AIR_DT,
+    ...launchConditions({
+      swingSpeedMPH: speed,
+      faceAngle: 0,
+      pathAngle: 0,
+      side: "Right",
+      club: clubId,
+    }),
+  });
+  const touchdown = shot.points[shot.points.length - 1];
+  const run = groundRun(touchdown, turfParameters(turf));
+  const z = toYards(run.points[run.points.length - 1].position.z);
+  return {
+    x: 0,
+    z,
+    radius: GROUND_RADIUS,
+    distanceYards: Math.round(z),
+    offlineYards: 0,
+    easy: true,
   };
 }
 

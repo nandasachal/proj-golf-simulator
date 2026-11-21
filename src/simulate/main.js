@@ -22,6 +22,8 @@ import { evaluateTarget } from "./game";
 import { createCelebration } from "./celebration-effects";
 import { toYards } from "./conversions-lib";
 
+const MODEL_TIMEOUT_MS = 15000;
+
 // Scene units are yards; the physics runs in meters.
 const YARDS_PER_METER = toYards(1);
 const SHOT_DT = 0.001;
@@ -326,7 +328,12 @@ export function createSimulator(container, callbacks = {}) {
   golfer.setSide(side);
   scene.add(golfer.group);
   let golferModel = "glb";
-  loadGolferModel()
+  // A download that stalls should not hold the loading screen up for ever:
+  // past this the figure is built instead and a late model is ignored.
+  const modelTimeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("model timeout")), MODEL_TIMEOUT_MS),
+  );
+  Promise.race([loadGolferModel(), modelTimeout])
     .then((model) => golfer.setModel(model))
     .catch(() => {
       console.warn("Golfer model did not load; building the built-in figure.");
