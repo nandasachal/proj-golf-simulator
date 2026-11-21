@@ -86,3 +86,4 @@ it, and held to a high visual bar.
 correctly scored shot can look unscored during browser verification (the scene's
 target was still null at hit time). Flush with a click or render (e.g. Restart)
 before hitting, and don't chase it as an app bug.
+2026-11-21 — mistake — ran 'prettier --write src' to format new files; it reformatted about a dozen unrelated files (this repo's source is not uniformly Prettier-formatted). Format only the files you edited (prettier --write <those files>), and check 'git status' before committing; reverted with git checkout this time.
