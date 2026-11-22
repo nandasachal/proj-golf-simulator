@@ -46,7 +46,8 @@ export function startAnalytics() {
     person_profiles: "identified_only",
     // Recording starts below, and only for a first visit.
     disable_session_recording: true,
-    session_recording: { maskAllInputs: true },
+    // Names on the leaderboard are other people's: no text is recorded.
+    session_recording: { maskAllInputs: true, maskTextSelector: "*" },
     // The swing controls are dragged and nudged constantly; only the named
     // events below are worth counting.
     autocapture: false,
@@ -61,7 +62,7 @@ export function startAnalytics() {
   const first = firstVisit(window.localStorage, window.sessionStorage);
   posthog.register({ first_visit: first });
   // Replays only of first visits, to see where new players get stuck. Inputs
-  // are masked.
+  // and text are masked.
   if (first) posthog.startSessionRecording();
   on = true;
 }

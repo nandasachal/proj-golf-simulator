@@ -95,9 +95,10 @@ describe("with analytics on", () => {
     expect(posthog.register).toHaveBeenCalledWith({ first_visit: true });
     expect(posthog.startSessionRecording).toHaveBeenCalledTimes(1);
     expect(posthog.init.mock.calls[0][1].disable_session_recording).toBe(true);
-    expect(posthog.init.mock.calls[0][1].session_recording.maskAllInputs).toBe(
-      true,
-    );
+    expect(posthog.init.mock.calls[0][1].session_recording).toEqual({
+      maskAllInputs: true,
+      maskTextSelector: "*",
+    });
 
     window.sessionStorage.clear();
     posthog.startSessionRecording.mockClear();

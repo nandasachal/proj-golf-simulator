@@ -303,6 +303,14 @@ const SaveName = ({ hits, targets, prompt, source, onSaved }) => {
           Not now
         </button>
       </div>
+      <a
+        className={`${LINK} mt-1 block`}
+        href="/privacy.html"
+        target="_blank"
+        rel="noreferrer"
+      >
+        What is stored: privacy
+      </a>
     </form>
   );
 };

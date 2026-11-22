@@ -17,6 +17,8 @@
   and [eng-plans/profiles-leaderboard.md](eng-plans/profiles-leaderboard.md).
   - [done] Shorter game: 5 targets, 3 to win, 4 in advanced (2026-11-17).
   - [done] Optional accounts (name + password) replace recovery codes; save form is Name only / Account / Not now; our own accounts mark the browser internal, replacing `?internal=1`; Sign in with Google as a second way in to an account (2026-11-22, built and pushed; deploy and a Google client id pending).
+  - [done] Privacy page at `/privacy.html`; Google Analytics and AdSense tags removed; replay text masked (2026-11-22).
+  - Privacy follow-ups from the counsel review (2026-11-22): consent banner or no replay for EU/UK visitors; a retention period with a purge job; a deletion runbook that also removes the PostHog person; PostHog "discard client IP".
   - [done] **Analytics instrumentation and dashboards** (2026-11-21; bot
     filtering and a real `app_version` outstanding) — every action tracked with
     a game id, load and error events, three PostHog dashboards. See

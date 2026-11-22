@@ -421,8 +421,12 @@ preventing it.
 PostHog, for web analytics (page views) and product analytics (`src/analytics.js`).
 It is off unless the build has `REACT_APP_POSTHOG_KEY` (the project key, public
 by design; `REACT_APP_POSTHOG_HOST` for an EU project), so tests and local runs
-send nothing. Autocapture and session replay are off; the visitor id is kept in
-localStorage, not a cookie. The tracking plan (events, properties, dashboards) is
+send nothing. Autocapture is off; session replay runs for a browser's first visit only,
+with all text and inputs masked; the visitor id is kept in localStorage, not a
+cookie. PostHog is the only analytics: the Google Analytics and AdSense tags
+were removed on 2026-11-22. What the site keeps is published at
+`/privacy.html` (`public/privacy.html`, linked from Settings and the save
+form); keep it true when what is collected changes. The tracking plan (events, properties, dashboards) is
 [planning/product-specs/analytics.md](planning/product-specs/analytics.md); the
 property sets are built by pure functions in `src/analytics-events.js` and
 tested. Events as built so far: `shot_landed` (every shot, practice included,

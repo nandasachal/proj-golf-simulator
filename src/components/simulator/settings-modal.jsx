@@ -425,6 +425,12 @@ const SettingsModal = ({
               <ChatDots size={14} className="mr-1.5" />
               Feedback
             </a>
+            <a
+              className="mt-2 block text-center text-xs text-white/50 underline-offset-2 hover:text-white hover:underline"
+              href="/privacy.html"
+            >
+              Privacy
+            </a>
           </Dialog.Panel>
         </div>
       </Dialog>
