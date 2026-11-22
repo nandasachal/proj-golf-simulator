@@ -130,7 +130,7 @@ const ButtonRow = ({ mode, onMode }) => {
                 type="button"
                 aria-pressed={chosen}
                 className={classNames(
-                  "rounded-md px-3 font-semibold leading-tight transition-colors",
+                  "rounded-md px-2 font-semibold leading-tight transition-colors md:px-3",
                   chosen
                     ? "bg-lime-400 text-slate-900"
                     : "text-white/65 hover:text-white",

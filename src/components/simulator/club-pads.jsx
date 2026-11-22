@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { Listbox } from "@headlessui/react";
 import {
@@ -531,6 +537,38 @@ const ClubCell = ({ club, stock, onClub, compact }) => (
 // On a phone: the bag as a row of chips, a tab per control, and the selected
 // control large, with its ruler and three buttons under it. Hit is in the bar
 // at the bottom of the screen.
+// One line of text that never wraps: when it is wider than its room it
+// shrinks, a pixel at a time, down to 8px.
+const FitLine = ({ size, className, children }) => {
+  const line = useRef(null);
+  const [fontSize, setFontSize] = useState(size);
+  useLayoutEffect(() => {
+    const element = line.current;
+    const fit = () => {
+      let next = size;
+      element.style.fontSize = `${next}px`;
+      while (next > 8 && element.scrollWidth > element.clientWidth + 1) {
+        next -= 1;
+        element.style.fontSize = `${next}px`;
+      }
+      setFontSize(next);
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [size, children]);
+  return (
+    <span
+      ref={line}
+      className={`block overflow-hidden whitespace-nowrap ${className}`}
+      style={{ fontSize }}
+    >
+      {children}
+    </span>
+  );
+};
+
 const PhoneControls = ({
   shown,
   club,
@@ -1457,13 +1495,16 @@ const ClubPads = ({
           data-shot-shape
         >
           {preview && <FlightIcon sketch={preview.sketch} />}
-          <p className="flex min-w-0 flex-col">
-            <span className="whitespace-nowrap text-[10px] font-medium uppercase leading-tight tracking-wider text-white/50">
+          <p className="flex min-w-0 flex-1 flex-col">
+            <FitLine
+              size={10}
+              className="font-medium uppercase leading-tight tracking-wide text-white/50"
+            >
               Shot shape{" "}
-            </span>
-            <span className="truncate text-sm font-semibold leading-tight">
+            </FitLine>
+            <FitLine size={14} className="font-semibold leading-tight">
               {preview ? preview.shape : "Club at impact"}
-            </span>
+            </FitLine>
           </p>
         </div>
         {modeSwitch}
