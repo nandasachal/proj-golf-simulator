@@ -205,8 +205,11 @@ React UI (App.js, components/)          src/simulate/ (no React)
     from above; on phones top right of the panel) and the mode (a Practice / Game switch with
     one (i) for both, in the panel's top row beside the shot shape; the
     game's difficulty is on the game card). On phones the mode and Hit are a bar fixed to the
-    bottom of the screen, the game card shrinks to the target, pips and
-    score, and Settings and Reset view sit in the bottom corners of the
+    bottom of the screen, a game in progress is one row along the foot of
+    the picture (target, pips, Restart, the last tip; `GameRow` in
+    `game-card.jsx`) and the full card only appears when the game ends, the
+    bar's switch is Practice | Normal | Advanced, the bird's-eye card shows
+    only when its button (top left, beside Settings) is pressed, and Settings and Reset view sit in the top corners of the
     picture. Club distances, dominant side, turf and the feedback
     link are in a modal behind the gear button, bottom left. On laptops Hit is the right end of the
     shot strip.

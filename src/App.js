@@ -5,7 +5,7 @@ import ClubPads from "./components/simulator/club-pads";
 import ButtonRow from "./components/simulator/button-row";
 import ShotReadout from "./components/simulator/shot-readout";
 import SettingsModal from "./components/simulator/settings-modal";
-import GameCard from "./components/simulator/game-card";
+import GameCard, { GameRow } from "./components/simulator/game-card";
 import FlightMap from "./components/simulator/flight-map";
 import LeaderboardModal from "./components/simulator/leaderboard-modal";
 import { getLeaderboard } from "./players/api";
@@ -22,7 +22,7 @@ import {
   targetAttempted,
 } from "./analytics-events";
 import { useQueryState, useSetQueries } from "./hooks/use-query";
-import { ArrowCounterclockwise } from "react-bootstrap-icons";
+import { ArrowCounterclockwise, Map as MapIcon } from "react-bootstrap-icons";
 import { createSimulator } from "./simulate/main";
 import { launchConditions } from "./simulate/launch-conditions";
 import { previewShot } from "./simulate/shot-preview";
@@ -321,6 +321,8 @@ function App() {
   const [beckon, setBeckon] = useState(() => !hasDone(FIRST.shot));
   // What to change for the next target, after a miss.
   const [tip, setTip] = useState(null);
+  // Phones: the bird's-eye card is shown only when its button asks for it.
+  const [mapOpen, setMapOpen] = useState(false);
   const [board, setBoard] = useState(null);
   // Set when a shot has been scored, so the next target appears once the
   // camera is back.
@@ -485,6 +487,9 @@ function App() {
   // A change of club starts again too, with targets that club can reach.
   const reach = useMemo(() => targetReach(club.id), [club]);
   const goal = GOALS[mode] || null;
+  const gameOver = Boolean(goal) && round.length >= goal.targets;
+  // Phones show a game in progress as a row, not the card.
+  const phoneRow = !isDesktop && Boolean(goal) && !gameOver;
   // Normal targets are on the ground, advanced ones in the air.
   const nextTarget = useMemo(
     () =>
@@ -579,7 +584,6 @@ function App() {
 
   // After a game, or a name saved at the end of one: send its shots, then
   // ask where the player now stands.
-  const gameOver = goal != null && round.length >= goal.targets;
   useEffect(() => {
     setBoard(null);
     if (!gameOver || !player) return undefined;
@@ -797,7 +801,7 @@ function App() {
           {/* Above the shot readout: on a phone the finished card, with its
               name form, reaches down to it and must keep Play again in reach. */}
           <div className="pointer-events-auto relative z-30 ml-auto flex flex-col items-end gap-2">
-            {goal && (
+            {goal && (isDesktop || gameOver) && (
               <GameCard
                 mode={mode}
                 goal={goal}
@@ -812,28 +816,35 @@ function App() {
                 tip={tip}
               />
             )}
-            {/* Folded away to start with on phones, where the picture is
-                small. */}
-            <FlightMap
-              result={result}
-              target={target}
-              startOpen={isDesktop}
-              onPast={setPast}
-            />
+            {/* On phones it is kept (it follows the shots either way) but
+                shown only while its button in the corner asks for it. */}
+            <div hidden={!isDesktop && !mapOpen}>
+              <FlightMap
+                result={result}
+                target={target}
+                startOpen
+                onPast={setPast}
+              />
+            </div>
           </div>
         </div>
         {/* Along the bottom: the result bar with Hit to its right, the pair
             centred on the screen. On phones the bar takes the full width, above
             the corner buttons, and Hit is in the bar at the bottom of the
             screen. */}
-        <div className="pointer-events-none absolute bottom-[60px] left-3 right-3 z-20 flex justify-center md:bottom-4 md:left-20 md:right-20">
+        <div
+          className={`pointer-events-none absolute left-3 right-3 z-20 flex justify-center md:bottom-4 md:left-20 md:right-20 ${
+            phoneRow && tip ? "bottom-[100px]" : "bottom-[60px]"
+          }`}
+        >
           <div className="pointer-events-auto relative flex max-w-full items-stretch gap-2">
             <ShotReadout live={live} result={past ? result : null} />
           </div>
         </div>
-        {/* Back to the usual view, bottom right, once it has been dragged. */}
+        {/* Back to the usual view once it has been dragged: bottom right on
+            laptops, top right on phones. */}
         {orbiting && (
-          <div className="absolute bottom-3 right-3 z-20 md:bottom-4 md:right-4">
+          <div className="absolute right-3 top-3 z-30 md:bottom-4 md:right-4 md:top-auto">
             <button
               type="button"
               aria-label="Reset view"
@@ -844,8 +855,23 @@ function App() {
             </button>
           </div>
         )}
-        {/* Settings and the leaderboard, bottom left. */}
-        <div className="absolute bottom-3 left-3 z-20 flex gap-2 md:bottom-4 md:left-4">
+        {/* Phones, in a game: the target, pips and Restart in one row along
+            the foot of the picture. */}
+        {phoneRow && (
+          <div className="absolute bottom-3 left-3 right-3 z-20">
+            <GameRow
+              goal={goal}
+              target={target}
+              round={round}
+              onRestart={startGame}
+              tip={tip}
+            />
+          </div>
+        )}
+        {/* Settings and the leaderboard, bottom left; on phones top left,
+            with the bird's-eye button, leaving the foot of the picture to the
+            game row. */}
+        <div className="absolute left-3 top-3 z-20 flex gap-2 md:bottom-4 md:left-4 md:top-auto">
           <SettingsModal
             side={side}
             turf={turf}
@@ -864,6 +890,19 @@ function App() {
             startMode={mode === "advanced" ? "advanced" : "normal"}
             onPlayer={savePlayer}
           />
+          {!isDesktop && (
+            <button
+              type="button"
+              aria-label="Bird's-eye view"
+              aria-pressed={mapOpen}
+              className={`hud-panel flex h-10 w-10 items-center justify-center !rounded-full transition-colors ${
+                mapOpen ? "!bg-lime-400 text-slate-900" : "text-white/90"
+              }`}
+              onClick={() => setMapOpen(!mapOpen)}
+            >
+              <MapIcon size={16} aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
 

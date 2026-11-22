@@ -18,6 +18,14 @@ export const HitButton = ({ onClick, className = "", beckon = false }) => (
   </button>
 );
 
+// On phones the game's difficulty is in the bar too, since the game card is
+// folded into a row there.
+const PHONE_MODES = [
+  { id: "practice", name: "Practice" },
+  { id: "normal", name: "Normal" },
+  { id: "advanced", name: "Advanced" },
+];
+
 const MODES = [
   {
     id: "practice",
@@ -36,7 +44,8 @@ const MODES = [
 // laptops it sits in the top row of the shot panel; on phones it is a bar
 // fixed to the bottom of the screen, with Hit beside it.
 const ButtonRow = ({ mode, onMode, simulate, bar = false, beckon = false }) => {
-  const chosenId = mode === "practice" ? "practice" : "game";
+  const chosenId = bar ? mode : mode === "practice" ? "practice" : "game";
+  const choices = bar ? PHONE_MODES : MODES;
   const [about, setAbout] = useState(false);
   const row = useRef(null);
   // A click anywhere else, or Escape, puts the explanation away.
@@ -90,13 +99,14 @@ const ButtonRow = ({ mode, onMode, simulate, bar = false, beckon = false }) => {
         )}
         <div
           className={classNames(
-            "grid grid-cols-2 gap-0.5 rounded-lg bg-white/10 p-0.5",
+            "grid gap-0.5 rounded-lg bg-white/10 p-0.5",
+            bar ? "grid-cols-3" : "grid-cols-2",
             bar ? "h-full flex-1 text-[13px]" : "h-8 text-xs",
           )}
           role="group"
           aria-label="Mode"
         >
-          {MODES.map(({ id, name }) => {
+          {choices.map(({ id, name }) => {
             const chosen = chosenId === id;
             return (
               <button
@@ -104,7 +114,8 @@ const ButtonRow = ({ mode, onMode, simulate, bar = false, beckon = false }) => {
                 type="button"
                 aria-pressed={chosen}
                 className={classNames(
-                  "rounded-md px-3 font-semibold leading-tight transition-colors",
+                  "rounded-md font-semibold leading-tight transition-colors",
+                  bar ? "px-1" : "px-3",
                   chosen
                     ? "bg-lime-400 text-slate-900"
                     : "text-white/65 hover:text-white",

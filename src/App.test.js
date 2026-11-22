@@ -1406,6 +1406,51 @@ describe("game mode", () => {
     expect(tip()).toBeNull();
   });
 
+  test("on a phone a game in progress is one row at the foot of the picture, not the card", () => {
+    viewport(false);
+    renderApp("/");
+    const game = screen.getByRole("status", { name: "Game" });
+    expect(game).toHaveTextContent(`1/5${lastTarget().distanceYards} yd`);
+    expect(within(game).getAllByRole("listitem")).toHaveLength(5);
+    // no difficulty switch or result card while playing
+    expect(
+      within(game).queryByRole("group", { name: "Difficulty" }),
+    ).toBeNull();
+    play({ hit: false, longYards: 22, rightYards: 1 });
+    expect(screen.getByRole("status", { name: "Game" })).toHaveTextContent(
+      "2/5",
+    );
+    expect(screen.getByLabelText("Tip")).toHaveTextContent("22 yd long");
+    fireEvent.click(
+      within(screen.getByRole("status", { name: "Game" })).getByRole("button", {
+        name: "Restart",
+      }),
+    );
+    expect(screen.getByRole("status", { name: "Game" })).toHaveTextContent(
+      "1/5",
+    );
+  });
+
+  test("on a phone the bar picks Practice, Normal or Advanced", () => {
+    viewport(false);
+    renderApp("/");
+    const bar = within(screen.getByRole("group", { name: "Mode" }));
+    expect(bar.getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "Practice",
+      "Normal",
+      "Advanced",
+    ]);
+    expect(bar.getByRole("button", { name: "Normal" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(bar.getByRole("button", { name: "Advanced" }));
+    expect(address()).toContain("mode=advanced");
+    fireEvent.click(bar.getByRole("button", { name: "Practice" }));
+    expect(address()).toContain("mode=practice");
+    expect(screen.queryByRole("status", { name: "Game" })).toBeNull();
+  });
+
   test("Game goes back to the difficulty last played", () => {
     renderApp("/?mode=advanced");
     fireEvent.click(modeButton("Practice"));
@@ -1787,24 +1832,37 @@ describe("bird's-eye view", () => {
     },
   };
   const map = () => screen.queryByRole("region", { name: "Bird's-eye view" });
+  // On phones it shows only when the button in the corner asks for it.
+  const openMap = () =>
+    fireEvent.click(screen.getByRole("button", { name: "Bird's-eye view" }));
 
   test("is not there until a shot has finished", () => {
     renderApp("/?mode=practice");
+    openMap();
     expect(map()).not.toBeInTheDocument();
     act(() => callbacks.onResult(landed));
     expect(map()).toBeInTheDocument();
     expect(map()).toHaveTextContent("220 yd");
   });
 
+  test("is hidden on a phone until its corner button is pressed, and again after", () => {
+    renderApp("/?mode=practice");
+    act(() => callbacks.onResult(landed));
+    expect(map()).not.toBeInTheDocument();
+    openMap();
+    expect(map()).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Bird's-eye view" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    openMap();
+    expect(map()).not.toBeInTheDocument();
+  });
+
   test("folds open and shut, and draws the flight and the run", () => {
     renderApp("/?mode=practice");
     act(() => callbacks.onResult(landed));
-    // phones start with it folded away
+    openMap();
     const toggle = within(map()).getByRole("button");
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(map().querySelector("svg[role=img]")).toBeNull();
-
-    fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(
       within(map()).getByRole("img", {
@@ -1817,6 +1875,7 @@ describe("bird's-eye view", () => {
     expect(map().querySelector('[data-map="run"]')).not.toBeNull();
 
     fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(map().querySelector("svg[role=img]")).toBeNull();
   });
 
@@ -1898,8 +1957,9 @@ describe("bird's-eye view in a game", () => {
       target: { right: 5, downrange: 230, radius: 15, air: false },
     },
   };
+  // On phones the map shows only when its corner button asks for it.
   const unfold = () =>
-    fireEvent.click(within(map()).getByRole("button", { name: /bird/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Bird's-eye view" }));
 
   test("shows the target that is up before it is hit at", () => {
     renderApp("/");

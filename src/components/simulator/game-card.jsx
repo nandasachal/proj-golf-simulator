@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ArrowRepeat } from "react-bootstrap-icons";
 import SaveName from "./save-name";
 
 const describeSide = (offlineYards) => {
@@ -139,7 +140,7 @@ const GameCard = ({
     >
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div
-          className="flex rounded-md bg-white/10 p-0.5 text-[10px] font-semibold uppercase tracking-wider md:text-[11px]"
+          className="hidden rounded-md bg-white/10 p-0.5 text-[10px] font-semibold uppercase tracking-wider md:flex md:text-[11px]"
           role="group"
           aria-label="Difficulty"
         >
@@ -334,6 +335,58 @@ const GameCard = ({
           {over ? "Play again" : "Restart"}
         </button>
       </div>
+    </div>
+  );
+};
+
+// On phones, while a game is on: one row along the foot of the picture, so
+// the card does not cover it. The target that is up, the pips and Restart,
+// with the last miss's tip under them when there is one. The finished game
+// still gets the full card (its result, the name form, Play again).
+export const GameRow = ({ goal, target, round, onRestart, tip }) => {
+  const side = target
+    ? target.offlineYards === 0
+      ? "centre"
+      : `${Math.abs(target.offlineYards)} ${target.offlineYards > 0 ? "R" : "L"}`
+    : "";
+  return (
+    <div
+      className="hud-panel !rounded-2xl px-3 py-2"
+      role="status"
+      aria-label="Game"
+    >
+      <div className="flex h-6 items-center gap-2.5 whitespace-nowrap text-[13px]">
+        <span className="font-bold tabular-nums">
+          {round.length + 1}/{goal.targets}
+        </span>
+        {target && (
+          <span className="tabular-nums">
+            <span className="font-semibold">{target.distanceYards} yd</span>
+            <span className="ml-1.5 text-xs text-white/60">
+              {side}
+              {target.air && ` · ${target.heightYards}↑`}
+            </span>
+          </span>
+        )}
+        <Pips round={round} total={goal.targets} playing />
+        <button
+          type="button"
+          aria-label="Restart"
+          className="-mr-1 ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+          onClick={onRestart}
+        >
+          <ArrowRepeat size={14} aria-hidden="true" />
+        </button>
+      </div>
+      {tip && (
+        <p
+          className="mt-1 text-[11px] leading-snug text-amber-200"
+          aria-label="Tip"
+        >
+          <span className="font-semibold">Tip: </span>
+          {tip}
+        </p>
+      )}
     </div>
   );
 };
