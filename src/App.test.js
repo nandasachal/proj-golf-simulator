@@ -1433,24 +1433,34 @@ describe("game mode", () => {
     );
   });
 
-  test("on a phone the bar picks Practice, Normal or Advanced", () => {
+  test("on a phone Practice / Game is at the top and the difficulty at the bottom", () => {
     viewport(false);
     renderApp("/");
-    const bar = within(screen.getByRole("group", { name: "Mode" }));
-    expect(bar.getAllByRole("button").map((b) => b.textContent)).toEqual([
+    const panel = within(screen.getByLabelText("Shot controls"));
+    const top = within(panel.getByRole("group", { name: "Mode" }));
+    expect(top.getAllByRole("button").map((b) => b.textContent)).toEqual([
       "Practice",
+      "Game",
+    ]);
+    const bottom = () =>
+      within(screen.getByRole("group", { name: "Difficulty" }));
+    expect(bottom().getAllByRole("button").map((b) => b.textContent)).toEqual([
       "Normal",
       "Advanced",
     ]);
-    expect(bar.getByRole("button", { name: "Normal" })).toHaveAttribute(
+    expect(bottom().getByRole("button", { name: "Normal" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    fireEvent.click(bar.getByRole("button", { name: "Advanced" }));
+    fireEvent.click(bottom().getByRole("button", { name: "Advanced" }));
     expect(address()).toContain("mode=advanced");
-    fireEvent.click(bar.getByRole("button", { name: "Practice" }));
+
+    // practice: no difficulty, Hit has the bar to itself
+    fireEvent.click(top.getByRole("button", { name: "Practice" }));
     expect(address()).toContain("mode=practice");
+    expect(screen.queryByRole("group", { name: "Difficulty" })).toBeNull();
     expect(screen.queryByRole("status", { name: "Game" })).toBeNull();
+    expect(screen.getByRole("button", { name: /Hit/ })).toBeInTheDocument();
   });
 
   test("Game goes back to the difficulty last played", () => {

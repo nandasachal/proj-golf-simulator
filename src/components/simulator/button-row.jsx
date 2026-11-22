@@ -18,10 +18,9 @@ export const HitButton = ({ onClick, className = "", beckon = false }) => (
   </button>
 );
 
-// On phones the game's difficulty is in the bar too, since the game card is
-// folded into a row there.
-const PHONE_MODES = [
-  { id: "practice", name: "Practice" },
+// On phones the game's difficulty is in the bar at the bottom, since the game
+// card is folded into a row there; Practice / Game is at the top.
+const DIFFICULTIES = [
   { id: "normal", name: "Normal" },
   { id: "advanced", name: "Advanced" },
 ];
@@ -39,13 +38,49 @@ const MODES = [
   },
 ];
 
-// Practice or a game (its difficulty is chosen on the game card), as a
-// two-way switch with one (i) that says what both are when clicked. On
-// laptops it sits in the top row of the shot panel; on phones it is a bar
-// fixed to the bottom of the screen, with Hit beside it.
-const ButtonRow = ({ mode, onMode, simulate, bar = false, beckon = false }) => {
-  const chosenId = bar ? mode : mode === "practice" ? "practice" : "game";
-  const choices = bar ? PHONE_MODES : MODES;
+// Phones: a bar fixed to the bottom of the screen with Hit, and the game's
+// difficulty beside it during a game. In practice Hit has the bar to itself.
+export const PhoneBar = ({ mode, onMode, simulate, beckon = false }) => (
+  <div className="fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-2 border-t border-white/10 bg-slate-950/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
+    {mode !== "practice" && (
+      <div
+        className="grid min-w-0 flex-1 grid-cols-2 gap-0.5 rounded-lg bg-white/10 p-0.5 text-[13px]"
+        role="group"
+        aria-label="Difficulty"
+      >
+        {DIFFICULTIES.map(({ id, name }) => {
+          const chosen = mode === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={chosen}
+              className={classNames(
+                "rounded-md px-1 font-semibold leading-tight transition-colors",
+                chosen
+                  ? "bg-lime-400 text-slate-900"
+                  : "text-white/65 hover:text-white",
+              )}
+              onClick={() => onMode(id)}
+            >
+              {name}
+            </button>
+          );
+        })}
+      </div>
+    )}
+    <HitButton
+      onClick={simulate}
+      beckon={beckon}
+      className={mode === "practice" ? "h-11 flex-1" : "w-24 shrink-0"}
+    />
+  </div>
+);
+
+// Practice or a game, as a two-way switch with one (i) that says what both
+// are when clicked. It sits in the top row of the shot panel.
+const ButtonRow = ({ mode, onMode }) => {
+  const chosenId = mode === "practice" ? "practice" : "game";
   const [about, setAbout] = useState(false);
   const row = useRef(null);
   // A click anywhere else, or Escape, puts the explanation away.
@@ -66,28 +101,13 @@ const ButtonRow = ({ mode, onMode, simulate, bar = false, beckon = false }) => {
   }, [about]);
 
   return (
-    <div
-      className={
-        bar
-          ? "fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-2 border-t border-white/10 bg-slate-950/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur"
-          : "shrink-0"
-      }
-    >
-      <div
-        ref={row}
-        className={classNames(
-          "relative flex items-center gap-1",
-          bar && "min-w-0 flex-1",
-        )}
-      >
+    <div className="shrink-0">
+      <div ref={row} className="relative flex items-center gap-1">
         {about && (
           <div
             id="mode-info"
             role="note"
-            className={classNames(
-              "absolute z-40 w-72 rounded-lg border border-white/15 bg-slate-950/95 px-3 py-2 text-xs leading-snug text-white/90 shadow-lg",
-              bar ? "bottom-full left-0 mb-2" : "right-0 top-full mt-2",
-            )}
+            className="absolute right-0 top-full z-40 mt-2 w-72 rounded-lg border border-white/15 bg-slate-950/95 px-3 py-2 text-xs leading-snug text-white/90 shadow-lg"
           >
             {MODES.map(({ id, name, info }) => (
               <p key={id} className="[&+&]:mt-1.5">
@@ -98,15 +118,11 @@ const ButtonRow = ({ mode, onMode, simulate, bar = false, beckon = false }) => {
           </div>
         )}
         <div
-          className={classNames(
-            "grid gap-0.5 rounded-lg bg-white/10 p-0.5",
-            bar ? "grid-cols-3" : "grid-cols-2",
-            bar ? "h-full flex-1 text-[13px]" : "h-8 text-xs",
-          )}
+          className="grid h-8 grid-cols-2 gap-0.5 rounded-lg bg-white/10 p-0.5 text-xs"
           role="group"
           aria-label="Mode"
         >
-          {choices.map(({ id, name }) => {
+          {MODES.map(({ id, name }) => {
             const chosen = chosenId === id;
             return (
               <button
@@ -114,8 +130,7 @@ const ButtonRow = ({ mode, onMode, simulate, bar = false, beckon = false }) => {
                 type="button"
                 aria-pressed={chosen}
                 className={classNames(
-                  "rounded-md font-semibold leading-tight transition-colors",
-                  bar ? "px-1" : "px-3",
+                  "rounded-md px-3 font-semibold leading-tight transition-colors",
                   chosen
                     ? "bg-lime-400 text-slate-900"
                     : "text-white/65 hover:text-white",
@@ -141,13 +156,6 @@ const ButtonRow = ({ mode, onMode, simulate, bar = false, beckon = false }) => {
           <InfoCircle size={12} aria-hidden="true" />
         </button>
       </div>
-      {bar && (
-        <HitButton
-          onClick={simulate}
-          beckon={beckon}
-          className="w-24 shrink-0"
-        />
-      )}
     </div>
   );
 };

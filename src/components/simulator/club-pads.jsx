@@ -1449,8 +1449,8 @@ const ClubPads = ({
       className="flex flex-col gap-2"
       aria-label={views ? "Club at impact" : "Shot controls"}
     >
-      {/* What this setup will do, and on laptops Practice / Game beside it
-          (Reset is on the club view there); on phones Reset. */}
+      {/* What this setup will do, with Practice / Game beside it, and on
+          phones Reset too (on laptops it is on the club view). */}
       <div className="flex items-center gap-3">
         <div
           className="flex min-w-0 flex-1 items-center gap-2 pl-1"
@@ -1458,7 +1458,7 @@ const ClubPads = ({
         >
           {preview && <FlightIcon sketch={preview.sketch} />}
           <p className="flex min-w-0 flex-col">
-            <span className="text-[10px] font-medium uppercase leading-tight tracking-wider text-white/50">
+            <span className="whitespace-nowrap text-[10px] font-medium uppercase leading-tight tracking-wider text-white/50">
               Shot shape{" "}
             </span>
             <span className="truncate text-sm font-semibold leading-tight">
@@ -1466,7 +1466,8 @@ const ClubPads = ({
             </span>
           </p>
         </div>
-        {views ? modeSwitch : resetButton}
+        {modeSwitch}
+        {!views && resetButton}
       </div>
 
       {views ? (

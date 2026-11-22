@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./App.scss";
 
 import ClubPads from "./components/simulator/club-pads";
-import ButtonRow from "./components/simulator/button-row";
+import ButtonRow, { PhoneBar } from "./components/simulator/button-row";
 import ShotReadout from "./components/simulator/shot-readout";
 import SettingsModal from "./components/simulator/settings-modal";
 import GameCard, { GameRow } from "./components/simulator/game-card";
@@ -976,11 +976,11 @@ function App() {
           className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 px-4 pb-3 pt-3"
         />
       )}
-      {/* Phones: mode and Hit stay at the bottom of the screen. Outside the
-          panel, whose blur would otherwise pin the bar to itself. */}
+      {/* Phones: Hit, and a game's difficulty, stay at the bottom of the
+          screen. Outside the panel, whose blur would otherwise pin the bar
+          to itself. */}
       {!isDesktop && (
-        <ButtonRow
-          bar
+        <PhoneBar
           beckon={beckon}
           mode={mode}
           onMode={(value) => handleValueChange("mode", value)}
