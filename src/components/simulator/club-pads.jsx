@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Listbox } from "@headlessui/react";
 import {
   ArrowCounterclockwise,
@@ -6,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   InfoCircle,
+  PlayFill,
 } from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
 import { track } from "../../analytics";
@@ -351,14 +353,14 @@ const Ruler = ({ control, range, value, text, onChange, onSelect, tall }) => {
   );
 };
 
-const StepButton = ({ label, disabled, onClick, compact, children }) => (
+const StepButton = ({ label, disabled, onClick, narrow, children }) => (
   <button
     type="button"
     aria-label={label}
     disabled={disabled}
     className={classNames(
-      compact ? "h-8 w-5" : "h-10 w-7",
-      "flex shrink-0 items-center justify-center rounded-md bg-white/[0.07] text-white/75 transition-colors hover:bg-white/15 hover:text-white disabled:pointer-events-none disabled:opacity-30",
+      narrow ? "w-6" : "w-7",
+      "flex h-10 shrink-0 items-center justify-center rounded-md bg-white/[0.07] text-white/75 transition-colors hover:bg-white/15 hover:text-white disabled:pointer-events-none disabled:opacity-30",
     )}
     onClick={onClick}
   >
@@ -367,10 +369,11 @@ const StepButton = ({ label, disabled, onClick, compact, children }) => (
 );
 
 // One control on a laptop, every row the same height in every box so they
-// line up: name with its (i) and a reset; ‹ number ›; the ruler; the word.
-// `compact`, when all seven show, is the name row and one row of ‹ number
-// word ›, so the 3D views (whose handles do the dragging) still fit on the
-// screen. The box the keyboard is on is outlined.
+// line up along the strip: name with its (i) and a reset; ‹ number ›; the
+// ruler; the word. `compact`, when all seven show, leaves the ruler out (the
+// 3D handles do the dragging there) and uses the short names, so the strip
+// stays short and one row wide. The box the
+// keyboard is on is outlined.
 const ControlCell = ({
   control,
   range,
@@ -394,8 +397,7 @@ const ControlCell = ({
   return (
     <div
       className={classNames(
-        "flex min-w-0 flex-col rounded-lg ring-inset transition-colors",
-        compact ? "gap-1 p-2" : "gap-2 p-3",
+        "flex min-w-0 flex-col gap-2 rounded-lg p-3 ring-inset transition-colors",
         active ? "bg-white/[0.14]" : "bg-white/[0.06]",
         selected && "ring-2 ring-lime-400",
       )}
@@ -413,8 +415,11 @@ const ControlCell = ({
           className="mr-0.5 h-2 w-2 shrink-0 rounded-full"
           style={{ background: colour }}
         />
-        <span className="min-w-0 truncate text-[11px] font-medium text-white/65">
-          {name}
+        <span
+          className="min-w-0 truncate text-[11px] font-medium text-white/65"
+          title={name}
+        >
+          {compact ? PHONE[control][0] : name}
         </span>
         <button
           type="button"
@@ -439,24 +444,19 @@ const ControlCell = ({
       </div>
       <div
         className={classNames(
-          "flex items-center",
-          compact ? "h-8 gap-0.5" : "h-10 gap-1",
+          "flex h-10 items-center",
+          compact ? "gap-0.5" : "gap-1",
         )}
       >
         <StepButton
-          compact={compact}
+          narrow={compact}
           label={`${name}: ${stepText(control, range)} ${words[0]}`}
           disabled={value <= range.MIN}
           onClick={() => step(-1)}
         >
           <ChevronLeft size={12} aria-hidden="true" />
         </StepButton>
-        <div
-          className={classNames(
-            "flex min-w-0 flex-1 items-center",
-            compact && "justify-center",
-          )}
-        >
+        <div className="min-w-0 flex-1">
           <NumberField
             control={control}
             range={range}
@@ -466,38 +466,15 @@ const ControlCell = ({
             onChange={onChange}
             start={start}
             className={classNames(
-              "whitespace-nowrap rounded-md font-semibold tabular-nums tracking-tight transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
-              compact
-                ? "h-8 shrink-0 px-1 text-sm"
-                : "h-10 w-full text-center text-xl",
+              "h-10 w-full whitespace-nowrap rounded-md text-center font-semibold tabular-nums tracking-tight transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
+              compact ? "text-lg" : "text-xl",
             )}
-            inputClassName={classNames(
-              "block rounded-md bg-white text-center font-semibold tabular-nums text-slate-900 outline-none",
-              compact ? "h-8 w-full text-sm" : "h-10 w-full text-xl",
-            )}
-            unitClassName={classNames(
-              "font-medium text-white/55",
-              // No room for "mph" beside "faster" in a compact box; it is
-              // still read out.
-              compact && control === "swingSpeed"
-                ? "sr-only"
-                : compact
-                  ? "text-[10px]"
-                  : "text-[11px]",
-            )}
+            inputClassName="block h-10 w-full rounded-md bg-white text-center text-xl font-semibold tabular-nums text-slate-900 outline-none"
+            unitClassName="text-[11px] font-medium text-white/55"
           />
-          {compact && (
-            <WordSelect
-              control={control}
-              range={range}
-              value={value}
-              onChange={onChange}
-              className="text-[11px]"
-            />
-          )}
         </div>
         <StepButton
-          compact={compact}
+          narrow={compact}
           label={`${name}: ${stepText(control, range)} ${words[2]}`}
           disabled={value >= range.MAX}
           onClick={() => step(1)}
@@ -506,55 +483,47 @@ const ControlCell = ({
         </StepButton>
       </div>
       {!compact && (
-        <>
-          <Ruler
-            control={control}
-            range={range}
-            value={value}
-            text={text}
-            onChange={onChange}
-            onSelect={onSelect}
-          />
-          <div className="flex h-5 justify-center text-xs">
-            <WordSelect
-              control={control}
-              range={range}
-              value={value}
-              onChange={onChange}
-            />
-          </div>
-        </>
+        <Ruler
+          control={control}
+          range={range}
+          value={value}
+          text={text}
+          onChange={onChange}
+          onSelect={onSelect}
+        />
       )}
+      <div className="flex h-5 justify-center text-xs">
+        <WordSelect
+          control={control}
+          range={range}
+          value={value}
+          onChange={onChange}
+        />
+      </div>
     </div>
   );
 };
 
-// The club, in the same rows as a control box beside it.
+// The club, in the same rows as a control box beside it: the menu level
+// with the numbers, the stock speed level with the rulers (or the words).
 const ClubCell = ({ club, stock, onClub, compact }) => (
-  <div
-    className={classNames(
-      "flex min-w-0 flex-col rounded-lg bg-white/[0.06]",
-      compact ? "gap-1 p-2" : "gap-2 p-3",
-    )}
-  >
-    <div className="flex h-5 items-center justify-between text-[11px] font-medium text-white/65">
+  <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-lg bg-white/[0.06] p-3">
+    <div className="flex h-5 items-center text-[11px] font-medium text-white/65">
       Club
-      {compact && (
-        <span className="font-normal tabular-nums text-white/50">
-          stock {stock} mph
-        </span>
-      )}
     </div>
-    <ClubMenu club={club} onClub={onClub} compact={compact} />
+    <ClubMenu club={club} onClub={onClub} />
+    <div
+      className={classNames(
+        "flex items-center text-[11px] tabular-nums text-white/60",
+        compact ? "h-5" : "h-6",
+      )}
+    >
+      stock {stock} mph
+    </div>
     {!compact && (
-      <>
-        <div className="flex h-6 items-center text-[11px] tabular-nums text-white/60">
-          stock {stock} mph
-        </div>
-        <div className="flex h-5 items-center text-[11px] text-white/40">
-          Distances in Settings
-        </div>
-      </>
+      <div className="flex h-5 items-center text-[11px] text-white/40">
+        Distances in Settings
+      </div>
     )}
   </div>
 );
@@ -998,13 +967,12 @@ const FlightIcon = ({ sketch }) => (
 
 // The club in hand, as a button that opens the bag. Distances are set in
 // Settings.
-const ClubMenu = ({ club, onClub, compact }) => (
+const ClubMenu = ({ club, onClub }) => (
   <Listbox value={club.id} onChange={onClub}>
     <div className="relative min-w-0">
       <Listbox.Button
         className={classNames(
-          compact ? "h-8" : "h-10",
-          "flex w-full items-center gap-1.5 rounded-md bg-white/[0.07] px-2.5 text-left transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
+          "flex h-10 w-full items-center gap-1.5 rounded-md bg-white/[0.07] px-2.5 text-left transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
         )}
       >
         <span
@@ -1075,7 +1043,9 @@ const Hint = ({ keys, children }) => (
 
 // The club at impact as the shot controls: a box per control (drag its
 // ruler, step it, or type its number), and on laptops the club shown twice
-// in 3D with a handle per control to drag.
+// in 3D with a handle per control to drag. On laptops the boxes, the club
+// and Hit are a strip drawn into `strip`; the panel keeps the shot shape and
+// the 3D views.
 const ClubPads = ({
   values,
   side,
@@ -1087,6 +1057,9 @@ const ClubPads = ({
   onChange,
   onClub,
   onReset,
+  onHit,
+  beckon = false,
+  strip = null,
   views = true,
   controls = ALL_CONTROLS,
 }) => {
@@ -1368,10 +1341,104 @@ const ClubPads = ({
         (a === dragging || a === active) - (b === dragging || b === active),
     );
 
+  // Laptops: the controls are a strip along the bottom of the screen, every
+  // control as a box in the order the arrow keys move through, then the club
+  // and Hit, with the keys named under it. It is drawn into `strip`, a band
+  // App keeps below the picture. Phones: one control at a time, in the panel.
+  const stripControls = (
+    <div
+      role="group"
+      aria-label="Shot controls"
+      className="flex flex-col gap-2"
+    >
+      <div className="hud-panel flex items-stretch gap-1.5 !rounded-2xl p-1.5">
+        <div
+          ref={chips}
+          className="relative grid min-w-0 flex-1 gap-1.5"
+          style={{
+            gridTemplateColumns: `repeat(auto-fit, minmax(${compact ? 118 : 150}px, 1fr))`,
+          }}
+        >
+          {[...boxes, "swingSpeed"].filter(shows).map((control) => (
+            <ControlCell key={control} {...chipProps(control)} />
+          ))}
+          {about && (
+            <p
+              id="control-info"
+              role="note"
+              className="absolute inset-x-0 bottom-full z-40 mb-3 rounded-lg border border-white/15 bg-slate-950/95 px-3 py-2 text-xs leading-snug text-white/90 shadow-lg"
+            >
+              <span
+                className="font-bold"
+                style={{ color: describe[about].colour }}
+              >
+                {describe[about].name}.{" "}
+              </span>
+              {describe[about].info}
+            </p>
+          )}
+        </div>
+        <div className="flex w-40 shrink-0">
+          <ClubCell
+            club={club}
+            stock={ranges.swingSpeed.DEFAULT}
+            onClub={onClub}
+            compact={compact}
+          />
+        </div>
+        <div className="relative flex w-24 shrink-0">
+          <button
+            type="button"
+            aria-label="Hit"
+            aria-keyshortcuts="Space"
+            className={classNames(
+              "flex flex-1 flex-col items-center justify-center gap-2 rounded-xl bg-lime-400 text-slate-900 transition-colors hover:bg-lime-300 active:bg-lime-500",
+              beckon && "hit-beckon",
+            )}
+            onClick={onHit}
+          >
+            <span className="flex items-center text-xl font-bold">
+              <PlayFill size={20} className="mr-0.5" aria-hidden="true" />
+              Hit
+            </span>
+            <kbd className="inline-flex h-[18px] items-center rounded bg-black/15 px-1.5 font-sans text-[11px] font-semibold">
+              Space
+            </kbd>
+          </button>
+          {beckon && (
+            <p
+              data-first-shot
+              className="absolute bottom-full right-0 mb-3 whitespace-nowrap rounded-lg bg-lime-400 px-3 py-1.5 text-sm font-semibold text-slate-900 shadow-lg"
+            >
+              Press Hit or Space to take your first shot
+            </p>
+          )}
+        </div>
+      </div>
+      <div
+        className="flex flex-wrap justify-center gap-x-7 gap-y-1.5 text-[11px] text-white/55"
+        data-key-hint
+      >
+        <Hint keys={["←", "→"]}>move</Hint>
+        <Hint keys={["⌘", "←", "→"]}>
+          ±{stepText(selected, ranges[selected])}
+        </Hint>
+        <Hint keys={["⌘", "↑", "↓"]}>
+          {describe[selected].words.join(" · ")}
+        </Hint>
+        <Hint keys={["0–9"]}>type a value</Hint>
+        <Hint keys={["Space"]}>hit</Hint>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="flex flex-col gap-2" aria-label="Shot controls">
-      {/* What this setup will do, with Reset; a rule sets it apart from the
-          controls under it. */}
+    <div
+      className="flex flex-col gap-2"
+      aria-label={views ? "Club at impact" : "Shot controls"}
+    >
+      {/* What this setup will do, with Reset; a rule sets it apart from what
+          is under it. */}
       <div className="flex items-center gap-2 border-b border-white/10 pb-2">
         <div
           className="flex min-w-0 flex-1 items-center gap-2 px-1"
@@ -1395,43 +1462,8 @@ const ClubPads = ({
         </button>
       </div>
 
-      {/* Laptops: every control as a box, in the grid the arrow keys move
-          through, swing speed beside the club; the explanation of the one
-          asked about opens under them. Phones: one control at a time. */}
       {views ? (
-        <div ref={chips} className="relative flex flex-col gap-2">
-          <div className="grid grid-cols-2 gap-2">
-            {boxes.map((control) => (
-              <ControlCell key={control} {...chipProps(control)} />
-            ))}
-            {shows("swingSpeed") && (
-              <>
-                <ControlCell {...chipProps("swingSpeed")} />
-                <ClubCell
-                  club={club}
-                  stock={ranges.swingSpeed.DEFAULT}
-                  onClub={onClub}
-                  compact={compact}
-                />
-              </>
-            )}
-          </div>
-          {about && (
-            <p
-              id="control-info"
-              role="note"
-              className="absolute inset-x-0 top-full z-40 mt-2 rounded-lg border border-white/15 bg-slate-950/95 px-3 py-2 text-xs leading-snug text-white/90 shadow-lg"
-            >
-              <span
-                className="font-bold"
-                style={{ color: describe[about].colour }}
-              >
-                {describe[about].name}.{" "}
-              </span>
-              {describe[about].info}
-            </p>
-          )}
-        </div>
+        strip && createPortal(stripControls, strip)
       ) : (
         <PhoneControls
           shown={[...boxes, "swingSpeed"].filter(shows)}
@@ -1447,22 +1479,6 @@ const ClubPads = ({
           onChange={onChange}
           start={typed}
         />
-      )}
-      {views && (
-        <div
-          className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 pt-1 text-[11px] text-white/55"
-          data-key-hint
-        >
-          <Hint keys={["←", "↑", "↓", "→"]}>move</Hint>
-          <Hint keys={["⌘", "←", "→"]}>
-            ±{stepText(selected, ranges[selected])}
-          </Hint>
-          <Hint keys={["⌘", "↑", "↓"]}>
-            {describe[selected].words.join(" · ")}
-          </Hint>
-          <Hint keys={["0–9"]}>type</Hint>
-          <Hint keys={["Space"]}>hit</Hint>
-        </div>
       )}
 
       {/* The club at impact, twice. Left off on phones, where the boxes are

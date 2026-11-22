@@ -388,15 +388,13 @@ describe("keyboard", () => {
     expect(selectedBox()).toBe("clubFaceAngle");
     press("ArrowRight");
     expect(selectedBox()).toBe("clubPathAngle");
-    press("ArrowDown");
-    expect(selectedBox()).toBe("aim");
-    press("ArrowLeft");
+    press("ArrowRight");
     expect(selectedBox()).toBe("strike");
+    press("ArrowLeft");
+    expect(selectedBox()).toBe("clubPathAngle");
     press("ArrowDown");
-    expect(selectedBox()).toBe("attackAngle");
-    press("ArrowDown");
-    expect(selectedBox()).toBe("swingSpeed");
-    press("ArrowDown");
+    expect(selectedBox()).toBe("clubPathAngle");
+    for (let i = 0; i < 6; i++) press("ArrowRight");
     expect(selectedBox()).toBe("swingSpeed");
     // moving never changes a value
     for (const name of ["Club face", "Club path", "Strike", "Aim"]) {
@@ -419,16 +417,16 @@ describe("keyboard", () => {
     expect(valueOf("Club path")).toBe(-1);
     expect(valueOf("Club face")).toBe(1);
 
-    press("ArrowDown");
-    command("ArrowRight");
-    expect(valueOf("Aim")).toBe(1);
-
-    press("ArrowLeft");
+    press("ArrowRight");
     command("ArrowRight");
     command("ArrowRight");
     expect(valueOf("Strike")).toBe(0.5);
 
-    press("ArrowDown");
+    press("ArrowRight");
+    command("ArrowRight");
+    expect(valueOf("Aim")).toBe(1);
+
+    press("ArrowRight");
     command("ArrowRight");
     command("ArrowRight");
     expect(valueOf("Attack angle")).toBe(2);
@@ -437,7 +435,7 @@ describe("keyboard", () => {
     command("ArrowLeft");
     expect(valueOf("Loft")).toBe(-1);
 
-    press("ArrowDown");
+    press("ArrowRight");
     command("ArrowRight");
     expect(valueOf("Swing speed")).toBe(96);
     command("ArrowLeft");
@@ -757,10 +755,10 @@ describe("keyboard", () => {
     const pads = screen.getByLabelText("Shot controls");
     // the step and the words follow the box the keyboard is on (Aim)
     for (const hint of [
-      "←↑↓→ move",
+      "←→ move",
       "⌘←→ ±1°",
       "⌘↑↓ left · straight · right",
-      "0–9 type",
+      "0–9 type a value",
       "Space hit",
     ])
       expect(pads).toHaveTextContent(hint);
@@ -994,7 +992,8 @@ describe("club pads", () => {
 
   test("names the shot shape for the current setup as it changes, and sketches the flight", () => {
     renderPanel();
-    const pads = screen.getByLabelText("Shot controls");
+    // on laptops the shot shape heads the panel over the 3D views
+    const pads = screen.getByLabelText("Club at impact");
     expect(within(pads).getByText("Straight")).toBeInTheDocument();
     expect(pads.querySelector("[data-preview]")).toBeInTheDocument();
 

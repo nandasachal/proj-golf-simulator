@@ -153,16 +153,19 @@ React UI (App.js, components/)          src/simulate/ (no React)
 - **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
   viewport with a HUD over it (stacked under the scene on phones).
   - **Shot controls are the club itself** (`components/simulator/club-pads.jsx`).
-    The left panel (360px) holds a box per control in a two-column grid (face,
-    path, strike, aim, attack angle, loft and swing speed, with the Club box
-    beside it), each with a dot of its own colour. Every box has the same
-    rows, so they line up across the grid: the name with its (i) and a reset
+    On laptops the controls are a strip along the bottom of the screen: a box
+    per control in one row (face, path, strike, aim, attack angle, loft,
+    swing speed), then the Club box, then Hit, with a key bar under it. The
+    strip lives in a band of its own (`strip` in `App.js`, drawn into through
+    a portal); the picture ends above it, so it never covers the golfer or
+    the ball. Each box has a dot of its own colour and the same rows, so they
+    line up along the strip: the name with its (i) and a reset
     to neutral; ‹ number ›; a ruler (a real range input laid invisibly over a
     drawn scale, neutral marked, the distance from it filled in); the word.
     When all seven show (Practice, Advanced) the boxes are compact, the name
     row over one row of ‹ number word ›, with no ruler (the 3D handles do the
-    dragging), so the panel and both views fit a 900 px screen.
-    Under them is the club in hand at impact in two live
+    dragging), so the strip stays short. The left panel (340px) holds the
+    shot shape, Reset, the club in hand at impact in two live
     3D views, built from the same scene as the old close-up (`club-scene.js`,
     below): from above (aim, face, path, strike) and from the toe (attack
     angle, loft). Phones get no views (they are not built there) and show one control at a
@@ -176,10 +179,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
     or just type a digit, which goes to the selected box). A bare typed number
     is the size and keeps the side it is on; + or − picks the side. Each control has a value
     box showing two fields: a word (closed / square / open) and a number.
-    The keyboard (`src/utils/shortcuts.js`) works on the boxes: the arrow
-    keys move between them, Command (Ctrl) with ←/→ changes the selected
+    The keyboard (`src/utils/shortcuts.js`) works on the boxes: ← and →
+    move along the strip, Command (Ctrl) with ←/→ changes the selected
     box's number by a step, Command with ↑/↓ steps its word (one side,
-    neutral, the other side), and Space hits. A key bar under the grid lists
+    neutral, the other side), and Space hits. A key bar under the strip lists
     the keys, with the step and the three words of the selected box. There are no letter shortcuts.
     The word is a menu of the three it can be: neutral, or the same size on the
     other side. Each box has an (i) that says what the control does when
@@ -194,14 +197,14 @@ React UI (App.js, components/)          src/simulate/ (no React)
     ×4, strike ×2 (the × is shown in each view's corner; the numbers are
     always true). The handle geometry is pure and tested in
     `src/utils/club-handles.js`, in the scene's own centimetres.
-  - The shot panel carries the club in hand (the Club box beside swing speed opens the
-    bag; on phones, the chip row), Reset (the icon top right) and the mode (Practice, Normal, Advanced,
+  - The shot panel carries the club in hand (on laptops in the strip; on phones,
+    the chip row), Reset (the icon top right) and the mode (Practice, Normal, Advanced,
     along the bottom). On phones the mode and Hit are a bar fixed to the
     bottom of the screen, the game card shrinks to the target, pips and
     score, and Settings and Reset view sit in the bottom corners of the
     picture. Club distances, dominant side, turf and the feedback
-    link are in a modal behind the gear button, bottom left. On laptops Hit sits to the
-    right of the result bar.
+    link are in a modal behind the gear button, bottom left. On laptops Hit is the right end of the
+    shot strip.
   - Shot setup, the club (`club`), turf (`turf` preset plus `cut`/`firm`/`wet`/`grass` overrides)
     and `mode` live in the query string (`hooks/use-query.js`), so a setup is
     kept in the URL; the game score and current target are not.

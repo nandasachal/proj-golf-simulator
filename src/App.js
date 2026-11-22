@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./App.scss";
 
 import ClubPads from "./components/simulator/club-pads";
-import ButtonRow, { HitButton } from "./components/simulator/button-row";
+import ButtonRow from "./components/simulator/button-row";
 import ShotReadout from "./components/simulator/shot-readout";
 import SettingsModal from "./components/simulator/settings-modal";
 import GameCard from "./components/simulator/game-card";
@@ -79,8 +79,8 @@ const clamp = (value, range) =>
     : range.DEFAULT;
 
 // Shot controls and the query param each is saved under.
-// Right edge of the shot panel on laptops: left-4 plus its 360px width.
-const PANEL_RIGHT_PIXELS = 376;
+// Right edge of the shot panel on laptops: left-4 plus its 340px width.
+const PANEL_RIGHT_PIXELS = 356;
 
 const SHOT_PARAMS = {
   clubFaceAngle: "face",
@@ -702,6 +702,23 @@ function App() {
     );
   };
 
+  // The band along the bottom that holds the shot strip on laptops, and its
+  // height, which the picture and the panel leave room for.
+  const [strip, setStrip] = useState(null);
+  const [stripHeight, setStripHeight] = useState(0);
+  useEffect(() => {
+    if (!strip) {
+      setStripHeight(0);
+      return undefined;
+    }
+    const observer = new ResizeObserver(() =>
+      setStripHeight(strip.offsetHeight),
+    );
+    observer.observe(strip);
+    setStripHeight(strip.offsetHeight);
+    return () => observer.disconnect();
+  }, [strip]);
+
   // The value box the keyboard is on: arrows move it, Command-arrows change
   // its value.
   const [selected, setSelected] = useState(() => startControl(visible));
@@ -752,8 +769,13 @@ function App() {
   }, []);
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-slate-950 pb-[72px] text-white md:block md:pb-0">
-      <div className="relative h-[50dvh] md:h-[100dvh]">
+    <div
+      className="flex min-h-[100dvh] flex-col bg-slate-950 pb-[72px] text-white md:block md:pb-0"
+      style={{ "--strip": `${stripHeight}px` }}
+    >
+      {/* On laptops the picture ends above the shot strip, so the strip never
+          covers the golfer or the ball. */}
+      <div className="relative h-[50dvh] md:h-[calc(100dvh-var(--strip,0px))]">
         <div id="display-container" ref={stage} className="absolute inset-0" />
 
         <div className="pointer-events-none absolute inset-0 flex items-start justify-between gap-3 p-3 md:p-4">
@@ -792,21 +814,6 @@ function App() {
         <div className="pointer-events-none absolute bottom-[60px] left-3 right-3 z-20 flex justify-center md:bottom-4 md:left-20 md:right-20">
           <div className="pointer-events-auto relative flex max-w-full items-stretch gap-2">
             <ShotReadout live={live} result={past ? result : null} />
-            {isDesktop && (
-              <HitButton
-                onClick={handleHit}
-                beckon={beckon}
-                className="min-h-[52px] px-7"
-              />
-            )}
-            {isDesktop && beckon && (
-              <p
-                data-first-shot
-                className="absolute bottom-full right-0 mb-3 whitespace-nowrap rounded-lg bg-lime-400 px-3 py-1.5 text-sm font-semibold text-slate-900 shadow-lg"
-              >
-                Press Hit or Space to take your first shot
-              </p>
-            )}
           </div>
         </div>
         {/* Back to the usual view, bottom right, once it has been dragged. */}
@@ -846,7 +853,7 @@ function App() {
       </div>
 
       {/* Left column: the shot controls, then the club-at-impact views. */}
-      <div className="z-10 m-3 flex flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-5.5rem)] md:w-[360px] md:overflow-y-auto">
+      <div className="z-10 m-3 flex flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-var(--strip,0px)-5.5rem)] md:w-[340px] md:overflow-y-auto">
         <div className="hud-panel p-4">
           <ClubPads
             values={{
@@ -869,6 +876,9 @@ function App() {
             onChange={handleValueChange}
             onClub={handleClub}
             onReset={handleReset}
+            onHit={handleHit}
+            beckon={beckon}
+            strip={strip}
           />
           {isDesktop && (
             <ButtonRow
@@ -878,6 +888,14 @@ function App() {
           )}
         </div>
       </div>
+      {/* Laptops: the shot strip, along the bottom under the picture. The
+          shot controls draw themselves into it. */}
+      {isDesktop && (
+        <div
+          ref={setStrip}
+          className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 px-4 pb-3 pt-3"
+        />
+      )}
       {/* Phones: mode and Hit stay at the bottom of the screen. Outside the
           panel, whose blur would otherwise pin the bar to itself. */}
       {!isDesktop && beckon && (

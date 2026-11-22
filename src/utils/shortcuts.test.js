@@ -16,22 +16,25 @@ const SPEED = { MIN: 64, MAX: 112, DEFAULT: 76, STEP: 1 };
 const ATTACK = { MIN: -8, MAX: 5, DEFAULT: -4, STEP: 1 };
 
 describe("moveSelection", () => {
-  test("arrows move between the boxes as they are laid out", () => {
+  test("left and right move along the strip; up and down stay put", () => {
     expect(FIRST_CONTROL).toBe("clubFaceAngle");
     expect(moveSelection("clubFaceAngle", "ArrowRight")).toBe("clubPathAngle");
     expect(moveSelection("clubPathAngle", "ArrowLeft")).toBe("clubFaceAngle");
-    expect(moveSelection("clubFaceAngle", "ArrowDown")).toBe("strike");
-    expect(moveSelection("clubPathAngle", "ArrowDown")).toBe("aim");
-    expect(moveSelection("aim", "ArrowDown")).toBe("loftChange");
-    expect(moveSelection("loftChange", "ArrowUp")).toBe("aim");
-    expect(moveSelection("attackAngle", "ArrowDown")).toBe("swingSpeed");
-    expect(moveSelection("loftChange", "ArrowDown")).toBe("swingSpeed");
+    expect(moveSelection("aim", "ArrowRight")).toBe("attackAngle");
+    expect(moveSelection("loftChange", "ArrowRight")).toBe("swingSpeed");
+    expect(moveSelection("aim", "ArrowDown")).toBe("aim");
+    expect(moveSelection("aim", "ArrowUp")).toBe("aim");
+    // a normal game's three: face, path, speed
+    const basic = ["clubFaceAngle", "clubPathAngle", "swingSpeed"];
+    expect(moveSelection("clubPathAngle", "ArrowRight", basic)).toBe(
+      "swingSpeed",
+    );
   });
 
   test("it stops at the edges rather than wrapping", () => {
     expect(moveSelection("clubFaceAngle", "ArrowLeft")).toBe("clubFaceAngle");
     expect(moveSelection("clubFaceAngle", "ArrowUp")).toBe("clubFaceAngle");
-    expect(moveSelection("clubPathAngle", "ArrowRight")).toBe("clubPathAngle");
+    expect(moveSelection("clubFaceAngle", "ArrowDown")).toBe("clubFaceAngle");
     expect(moveSelection("swingSpeed", "ArrowDown")).toBe("swingSpeed");
     expect(moveSelection("swingSpeed", "ArrowRight")).toBe("swingSpeed");
   });
@@ -176,11 +179,13 @@ describe("moveSelection among the controls a normal game shows", () => {
     expect(controlsFor("practice")).toHaveLength(7);
   });
 
-  test("down from face goes straight to speed", () => {
-    expect(moveSelection("clubFaceAngle", "ArrowDown", basic)).toBe(
+  test("right from path goes straight to speed, and back", () => {
+    expect(moveSelection("clubPathAngle", "ArrowRight", basic)).toBe(
       "swingSpeed",
     );
-    expect(moveSelection("swingSpeed", "ArrowUp", basic)).toBe("clubFaceAngle");
+    expect(moveSelection("swingSpeed", "ArrowLeft", basic)).toBe(
+      "clubPathAngle",
+    );
   });
 
   test("a hidden box moves onto the first shown one", () => {

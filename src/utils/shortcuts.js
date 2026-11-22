@@ -1,16 +1,21 @@
-// Keyboard control of the shot. The value boxes are laid out in a grid; the
-// arrow keys move between them, and with Command (Ctrl on Windows) held they
+// Keyboard control of the shot. The value boxes are laid out in a row (the
+// strip along the bottom on laptops); the arrow keys move along it, and with Command (Ctrl on Windows) held they
 // change the box that is selected:
 //   ⌘ ← / →  the number, one step down or up
 //   ⌘ ↑ / ↓  the word: e.g. closed ↔ square ↔ open
 // Space hits the shot.
 
-// The boxes as they are laid out in the panel. Swing speed spans its row.
+// The boxes as they are laid out in the strip, left to right.
 export const GRID = [
-  ["clubFaceAngle", "clubPathAngle"],
-  ["strike", "aim"],
-  ["attackAngle", "loftChange"],
-  ["swingSpeed", "swingSpeed"],
+  [
+    "clubFaceAngle",
+    "clubPathAngle",
+    "strike",
+    "aim",
+    "attackAngle",
+    "loftChange",
+    "swingSpeed",
+  ],
 ];
 export const FIRST_CONTROL = GRID[0][0];
 
