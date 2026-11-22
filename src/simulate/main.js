@@ -14,7 +14,13 @@ import {
 } from "./camera-director";
 import { createGolfer, CONTACT_TIME, SWING_DURATION } from "./golfer";
 import { loadGolferModel } from "./golfer-model";
-import { startOrbit, dragOrbit, zoomOrbit, orbitPosition } from "./orbit-view";
+import {
+  startOrbit,
+  dragOrbit,
+  zoomOrbit,
+  orbitPosition,
+  orbitTarget,
+} from "./orbit-view";
 import { Shot } from "./shot";
 import { analyzeShot } from "./shot-analysis";
 import { groundRun, turfParameters, TURF_PRESETS } from "./ground";
@@ -809,8 +815,8 @@ export function createSimulator(container, callbacks = {}) {
   overheadResize.observe(container);
 
   // --- looking round ---
-  // Dragging the picture swings the camera round the golfer, and the wheel
-  // moves it in and out; it stays there until reset or the next hit.
+  // Dragging the picture swings the camera round the golfer (and, dragged up
+  // past the turf, tips it up at the sky), and the wheel moves it in and out; it stays there until reset or the next hit.
   let orbit = null;
   let drag = null;
   const DRAG_START_PIXELS = 4;
@@ -879,7 +885,7 @@ export function createSimulator(container, callbacks = {}) {
     update(Math.min(clock.getDelta(), MAX_FRAME_SECONDS));
     if (orbit) {
       orbitPosition(orbit, camera.position);
-      camera.lookAt(orbit.center);
+      camera.lookAt(orbitTarget(orbit, camera.position));
     }
     if (inspectionView) {
       camera.position.fromArray(inspectionView.position);

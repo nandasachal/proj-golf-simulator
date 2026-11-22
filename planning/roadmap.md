@@ -114,6 +114,9 @@
   [eng-plans/modelled-golfer.md](eng-plans/modelled-golfer.md).
 - [done] Look round (2026-11-16) — drag to orbit the golfer, wheel to zoom, reset
   button; grey wall behind the tee with the motto and Saanchal mark.
+- [done] Look up at the sky (2026-11-22) — dragging up past the turf tips the
+  view to the sky; Star Wars Mode adds a capital ship over the range and a
+  battle station high up.
 - **Golfer follow-ups**: polo collar and golf glove; closer facial likeness
   (needs a decision on a scanned head in a public repo); shorter swing for wedges (every club makes a full
   driver-length swing today); waggle; face-on comparison against real frames.

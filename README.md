@@ -248,11 +248,14 @@ React UI (App.js, components/)          src/simulate/ (no React)
   `{ object, update(seconds, camera) }`; `main.js` calls the update every frame
   (clouds drift, trees sway, flags wave).
   - `fleet.js` — Star Wars Mode (a switch in Settings, remembered in the
-    browser; it replaced the old `?empire` URL flag) puts two
-    wedge-shaped capital ships slowly crossing the sky, each circled by
-    flights of twin-panel fighters, with more fighter patrols all round the
+    browser; it replaced the old `?empire` URL flag) puts three
+    wedge-shaped capital ships slowly crossing the sky (two beyond the
+    mountains; the third, 800 yd long, passes 1,000 yd up over the range itself
+    and is seen from underneath by looking up), a battle station hanging
+    high up to the left like a daytime moon (`STATION`), each circled by
+    flights of twin-panel fighters, and more fighter patrols all round the
     range (fighters near the capital ships and far out are small, in proportion
-    to the hulls; the ones overhead are larger). The capital ships are town-sized (900 and 1700 yd long) and fly beyond the mountains, so they are hazed by
+    to the hulls; the ones overhead are larger). The capital ships are town-sized (800 to 1700 yd long) and far off, so they are hazed by
     hand rather than by the scene fog, and the camera's far plane is pushed
     out while they are on. The fleet is built the first time the switch is
     turned on and then only shown or hidden, so it changes live with no reload
@@ -273,7 +276,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
     bunkers are visual only.
 - **Looking round** — dragging the picture swings the camera round the golfer
   and the wheel moves it in and out (`orbit-view.js`, pure and tested; pointer
-  handling in `main.js`). The view stays where it was put until the reset
+  handling in `main.js`). Dragging up lowers the camera to the turf and, past
+  that, tips the view up off the golfer to the sky, nearly straight up
+  (`orbit.tilt`, `orbitTarget`); dragging back down brings it to the golfer
+  again before the camera lifts. The view stays where it was put until the reset
   button (bottom right, shown only then) or the next hit hands it back to the
   camera director, so a shot is always followed from the address view. Behind the tee line stands a grey wall with
   the Saanchal mark and, under it, the motto "Do or Do Not, There Is No Try" (`MOTTO` in

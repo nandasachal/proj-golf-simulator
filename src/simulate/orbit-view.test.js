@@ -1,5 +1,11 @@
 import { Vector3 } from "three";
-import { startOrbit, dragOrbit, zoomOrbit, orbitPosition } from "./orbit-view";
+import {
+  startOrbit,
+  dragOrbit,
+  zoomOrbit,
+  orbitPosition,
+  orbitTarget,
+} from "./orbit-view";
 
 const center = new Vector3(0.6, 1, 0);
 const camera = new Vector3(1, 2.1, -6);
@@ -37,5 +43,35 @@ describe("orbit view", () => {
     const orbit = startOrbit(camera, center);
     expect(zoomOrbit(orbit, 0.01).radius).toBeCloseTo(2.2);
     expect(zoomOrbit(orbit, 1000).radius).toBeCloseTo(16);
+  });
+
+  test("looks at the golfer until the camera is down at the turf", () => {
+    const orbit = startOrbit(camera, center);
+    const at = orbitPosition(dragOrbit(orbit, 40, 30)).clone();
+    expect(orbitTarget(orbit, at).distanceTo(center)).toBeLessThan(1e-9);
+  });
+
+  test("dragging up past the turf tips the view up at the sky", () => {
+    const orbit = startOrbit(camera, center);
+    const at = orbitPosition(dragOrbit(orbit, 0, -5000)).clone();
+    const look = orbitTarget(orbit, at).sub(at).normalize();
+    // nearly straight up, but never over the top
+    expect(look.y).toBeGreaterThan(0.9);
+    expect(look.y).toBeLessThan(1);
+    // still facing the way it was: downrange, from behind the golfer
+    expect(look.z).toBeGreaterThan(0);
+  });
+
+  test("dragging back down brings the view to the golfer before lifting", () => {
+    const orbit = startOrbit(camera, center);
+    dragOrbit(orbit, 0, -5000);
+    dragOrbit(orbit, 0, 100);
+    expect(orbit.tilt).toBeGreaterThan(0);
+    const low = orbitPosition(orbit).y;
+    dragOrbit(orbit, 0, 5000);
+    expect(orbit.tilt).toBe(0);
+    const at = orbitPosition(orbit).clone();
+    expect(at.y).toBeGreaterThan(low);
+    expect(orbitTarget(orbit, at).distanceTo(center)).toBeLessThan(1e-9);
   });
 });

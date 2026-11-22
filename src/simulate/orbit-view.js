@@ -11,6 +11,10 @@ const MAX_RADIUS = 16;
 const DRAG_SPEED = 0.006;
 // Never under the turf.
 const MIN_HEIGHT = 0.25;
+// Once the camera is down at the turf, dragging on tips the view up off the
+// golfer and into the sky, to a little short of straight up.
+const MAX_TILT = 1.3;
+const MAX_ELEVATION = 1.5;
 
 // Start from where the camera is, so the first drag carries on from the view
 // on screen instead of jumping.
@@ -25,17 +29,18 @@ export function startOrbit(cameraPosition, center) {
       MAX_PITCH,
       Math.max(MIN_PITCH, Math.asin(offset.y / offset.length())),
     ),
+    tilt: 0,
   };
 }
 
 // Dragging right swings the camera round to the left, as if turning the
-// scene by hand; dragging down lifts it.
+// scene by hand; dragging down lifts it. Dragging up lowers it to the turf and
+// then tips the view up at the sky; dragging back down undoes that first.
 export function dragOrbit(orbit, dx, dy) {
   orbit.yaw -= dx * DRAG_SPEED;
-  orbit.pitch = Math.min(
-    MAX_PITCH,
-    Math.max(MIN_PITCH, orbit.pitch + dy * DRAG_SPEED),
-  );
+  const pitch = orbit.pitch - orbit.tilt + dy * DRAG_SPEED;
+  orbit.pitch = Math.min(MAX_PITCH, Math.max(MIN_PITCH, pitch));
+  orbit.tilt = Math.min(MAX_TILT, Math.max(0, MIN_PITCH - pitch));
   return orbit;
 }
 
@@ -55,5 +60,23 @@ export function orbitPosition(orbit, out = new Vector3()) {
     orbit.center.z + Math.cos(orbit.yaw) * flat,
   );
   out.y = Math.max(MIN_HEIGHT, out.y);
+  return out;
+}
+
+// Where the camera looks from `position`: at the golfer, or above them by the
+// tilt, the same distance away.
+export function orbitTarget(orbit, position, out = new Vector3()) {
+  out.subVectors(orbit.center, position);
+  const flat = Math.hypot(out.x, out.z);
+  const elevation = Math.min(
+    MAX_ELEVATION,
+    Math.atan2(out.y, flat) + orbit.tilt,
+  );
+  const reach = out.length();
+  out.set(
+    position.x + (out.x / flat) * Math.cos(elevation) * reach,
+    position.y + Math.sin(elevation) * reach,
+    position.z + (out.z / flat) * Math.cos(elevation) * reach,
+  );
   return out;
 }

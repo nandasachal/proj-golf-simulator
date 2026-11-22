@@ -1,4 +1,12 @@
-import { PATROLS, SHIPS, escortPlace, patrolPlace, shipPlace } from "./fleet";
+import {
+  FLEET_FAR,
+  PATROLS,
+  SHIPS,
+  STATION,
+  escortPlace,
+  patrolPlace,
+  shipPlace,
+} from "./fleet";
 
 describe("the hidden fleet", () => {
   test("ships fly toward -x at a steady, slow pace", () => {
@@ -51,5 +59,20 @@ describe("the hidden fleet", () => {
         expect(place.y).toBeGreaterThan(spec.y - spec.length * 0.1);
       }
     }
+  });
+
+  test("one ship passes over the range itself, above every patrol", () => {
+    const overhead = SHIPS.filter((ship) => ship.z < 400);
+    expect(overhead).toHaveLength(1);
+    for (const patrol of PATROLS) {
+      expect(overhead[0].y).toBeGreaterThan(patrol.height + 200);
+    }
+  });
+
+  test("the station is high in the sky and near enough to be drawn", () => {
+    const { x, y, z, radius } = STATION;
+    expect(Math.hypot(x, y, z) + radius).toBeLessThan(FLEET_FAR);
+    const elevation = Math.atan2(y, Math.hypot(x, z));
+    expect(elevation).toBeGreaterThan(0.6);
   });
 });

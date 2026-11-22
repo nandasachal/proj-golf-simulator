@@ -2,8 +2,8 @@ import * as THREE from "three";
 import { HORIZON_COLOR, canvasTexture, seededRandom } from "./shared";
 
 // Star Wars Mode (a switch in Settings): a fleet of wedge-shaped capital ships
-// crossing the sky left to right. They are the size of towns and fly beyond
-// the mountains, so they move slowly and sit deep in the haze.
+// crossing the sky left to right. They are the size of towns and most fly
+// beyond the mountains, so they move slowly and sit deep in the haze.
 
 const SPAN = 3000; // yards either side of the centre line before a ship wraps
 const FADE = 700; // yards over which a ship fades in and out at the ends
@@ -13,14 +13,21 @@ const SPEED = 14; // yards a second: a full crossing takes about seven minutes
 export const FLEET_FAR = 4600;
 
 // start: where along the crossing it begins; z downrange, y up; length in yards
+// The last one passes right over the range, high above the patrols, to be
+// found by looking up.
 export const SHIPS = [
   { start: 500, z: 1900, y: 450, length: 1700 },
   { start: -2500, z: 1500, y: 350, length: 900 },
+  { start: 700, z: 260, y: 1000, length: 800 },
 ];
 
-// How far a ship has sunk into the haze, 0 to 1, by how far downrange it is:
-// lighter than the mountains at the same distance, so the hulls stay solid.
-export const hazeAt = (z) => Math.min(0.5, 0.0002 * z);
+// A battle station hanging high in the sky like a daytime moon, up and to the
+// left of the range, away from the sun.
+export const STATION = { x: 1500, y: 2600, z: 2400, radius: 330 };
+
+// How far a ship has sunk into the haze, 0 to 1, by how far from the tee it
+// is: lighter than the mountains at the same distance, so the hulls stay solid.
+export const hazeAt = ({ y, z }) => Math.min(0.5, 0.0002 * Math.hypot(y, z));
 
 // Where a ship is across the range after `seconds`, and how solid it is: it
 // flies toward -x, wraps from one end of the crossing to the other, and is
@@ -157,6 +164,69 @@ function buildShip(length, haze, plating) {
   ship.rotation.set(0.01, -(Math.PI * 108) / 180, -0.06);
   ship.userData.materials = [hull, dark, glow];
   return ship;
+}
+
+// The station's surface, wrapped round the sphere: bands of plating, the
+// trench round the equator and the dish in the northern half. The dish is at
+// the middle of the picture, which is the sphere's +x side.
+function stationTexture() {
+  const random = seededRandom(1977);
+  const texture = canvasTexture(1024, 512, (context, width, height) => {
+    context.fillStyle = "#a9adb3";
+    context.fillRect(0, 0, width, height);
+    for (let i = 0; i < 3200; i++) {
+      const shade = 140 + Math.floor(random() * 60);
+      context.fillStyle = `rgb(${shade},${shade + 2},${shade + 5})`;
+      context.fillRect(
+        random() * width,
+        random() * height,
+        6 + random() * 50,
+        2 + random() * 7,
+      );
+    }
+    context.fillStyle = "#4d5259";
+    context.fillRect(0, height / 2 - 4, width, 8);
+    const x = width / 2;
+    const y = height * 0.34;
+    const dish = context.createRadialGradient(x, y, 4, x, y, 60);
+    dish.addColorStop(0, "#5a5f66");
+    dish.addColorStop(0.75, "#868b92");
+    dish.addColorStop(1, "#70757c");
+    context.fillStyle = dish;
+    context.beginPath();
+    // Wider than tall, so it comes out round on the sphere at this latitude.
+    context.ellipse(x, y, 68, 58, 0, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = "#3c4046";
+    context.beginPath();
+    context.arc(x, y, 7, 0, Math.PI * 2);
+    context.fill();
+  });
+  texture.anisotropy = 4;
+  return texture;
+}
+
+function buildStation() {
+  const haze = 0.45;
+  const material = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0xffffff).multiplyScalar(1 - haze),
+    map: stationTexture(),
+    emissive: new THREE.Color(HORIZON_COLOR).multiplyScalar(haze * 0.8),
+    roughness: 1,
+    metalness: 0,
+    fog: false,
+  });
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(STATION.radius, 48, 32),
+    material,
+  );
+  // Turn the dish from +x to +z, then point +z a little wide of the tee.
+  sphere.rotation.y = -Math.PI / 2;
+  const station = new THREE.Group();
+  station.add(sphere);
+  station.position.set(STATION.x, STATION.y, STATION.z);
+  station.lookAt(700, 0, -900);
+  return station;
 }
 
 // --- fighters ---
@@ -319,18 +389,18 @@ export function buildFleet() {
   const plating = platingTexture();
   const fighter = fighterGeometry();
   const ships = SHIPS.map((spec) => {
-    const ship = buildShip(spec.length, hazeAt(spec.z), plating);
+    const ship = buildShip(spec.length, hazeAt(spec), plating);
     ship.position.set(0, spec.y, spec.z);
     const escorts = fighterSwarm(
       fighter,
       ESCORT_FLIGHTS * FLIGHT.length,
-      hazeAt(spec.z) * 0.8,
+      hazeAt(spec) * 0.8,
     );
     object.add(ship, escorts);
     return { spec, ship, escorts, x: 0 };
   });
   const patrols = fighterSwarm(fighter, PATROLS.length * FLIGHT.length, 0.12);
-  object.add(patrols);
+  object.add(patrols, buildStation());
 
   function update(seconds) {
     for (const entry of ships) {
