@@ -89,14 +89,16 @@ export function stepState(control, value, direction, range) {
   return Math.min(range.MAX, Math.max(range.MIN, stepped));
 }
 
-// Keys stand down while the user is typing somewhere, or pressing Space on a
-// button (which already clicks it).
+// Keys stand down only while the user is typing into a field. Space is the
+// main action, so it hits whatever else has focus (a button, a menu, a
+// ruler); the app takes focus off a button first so it does not also click.
+const TYPED = ["text", "number", "search", "email", "password", "tel", "url"];
 export function shouldIgnoreKey(event) {
   const target = event.target;
   const tag = target && target.tagName;
-  if (tag === "SELECT" || tag === "TEXTAREA") return true;
-  if (tag === "INPUT" && target.type !== "range") return true;
+  if (tag === "TEXTAREA") return true;
+  if (tag === "INPUT" && TYPED.includes(target.type || "text")) return true;
   if (target && target.isContentEditable) return true;
-  if (event.key === " " && (tag === "BUTTON" || tag === "A")) return true;
+  if (tag === "SELECT") return event.key !== " ";
   return false;
 }

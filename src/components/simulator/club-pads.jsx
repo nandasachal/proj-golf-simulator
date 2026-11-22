@@ -21,7 +21,9 @@ import {
 import {
   GAIN,
   fromGround,
+  exact,
   fromSide,
+  nudge,
   shownAngles,
   sideHandles,
   snap,
@@ -104,9 +106,9 @@ const describe = {
   },
   swingSpeed: {
     name: "Swing speed",
-    text: (v) => `${Math.round(v * 10) / 10} mph`,
+    text: (v) => `${Math.round(v * 100) / 100} mph`,
     words: ["slower", "stock", "faster"],
-    number: (v) => `${Math.round(v * 10) / 10} mph`,
+    number: (v) => `${Math.round(v * 100) / 100} mph`,
     typing: "mph",
     colour: SPEED,
     info: "How fast the club head is moving at impact. More speed is more distance, and more curve on a shot that is already bending.",
@@ -196,7 +198,7 @@ const NumberField = ({
     const typedText = draft.trim();
     let typed = Number.parseFloat(typedText);
     if (signed && value < 0 && !/^[+-]/.test(typedText)) typed = -typed;
-    if (Number.isFinite(typed)) onChange(control, snap(typed, range));
+    if (Number.isFinite(typed)) onChange(control, exact(typed, range));
     setDraft(null);
   };
 
@@ -392,14 +394,12 @@ const ControlCell = ({
 }) => {
   const { name, colour, words } = describe[control];
   const neutral = neutralOf(control, range);
-  const step = (direction) =>
-    onChange(control, snap(value + direction * range.STEP, range));
+  const step = (direction) => onChange(control, nudge(value, direction, range));
   return (
     <div
       className={classNames(
         "flex min-w-0 flex-col gap-2 rounded-lg p-3 ring-inset transition-colors",
-        active ? "bg-white/[0.14]" : "bg-white/[0.06]",
-        selected && "ring-2 ring-lime-400",
+        active || selected ? "bg-white/[0.12]" : "bg-white/[0.06]",
       )}
       data-chip={control}
       data-selected={selected ? "true" : undefined}
@@ -698,7 +698,7 @@ const PhoneControls = ({
             type="button"
             className={button}
             disabled={value <= range.MIN}
-            onClick={() => set(value - range.STEP)}
+            onClick={() => onChange(control, nudge(value, -1, range))}
           >
             {control === "swingSpeed"
               ? `−${step}`
@@ -717,7 +717,7 @@ const PhoneControls = ({
             type="button"
             className={button}
             disabled={value >= range.MAX}
-            onClick={() => set(value + range.STEP)}
+            onClick={() => onChange(control, nudge(value, 1, range))}
           >
             {control === "swingSpeed"
               ? `+${step}`
@@ -868,6 +868,7 @@ const Pad3D = ({
   note,
   noteOnLeft,
   onScene,
+  corner,
   children,
 }) => {
   const box = useRef(null);
@@ -925,6 +926,7 @@ const Pad3D = ({
       >
         {children}
       </svg>
+      {corner && <div className="absolute right-1.5 top-1.5">{corner}</div>}
     </div>
   );
 };
@@ -987,7 +989,7 @@ const ClubMenu = ({ club, onClub }) => (
           aria-hidden="true"
         />
       </Listbox.Button>
-      <Listbox.Options className="hud-panel hud-panel-solid absolute right-0 top-full z-40 mt-1 max-h-[min(60dvh,420px)] w-48 overflow-y-auto p-1 text-xs font-medium focus:outline-none">
+      <Listbox.Options className="hud-panel hud-panel-solid absolute bottom-full right-0 z-40 mb-2 max-h-[min(60dvh,420px)] w-48 overflow-y-auto p-1 text-xs font-medium focus:outline-none">
         {Object.entries(CATEGORIES).map(([category, label]) => (
           <React.Fragment key={category}>
             {category !== "driver" && (
@@ -1060,6 +1062,7 @@ const ClubPads = ({
   onHit,
   beckon = false,
   strip = null,
+  modeSwitch = null,
   views = true,
   controls = ALL_CONTROLS,
 }) => {
@@ -1341,6 +1344,23 @@ const ClubPads = ({
         (a === dragging || a === active) - (b === dragging || b === active),
     );
 
+  const resetButton = (
+    <button
+      type="button"
+      aria-label="Reset"
+      title="Reset the shot"
+      className={classNames(
+        "flex shrink-0 items-center justify-center rounded-lg transition-colors",
+        views
+          ? "h-8 w-8 bg-black/45 text-white/85 hover:bg-black/65 hover:text-white"
+          : "h-9 w-9 bg-white/[0.07] text-white/70 hover:bg-white/20 hover:text-white",
+      )}
+      onClick={onReset}
+    >
+      <ArrowCounterclockwise size={views ? 14 : 16} />
+    </button>
+  );
+
   // Laptops: the controls are a strip along the bottom of the screen, every
   // control as a box in the order the arrow keys move through, then the club
   // and Hit, with the keys named under it. It is drawn into `strip`, a band
@@ -1429,29 +1449,24 @@ const ClubPads = ({
       className="flex flex-col gap-2"
       aria-label={views ? "Club at impact" : "Shot controls"}
     >
-      {/* What this setup will do, with Reset; a rule sets it apart from what
-          is under it. */}
-      <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+      {/* What this setup will do, and on laptops Practice / Game beside it
+          (Reset is on the club view there); on phones Reset. */}
+      <div className="flex items-center gap-3">
         <div
-          className="flex min-w-0 flex-1 items-center gap-2 px-1"
+          className="flex min-w-0 flex-1 items-center gap-2 pl-1"
           data-shot-shape
         >
           {preview && <FlightIcon sketch={preview.sketch} />}
-          <p className="min-w-0 truncate text-sm leading-tight">
-            <span className="text-white/60">Shot shape: </span>
-            <span className="font-semibold">
+          <p className="flex min-w-0 flex-col">
+            <span className="text-[10px] font-medium uppercase leading-tight tracking-wider text-white/50">
+              Shot shape{" "}
+            </span>
+            <span className="truncate text-sm font-semibold leading-tight">
               {preview ? preview.shape : "Club at impact"}
             </span>
           </p>
         </div>
-        <button
-          type="button"
-          aria-label="Reset"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.07] text-white/70 transition-colors hover:bg-white/20 hover:text-white"
-          onClick={onReset}
-        >
-          <ArrowCounterclockwise size={16} />
-        </button>
+        {views ? modeSwitch : resetButton}
       </div>
 
       {views ? (
@@ -1483,6 +1498,7 @@ const ClubPads = ({
             caption={`Above ×${GAIN.face}`}
             options={topOptions}
             setup={topSetup}
+            corner={resetButton}
             className={
               compact
                 ? "h-[clamp(150px,20dvh,230px)]"

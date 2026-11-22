@@ -22,33 +22,31 @@ const MODES = [
   {
     id: "practice",
     name: "Practice",
-    about: "About practice",
     info: "No targets and nothing is scored. Hit as many shots as you like to learn what each control does.",
   },
   {
     id: "game",
     name: "Game",
-    about: "About the game",
     info: "5 targets, one shot at each. Normal: the ball has to touch the circle at the foot of a beam; hit 3 to win. Advanced: it has to fly through a small sphere in the air; hit 4 to win. Switch between them on the game card.",
   },
 ];
 
-// Practice or a game (its difficulty is chosen on the game card), each with an (i) that says what it is when clicked. On
-// laptops it closes the shot panel; on phones it is a bar fixed to the bottom
-// of the screen, with Hit beside it.
+// Practice or a game (its difficulty is chosen on the game card), as a
+// two-way switch with one (i) that says what both are when clicked. On
+// laptops it sits in the top row of the shot panel; on phones it is a bar
+// fixed to the bottom of the screen, with Hit beside it.
 const ButtonRow = ({ mode, onMode, simulate, bar = false, beckon = false }) => {
   const chosenId = mode === "practice" ? "practice" : "game";
-  const [about, setAbout] = useState(null);
+  const [about, setAbout] = useState(false);
   const row = useRef(null);
-  const open = MODES.find(({ id }) => id === about);
   // A click anywhere else, or Escape, puts the explanation away.
   useEffect(() => {
     if (!about) return undefined;
     const away = (event) => {
-      if (!row.current?.contains(event.target)) setAbout(null);
+      if (!row.current?.contains(event.target)) setAbout(false);
     };
     const escape = (event) => {
-      if (event.key === "Escape") setAbout(null);
+      if (event.key === "Escape") setAbout(false);
     };
     document.addEventListener("pointerdown", away);
     document.addEventListener("keydown", escape);
@@ -63,67 +61,74 @@ const ButtonRow = ({ mode, onMode, simulate, bar = false, beckon = false }) => {
       className={
         bar
           ? "fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-2 border-t border-white/10 bg-slate-950/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur"
-          : "mt-2"
+          : "shrink-0"
       }
     >
-      <div ref={row} className={`relative ${bar ? "min-w-0 flex-1" : ""}`}>
-        {open && (
-          <p
+      <div
+        ref={row}
+        className={classNames(
+          "relative flex items-center gap-1",
+          bar && "min-w-0 flex-1",
+        )}
+      >
+        {about && (
+          <div
             id="mode-info"
             role="note"
-            className="absolute inset-x-0 bottom-full z-40 mb-2 rounded-lg border border-white/15 bg-slate-950/95 px-3 py-2 text-xs leading-snug text-white/90 shadow-lg"
+            className={classNames(
+              "absolute z-40 w-72 rounded-lg border border-white/15 bg-slate-950/95 px-3 py-2 text-xs leading-snug text-white/90 shadow-lg",
+              bar ? "bottom-full left-0 mb-2" : "right-0 top-full mt-2",
+            )}
           >
-            <span className="font-bold text-lime-300">{open.name}. </span>
-            {open.info}
-          </p>
+            {MODES.map(({ id, name, info }) => (
+              <p key={id} className="[&+&]:mt-1.5">
+                <span className="font-bold text-lime-300">{name}. </span>
+                {info}
+              </p>
+            ))}
+          </div>
         )}
         <div
-          className={`grid grid-cols-2 rounded-lg bg-white/10 p-1 ${
-            bar ? "h-full text-[13px]" : "text-sm"
-          }`}
+          className={classNames(
+            "grid grid-cols-2 gap-0.5 rounded-lg bg-white/10 p-0.5",
+            bar ? "h-full flex-1 text-[13px]" : "h-8 text-xs",
+          )}
           role="group"
           aria-label="Mode"
         >
-          {MODES.map(({ id, name, about: label }) => {
+          {MODES.map(({ id, name }) => {
             const chosen = chosenId === id;
             return (
-              <div key={id} className="relative flex">
-                <button
-                  type="button"
-                  aria-pressed={chosen}
-                  className={classNames(
-                    // Room on the right for the (i).
-                    "flex flex-1 flex-col items-center justify-center rounded-md py-2 pl-1 pr-4 font-medium leading-tight transition-colors",
-                    chosen
-                      ? "bg-lime-400 text-slate-900"
-                      : "text-white/70 hover:text-white",
-                  )}
-                  onClick={() => onMode(id)}
-                >
-                  {name}
-                </button>
-                <button
-                  type="button"
-                  aria-label={label}
-                  aria-expanded={about === id}
-                  aria-controls="mode-info"
-                  className={classNames(
-                    "absolute right-0 top-0 flex h-5 w-5 items-center justify-center rounded-full",
-                    chosen
-                      ? "text-slate-900/60 hover:text-slate-900"
-                      : "text-white/50 hover:text-white",
-                  )}
-                  onClick={() => {
-                    if (about !== id) track("info_opened", { topic: id });
-                    setAbout(about === id ? null : id);
-                  }}
-                >
-                  <InfoCircle size={11} aria-hidden="true" />
-                </button>
-              </div>
+              <button
+                key={id}
+                type="button"
+                aria-pressed={chosen}
+                className={classNames(
+                  "rounded-md px-3 font-semibold leading-tight transition-colors",
+                  chosen
+                    ? "bg-lime-400 text-slate-900"
+                    : "text-white/65 hover:text-white",
+                )}
+                onClick={() => onMode(id)}
+              >
+                {name}
+              </button>
             );
           })}
         </div>
+        <button
+          type="button"
+          aria-label="About the modes"
+          aria-expanded={about}
+          aria-controls="mode-info"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white/45 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
+          onClick={() => {
+            if (!about) track("info_opened", { topic: "modes" });
+            setAbout(!about);
+          }}
+        >
+          <InfoCircle size={12} aria-hidden="true" />
+        </button>
       </div>
       {bar && (
         <HitButton

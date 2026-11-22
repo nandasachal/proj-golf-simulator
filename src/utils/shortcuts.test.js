@@ -163,9 +163,14 @@ describe("shouldIgnoreKey", () => {
     ).toBe(false);
   });
 
-  test("space on a focused button is left to click that button", () => {
-    expect(shouldIgnoreKey(press(" ", "BUTTON"))).toBe(true);
+  test("space hits from a button, a link, a menu or a slider; not while typing", () => {
+    expect(shouldIgnoreKey(press(" ", "BUTTON"))).toBe(false);
+    expect(shouldIgnoreKey(press(" ", "A"))).toBe(false);
+    expect(shouldIgnoreKey(press(" ", "SELECT"))).toBe(false);
+    expect(shouldIgnoreKey(press(" ", "INPUT", { type: "range" }))).toBe(false);
     expect(shouldIgnoreKey(press(" ", "BODY"))).toBe(false);
+    expect(shouldIgnoreKey(press(" ", "INPUT", { type: "text" }))).toBe(true);
+    expect(shouldIgnoreKey(press(" ", "TEXTAREA"))).toBe(true);
   });
 });
 

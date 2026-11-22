@@ -195,6 +195,17 @@ export const fromSide = {
 // --- shared ---
 
 // Clamp to the control's range and snap to its step.
+// A typed value, kept to two decimals and held to the range.
+export function exact(value, range) {
+  if (!Number.isFinite(value)) return range.DEFAULT;
+  const clamped = Math.min(range.MAX, Math.max(range.MIN, value));
+  return Math.round(clamped * 100) / 100 || 0;
+}
+
+// One step up or down from wherever the value is, typed decimals and all.
+export const nudge = (value, direction, range) =>
+  exact(value + direction * range.STEP, range);
+
 export function snap(value, range) {
   if (!Number.isFinite(value)) return range.DEFAULT;
   const stepped = Math.round(value / range.STEP) * range.STEP;

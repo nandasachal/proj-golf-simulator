@@ -177,12 +177,15 @@ React UI (App.js, components/)          src/simulate/ (no React)
     and target). Every control can be set several ways: drag its handle or its
     ruler, step it with ‹ ›, use the keyboard, or type its number (click it,
     or just type a digit, which goes to the selected box). A bare typed number
-    is the size and keeps the side it is on; + or − picks the side. Each control has a value
+    is the size and keeps the side it is on; + or − picks the side. Typed
+    values keep two decimals; steps go a whole step from there. Each control has a value
     box showing two fields: a word (closed / square / open) and a number.
     The keyboard (`src/utils/shortcuts.js`) works on the boxes: ← and →
     move along the strip, Command (Ctrl) with ←/→ changes the selected
     box's number by a step, Command with ↑/↓ steps its word (one side,
-    neutral, the other side), and Space hits. A key bar under the strip lists
+    neutral, the other side), and Space hits from whatever has focus (a button, a menu, a ruler), never
+    only while typing in a field; the app listens in the capture phase and
+    takes focus off first, so the focused control does not act as well. A key bar under the strip lists
     the keys, with the step and the three words of the selected box. There are no letter shortcuts.
     The word is a menu of the three it can be: neutral, or the same size on the
     other side. Each box has an (i) that says what the control does when
@@ -198,8 +201,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
     always true). The handle geometry is pure and tested in
     `src/utils/club-handles.js`, in the scene's own centimetres.
   - The shot panel carries the club in hand (on laptops in the strip; on phones,
-    the chip row), Reset (the icon top right) and the mode (Practice, Normal, Advanced,
-    along the bottom). On phones the mode and Hit are a bar fixed to the
+    the chip row), Reset (on laptops the icon in the top-right corner of the club view
+    from above; on phones top right of the panel) and the mode (a Practice / Game switch with
+    one (i) for both, in the panel's top row beside the shot shape; the
+    game's difficulty is on the game card). On phones the mode and Hit are a bar fixed to the
     bottom of the screen, the game card shrinks to the target, pips and
     score, and Settings and Reset view sit in the bottom corners of the
     picture. Club distances, dominant side, turf and the feedback

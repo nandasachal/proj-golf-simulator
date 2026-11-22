@@ -722,6 +722,45 @@ describe("keyboard", () => {
     expect(valueOf("Swing speed")).toBe(80);
   });
 
+  test("Space hits whatever has focus, except a field being typed in", () => {
+    renderPanel();
+    const spaceOn = (element) => {
+      element.focus();
+      fireEvent.keyDown(element, { key: " " });
+    };
+    const targets = [
+      () => screen.getByRole("button", { name: "Practice" }),
+      () => screen.getByRole("button", { name: "Game" }),
+      () => screen.getByRole("button", { name: "About the modes" }),
+      () => screen.getByRole("button", { name: "Reset" }),
+      () => screen.getByRole("button", { name: "Club path: 1° in-to-out" }),
+      () => screen.getByRole("button", { name: /^Edit club face:/ }),
+      () => screen.getByRole("button", { name: "About club face" }),
+      () => screen.getByRole("combobox", { name: /^Club face:/ }),
+      () => screen.getByRole("button", { name: /Driver · 10\.5°/ }),
+      () => screen.getByRole("slider", { name: "Aim", hidden: true }),
+      () => screen.getByRole("button", { name: /^hit$/i }),
+      () => screen.getByRole("button", { name: "Settings" }),
+      () => document.body,
+    ];
+    targets.forEach((target, i) => {
+      const element = target();
+      spaceOn(element);
+      expect(simulator.hit).toHaveBeenCalledTimes(i + 1);
+      // focus is taken off, so the button's own Space click cannot follow
+      expect(document.activeElement).not.toBe(
+        element === document.body ? null : element,
+      );
+      act(() => callbacks.onState("address"));
+    });
+    // still in practice: Space on a mode button did not switch it
+    expect(address()).toContain("mode=practice");
+    // typing a value is left alone
+    const input = startTyping("Club face");
+    fireEvent.keyDown(input, { key: " " });
+    expect(simulator.hit).toHaveBeenCalledTimes(targets.length);
+  });
+
   test("Space hits with the current setup", () => {
     renderPanel();
     selectBox("club face");
@@ -920,10 +959,18 @@ describe("club pads", () => {
     expect(typingField()).toBeNull();
   });
 
-  test("typed values are snapped to the step and held to the range; junk is ignored", () => {
+  test("typed values keep two decimals and are held to the range; junk is ignored", () => {
     renderPanel();
+    typeValue("Club path", "-2.456");
+    expect(valueOf("Club path")).toBe(-2.46);
+    expect(boxText("Club path")).toBe("2.46° out-to-in");
+    // a step goes a whole step from there
+    fireEvent.click(
+      screen.getByRole("button", { name: "Club path: 1° in-to-out" }),
+    );
+    expect(valueOf("Club path")).toBe(-1.46);
     typeValue("Club path", "-2.4");
-    expect(valueOf("Club path")).toBe(-2);
+    expect(valueOf("Club path")).toBe(-2.4);
     // a bare number is the size and keeps the side; a sign picks the side
     typeValue("Club path", "3");
     expect(valueOf("Club path")).toBe(-3);
@@ -931,8 +978,10 @@ describe("club pads", () => {
     expect(valueOf("Club path")).toBe(1);
     typeValue("Club path", "-2");
     expect(valueOf("Club path")).toBe(-2);
+    typeValue("Swing speed", "101.25");
+    expect(boxText("Swing speed")).toBe("101.25 mph");
     typeValue("Strike", "0.6");
-    expect(valueOf("Strike")).toBe(0.5);
+    expect(valueOf("Strike")).toBe(0.6);
     typeValue("Loft", "99");
     expect(valueOf("Loft")).toBe(4);
     typeValue("Swing speed", "12");
@@ -1782,28 +1831,42 @@ describe("bird's-eye view", () => {
 describe("what each mode is", () => {
   const about = (name) => screen.getByRole("button", { name });
 
-  test("is said only when its (i) is clicked, and put away again", () => {
+  test("one (i) beside the switch says what both are, only when clicked", () => {
     renderApp();
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
 
-    fireEvent.click(about("About the game"));
-    expect(screen.getByRole("note")).toHaveTextContent(/^Game\. 5 targets/);
-    expect(screen.getByRole("note")).toHaveTextContent("hit 3 to win");
-    expect(screen.getByRole("note")).toHaveTextContent("hit 4 to win");
-    expect(about("About the game")).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(about("About the modes"));
+    const note = screen.getByRole("note");
+    expect(note).toHaveTextContent(/^Practice\. No targets/);
+    expect(note).toHaveTextContent("nothing is scored");
+    expect(note).toHaveTextContent("Game. 5 targets");
+    expect(note).toHaveTextContent("hit 3 to win");
+    expect(note).toHaveTextContent("hit 4 to win");
+    expect(about("About the modes")).toHaveAttribute("aria-expanded", "true");
 
-    fireEvent.click(about("About the game"));
+    fireEvent.click(about("About the modes"));
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
 
-    fireEvent.click(about("About practice"));
-    expect(screen.getByRole("note")).toHaveTextContent("nothing is scored");
+    fireEvent.click(about("About the modes"));
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
   });
 
-  test("asking about a mode does not switch to it", () => {
+  test("on laptops the switch sits in the panel's top row, beside the shot shape", () => {
     renderApp();
-    fireEvent.click(about("About practice"));
+    const panel = screen.getByLabelText("Club at impact");
+    expect(
+      within(panel).getByRole("group", { name: "Mode" }),
+    ).toBeInTheDocument();
+    // Reset is on the club view from above
+    expect(
+      screen.getByRole("button", { name: "Reset" }).closest(".club-pad"),
+    ).not.toBeNull();
+  });
+
+  test("asking about the modes does not switch", () => {
+    renderApp();
+    fireEvent.click(about("About the modes"));
     expect(screen.getByRole("button", { name: "Game" })).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -2653,10 +2716,10 @@ describe("analytics events", () => {
   test("opening an (i) sends info_opened, and closing it sends nothing", () => {
     renderApp();
     const advanced = screen.getByRole("button", {
-      name: "About the game",
+      name: "About the modes",
     });
     fireEvent.click(advanced);
-    expect(track).toHaveBeenCalledWith("info_opened", { topic: "game" });
+    expect(track).toHaveBeenCalledWith("info_opened", { topic: "modes" });
     fireEvent.click(advanced);
     fireEvent.click(
       screen.getByRole("button", { name: /^About swing speed$/i }),

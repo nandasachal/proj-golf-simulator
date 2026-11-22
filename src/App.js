@@ -46,7 +46,7 @@ import {
   shouldIgnoreKey,
   stepState,
 } from "./utils/shortcuts";
-import { snap } from "./utils/club-handles";
+import { nudge } from "./utils/club-handles";
 import {
   AIM_VALUES,
   ATTACK_ANGLE_VALUES,
@@ -141,8 +141,17 @@ const matchingPreset = (conditions) =>
 
 function App() {
   const [rawSide, setSide] = useQueryState("side", "Right", false);
-  const [rawFace] = useQueryState("face", CLUB_FACE_ANGLE_VALUES.DEFAULT, true);
-  const [rawPath] = useQueryState("path", CLUB_PATH_ANGLE_VALUES.DEFAULT, true);
+  // Typed values can carry two decimals, so these are read as decimals.
+  const [rawFace] = useQueryState(
+    "face",
+    CLUB_FACE_ANGLE_VALUES.DEFAULT,
+    false,
+  );
+  const [rawPath] = useQueryState(
+    "path",
+    CLUB_PATH_ANGLE_VALUES.DEFAULT,
+    false,
+  );
   const [rawClub] = useQueryState("club", DEFAULT_CLUB_ID, false);
   // Hidden: ?empire puts a fleet in the sky. Read once, when the scene is built.
   const [empire] = useQueryState("empire", null, false);
@@ -170,9 +179,9 @@ function App() {
   );
   const [rawSpeed] = useQueryState("speed", null, false);
 
-  const [rawAim] = useQueryState("aim", AIM_VALUES.DEFAULT, true);
+  const [rawAim] = useQueryState("aim", AIM_VALUES.DEFAULT, false);
   const [rawAttack] = useQueryState("attack", null, false);
-  const [rawLoft] = useQueryState("loft", LOFT_CHANGE_VALUES.DEFAULT, true);
+  const [rawLoft] = useQueryState("loft", LOFT_CHANGE_VALUES.DEFAULT, false);
 
   const [rawTurf] = useQueryState("turf", "normal", false);
   const [cut] = useQueryState("cut", null, false);
@@ -204,12 +213,12 @@ function App() {
   // (Safari: 100 times in 30 seconds) and throw past that.
   const [draft, setDraft] = useState({});
   const saved = {
-    clubFaceAngle: clamp(rawFace, CLUB_FACE_ANGLE_VALUES),
-    clubPathAngle: clamp(rawPath, CLUB_PATH_ANGLE_VALUES),
+    clubFaceAngle: clamp(Number.parseFloat(rawFace), CLUB_FACE_ANGLE_VALUES),
+    clubPathAngle: clamp(Number.parseFloat(rawPath), CLUB_PATH_ANGLE_VALUES),
     swingSpeed: clamp(Number.parseFloat(rawSpeed), speedRange),
-    aim: clamp(rawAim, AIM_VALUES),
+    aim: clamp(Number.parseFloat(rawAim), AIM_VALUES),
     attackAngle: clamp(Number.parseFloat(rawAttack), attackRange),
-    loftChange: clamp(rawLoft, LOFT_CHANGE_VALUES),
+    loftChange: clamp(Number.parseFloat(rawLoft), LOFT_CHANGE_VALUES),
     strike: clamp(Number.parseFloat(rawStrike), STRIKE_VALUES),
   };
   const shot = Object.fromEntries(
@@ -741,8 +750,13 @@ function App() {
     const pressed = keyAction(event);
     if (!pressed) return;
     event.preventDefault();
-    if (pressed.action === "hit") handleHit();
-    else if (pressed.action === "move") {
+    if (pressed.action === "hit") {
+      // Space is the main action: whatever has focus (the club menu's
+      // button, say) does not also get it.
+      event.stopPropagation();
+      document.activeElement?.blur?.();
+      handleHit();
+    } else if (pressed.action === "move") {
       // A focused handle or value would otherwise look selected too.
       document.activeElement?.blur?.();
       setSelected((previous) => moveSelection(previous, pressed.key, visible));
@@ -756,7 +770,7 @@ function App() {
           ...previous,
           [selected]:
             pressed.action === "adjust"
-              ? snap(value + pressed.direction * range.STEP, range)
+              ? nudge(value, pressed.direction, range)
               : stepState(selected, value, pressed.direction, range),
         };
       });
@@ -764,8 +778,9 @@ function App() {
   };
   useEffect(() => {
     const listener = (event) => onShortcut.current(event);
-    window.addEventListener("keydown", listener);
-    return () => window.removeEventListener("keydown", listener);
+    // Capture, so the app sees a key before the focused control does.
+    window.addEventListener("keydown", listener, true);
+    return () => window.removeEventListener("keydown", listener, true);
   }, []);
 
   return (
@@ -879,13 +894,13 @@ function App() {
             onHit={handleHit}
             beckon={beckon}
             strip={strip}
+            modeSwitch={
+              <ButtonRow
+                mode={mode}
+                onMode={(value) => handleValueChange("mode", value)}
+              />
+            }
           />
-          {isDesktop && (
-            <ButtonRow
-              mode={mode}
-              onMode={(value) => handleValueChange("mode", value)}
-            />
-          )}
         </div>
       </div>
       {/* Laptops: the shot strip, along the bottom under the picture. The
