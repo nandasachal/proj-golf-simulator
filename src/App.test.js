@@ -1447,12 +1447,12 @@ describe("game mode", () => {
 
     const row = () => within(screen.getByRole("status", { name: "Game" }));
     fireEvent.click(row().getByRole("button", { name: "Difficulty: Normal" }));
-    expect(
-      screen.getByRole("option", { name: /Normal/ }),
-    ).toHaveTextContent("Target on the ground");
-    expect(
-      screen.getByRole("option", { name: /Advanced/ }),
-    ).toHaveTextContent("Target in the air");
+    expect(screen.getByRole("option", { name: /Normal/ })).toHaveTextContent(
+      "Target on the ground",
+    );
+    expect(screen.getByRole("option", { name: /Advanced/ })).toHaveTextContent(
+      "Target in the air",
+    );
     fireEvent.click(screen.getByRole("option", { name: /Advanced/ }));
     expect(address()).toContain("mode=advanced");
     expect(
@@ -2039,7 +2039,7 @@ describe("players and leaderboard", () => {
   const shotsSent = () =>
     requests("POST", "/shots").map(([, options]) => JSON.parse(options.body));
 
-  const SACHAL = { id: "p1", name: "Sachal", key: "secret" };
+  const SACHAL = { id: "p1", name: "Sachal", key: "secret", account: false };
   const savePlayer = () =>
     window.localStorage.setItem("golf.player", JSON.stringify(SACHAL));
   const row = (rank, id, name, pct) => ({
@@ -2073,10 +2073,9 @@ describe("players and leaderboard", () => {
       },
     );
 
-  test("a finished game with no name saved asks for one; saving it sends the game and shows the recovery code once", async () => {
+  test("a finished game with no name saved asks for one; saving it sends the game", async () => {
     api({
-      "POST /players": () =>
-        respond(201, { ...SACHAL, recoveryCode: "TEE-4821" }),
+      "POST /players": () => respond(201, SACHAL),
       "POST /shots": () => respond(201),
       "GET /leaderboard": () =>
         respond(
@@ -2101,9 +2100,10 @@ describe("players and leaderboard", () => {
     typeName("Sachal");
     fireEvent.click(within(saveForm()).getByRole("button", { name: "Save" }));
 
-    expect(await within(game()).findByText("TEE-4821")).toBeInTheDocument();
-    expect(game()).toHaveTextContent(
-      "Write this down to use your name on another device",
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("form", { name: "Save to the leaderboard" }),
+      ).not.toBeInTheDocument(),
     );
     expect(JSON.parse(requests("POST", "/players")[0][1].body)).toEqual({
       name: "Sachal",
@@ -2127,8 +2127,6 @@ describe("players and leaderboard", () => {
       "Bearer secret",
     );
 
-    fireEvent.click(within(game()).getByRole("button", { name: "Got it" }));
-    expect(game()).not.toHaveTextContent("TEE-4821");
     expect(
       await within(game()).findByText(
         "Warming up: 10 more targets to be ranked",
@@ -2167,71 +2165,42 @@ describe("players and leaderboard", () => {
     expect(game()).toHaveTextContent("Not this time");
   });
 
-  test("an existing name is taken up with its recovery code", async () => {
+  test("an account is logged in to with its name and password", async () => {
+    const account = { ...SACHAL, account: true };
     api({
-      "POST /players/recover": (_url, options) =>
-        JSON.parse(options.body).recoveryCode === "TEE-4821"
-          ? respond(200, SACHAL)
+      "POST /players/login": (_url, options) =>
+        JSON.parse(options.body).password === "correct horse"
+          ? respond(200, account)
           : respond(401),
       "POST /shots": () => respond(201),
+      "GET /leaderboard": () => respond(200, board({})),
     });
     renderApp();
     playGame(3);
-    fireEvent.click(
-      within(saveForm()).getByRole("button", {
-        name: "Already have a name? Use recovery code",
-      }),
-    );
+    const press = (name) =>
+      fireEvent.click(within(saveForm()).getByRole("button", { name }));
+    // a name alone asks for no password
+    expect(within(saveForm()).queryByLabelText("Password")).toBeNull();
+    press("Account");
+    press("Have an account? Log in");
     typeName("Sachal");
-    const code = within(saveForm()).getByRole("textbox", {
-      name: "Recovery code",
-    });
-    fireEvent.change(code, { target: { value: "WRONG" } });
-    fireEvent.click(
-      within(saveForm()).getByRole("button", { name: "Use name" }),
-    );
+    const password = () => within(saveForm()).getByLabelText("Password");
+    fireEvent.change(password(), { target: { value: "wrong horse" } });
+    press("Log in");
     expect(await within(saveForm()).findByRole("alert")).toHaveTextContent(
       "don't match",
     );
 
-    fireEvent.change(code, { target: { value: "TEE-4821" } });
-    fireEvent.click(
-      within(saveForm()).getByRole("button", { name: "Use name" }),
+    fireEvent.change(password(), { target: { value: "correct horse" } });
+    press("Log in");
+    await waitFor(() =>
+      expect(JSON.parse(window.localStorage.getItem("golf.player"))).toEqual(
+        account,
+      ),
     );
-    expect(
-      await within(game()).findByLabelText("Playing as Sachal"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("form", { name: "Save to the leaderboard" }),
-    ).not.toBeInTheDocument();
-    await waitFor(() => expect(shotsSent()).toHaveLength(5));
-  });
-
-  test("with a name saved every game shot is sent as it lands, and the finished game says where the player stands", async () => {
-    savePlayer();
-    api({
-      "POST /shots": () => respond(201),
-      "GET /leaderboard": () =>
-        respond(
-          200,
-          board({
-            me: { ...row(12, "p1", "Sachal", 58), ranked: true },
-            passes: { name: "Varun", hitsNeeded: 1 },
-          }),
-        ),
-    });
-    renderApp();
-    expect(within(game()).getByLabelText("Playing as Sachal")).toBeVisible();
-    play(HIT);
-    await waitFor(() => expect(shotsSent()).toHaveLength(1));
-    expect(requests("GET", "/leaderboard")).toHaveLength(0);
-
-    for (let i = 0; i < 4; i++) play(MISS);
-    expect(
-      await within(game()).findByText("Rank 12 · 58% hit"),
-    ).toBeInTheDocument();
-    expect(game()).toHaveTextContent("One more hit passes Varun");
-    expect(shotsSent()).toHaveLength(5);
+    await waitFor(() =>
+      expect(requests("GET", "/leaderboard").length).toBeGreaterThan(0),
+    );
     const asked = new URL(requests("GET", "/leaderboard")[0][0]).searchParams;
     expect(Object.fromEntries(asked)).toEqual({
       mode: "normal",
@@ -2437,8 +2406,7 @@ describe("players and leaderboard", () => {
 
   test("a name can be saved from the leaderboard before any game is played", async () => {
     api({
-      "POST /players": () =>
-        respond(201, { ...SACHAL, recoveryCode: "TEE-4821" }),
+      "POST /players": () => respond(201, SACHAL),
       "GET /leaderboard": () => respond(200, board({})),
     });
     renderApp();
@@ -2450,13 +2418,89 @@ describe("players and leaderboard", () => {
     });
     fireEvent.click(within(form).getByRole("button", { name: "Save" }));
 
-    expect(await dialog.findByText("TEE-4821")).toBeInTheDocument();
+    // saved on this device; a password would make it an account
+    const upgrade = await dialog.findByRole("form", {
+      name: "Create an account",
+    });
+    expect(upgrade).toHaveTextContent("Saved as Sachal on this device");
     expect(JSON.parse(window.localStorage.getItem("golf.player")).name).toBe(
       "Sachal",
     );
     expect(
       dialog.queryByRole("form", { name: "Save to the leaderboard" }),
     ).not.toBeInTheDocument();
+  });
+
+  test("an account is created with a password, and logging out forgets it here", async () => {
+    const account = { ...SACHAL, account: true, internal: true };
+    api({
+      "POST /players": () => respond(201, account),
+      "GET /leaderboard": () => respond(200, board({})),
+    });
+    renderApp();
+    const dialog = await openLeaderboard();
+    const form = dialog.getByRole("form", { name: "Save to the leaderboard" });
+    fireEvent.click(within(form).getByRole("button", { name: "Account" }));
+    fireEvent.change(within(form).getByLabelText("Name"), {
+      target: { value: "Sachal" },
+    });
+    fireEvent.change(within(form).getByLabelText("Password"), {
+      target: { value: "correct horse" },
+    });
+    fireEvent.click(
+      within(form).getByRole("button", { name: "Create account" }),
+    );
+
+    expect(await dialog.findByText("Logged in as Sachal")).toBeInTheDocument();
+    expect(JSON.parse(requests("POST", "/players")[0][1].body)).toEqual({
+      name: "Sachal",
+      password: "correct horse",
+    });
+    // the password is not kept
+    expect(JSON.parse(window.localStorage.getItem("golf.player"))).toEqual({
+      ...SACHAL,
+      account: true,
+    });
+
+    fireEvent.click(dialog.getByRole("button", { name: "Log out" }));
+    expect(window.localStorage.getItem("golf.player")).toBeNull();
+    expect(
+      dialog.getByRole("form", { name: "Save to the leaderboard" }),
+    ).toBeInTheDocument();
+  });
+
+  test("a name saved on this device becomes an account by adding a password", async () => {
+    savePlayer();
+    api({
+      "POST /players/password": () =>
+        respond(200, { ...SACHAL, account: true }),
+      "GET /leaderboard": () => respond(200, board({})),
+    });
+    renderApp();
+    const dialog = await openLeaderboard();
+    const form = dialog.getByRole("form", { name: "Create an account" });
+    fireEvent.change(within(form).getByLabelText("Password"), {
+      target: { value: "correct horse" },
+    });
+    fireEvent.click(
+      within(form).getByRole("button", { name: "Create account" }),
+    );
+    expect(await dialog.findByText("Logged in as Sachal")).toBeInTheDocument();
+    const [, options] = requests("POST", "/players/password")[0];
+    expect(options.headers.Authorization).toBe("Bearer secret");
+    expect(JSON.parse(options.body)).toEqual({ password: "correct horse" });
+  });
+
+  test("Not now puts the name form away until the next game", () => {
+    renderApp();
+    playGame(3);
+    fireEvent.click(
+      within(saveForm()).getByRole("button", { name: "Not now" }),
+    );
+    expect(
+      screen.queryByRole("form", { name: "Save to the leaderboard" }),
+    ).not.toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   test("the leaderboard has a board per mode and period", async () => {
@@ -2789,11 +2833,13 @@ describe("analytics events", () => {
       renderApp();
       finishGame();
       expect(sent("save_name_shown")).toEqual([{ source: "game_card" }]);
-      answer({ id: "p1", name: "Ada", key: "k", recoveryCode: "TEE-1" });
+      answer({ id: "p1", name: "Ada", key: "k" });
       fill("Name", "Ada");
       fireEvent.click(within(form()).getByRole("button", { name: "Save" }));
       await waitFor(() =>
-        expect(sent("name_saved")).toEqual([{ source: "game_card" }]),
+        expect(sent("name_saved")).toEqual([
+          { source: "game_card", account: false },
+        ]),
       );
     });
 
@@ -2810,18 +2856,21 @@ describe("analytics events", () => {
       expect(sent("name_saved")).toHaveLength(0);
     });
 
-    test("a recovery code used on a second device is player_recovered, not a new name", async () => {
+    test("logging in on a second device is player_logged_in, not a new name", async () => {
       renderApp();
       finishGame();
-      fireEvent.click(
-        within(form()).getByRole("button", { name: /Already have a name/ }),
-      );
-      answer({ id: "p1", name: "Ada", key: "k" });
+      const press = (name) =>
+        fireEvent.click(within(form()).getByRole("button", { name }));
+      press("Account");
+      press("Have an account? Log in");
+      answer({ id: "p1", name: "Ada", key: "k", account: true });
       fill("Name", "Ada");
-      fill("Recovery code", "TEE-1");
-      fireEvent.click(within(form()).getByRole("button", { name: "Use name" }));
+      fireEvent.change(within(form()).getByLabelText("Password"), {
+        target: { value: "correct horse" },
+      });
+      press("Log in");
       await waitFor(() =>
-        expect(track).toHaveBeenCalledWith("player_recovered"),
+        expect(sent("player_logged_in")).toEqual([{ source: "game_card" }]),
       );
       expect(sent("name_saved")).toHaveLength(0);
     });

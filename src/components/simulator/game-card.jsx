@@ -169,8 +169,6 @@ const GameCard = ({
   onDifficulty,
   tip,
 }) => {
-  // Shown once, straight after a name is saved, until it is dismissed.
-  const [recoveryCode, setRecoveryCode] = useState(null);
   const hits = round.filter((shot) => shot.hit).length;
   const over = round.length >= goal.targets;
   const won = hits >= goal.toWin;
@@ -316,28 +314,7 @@ const GameCard = ({
         </ol>
       )}
 
-      {recoveryCode ? (
-        <div className="mt-2 whitespace-normal border-t border-white/10 pt-2">
-          <p className="text-[11px] text-white/70 md:text-xs">
-            Saved as {player?.name}. Your recovery code:
-          </p>
-          <p className="mt-1 select-all break-all font-mono text-sm font-bold tracking-wider text-amber-300 md:text-base">
-            {recoveryCode}
-          </p>
-          <p className="mt-1 text-[11px] leading-snug text-white/70 md:text-xs">
-            Write this down to use your name on another device. It is only shown
-            once.
-          </p>
-          <button
-            type="button"
-            className="mt-1.5 rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold text-white hover:bg-white/20"
-            onClick={() => setRecoveryCode(null)}
-          >
-            Got it
-          </button>
-        </div>
-      ) : (
-        over &&
+      {over &&
         (player ? (
           boardLines(board).length > 0 && (
             <div
@@ -359,13 +336,9 @@ const GameCard = ({
             source="game_card"
             hits={hits}
             targets={goal.targets}
-            onSaved={(saved, code) => {
-              setRecoveryCode(code || null);
-              onPlayer(saved);
-            }}
+            onSaved={onPlayer}
           />
-        ))
-      )}
+        ))}
 
       <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-white/10 pt-1.5 md:mt-2.5 md:gap-3 md:pt-2">
         <p className="hidden text-xs tabular-nums text-white/70 md:block">

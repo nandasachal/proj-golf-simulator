@@ -16,7 +16,7 @@
 </head>
 <body>
 <h1>Names, scoring and the leaderboard</h1>
-<p class="meta">Golf Swing Simulator · as of 2026-11-21</p>
+<p class="meta">Golf Swing Simulator · as of 2026-11-22</p>
 
 <h2>Playing a game</h2>
 <p>Choose Practice or Game at the bottom of the shot panel. A game is 5
@@ -37,21 +37,28 @@ device is set to reduce motion, you get the sound without the confetti.</p>
 
 <h2>Saving a name</h2>
 <p>You can play straight away without signing up. When a game finishes, the game
-card asks whether to save it to the leaderboard. Type a name and press Save.
-You can also save a name at any time from the bottom of the leaderboard, behind
-the trophy button.</p>
+card asks whether to save it to the leaderboard. You can also do this at any
+time from the bottom of the leaderboard, behind the trophy button. There are
+three choices:</p>
+<table>
+  <tr><th>Choice</th><th>What you get</th></tr>
+  <tr><td>Name only</td><td>Type a name and press Save. No password. The name stays on this device.</td></tr>
+  <tr><td>Account</td><td>A name and a password of 8 or more characters. Log in with them on any device and your name and scores come with you.</td></tr>
+  <tr><td>Not now</td><td>Nothing is saved. You are asked again after the next game.</td></tr>
+</table>
 <ul>
   <li>Names are 2 to 16 characters and unique regardless of capitals. The first
   person to save a name owns it.</li>
-  <li>There is no email or password. Your browser remembers you.</li>
+  <li>There is no email. Your browser remembers you until you log out.</li>
   <li>The game you just finished is saved with the name. Games before it are not.</li>
-  <li>You are shown a <strong>recovery code</strong> once. Write it down: it is
-  the only way to use your name on another phone or browser, or after clearing
-  your browser data.</li>
+  <li>A name saved without a password can become an account later: open the
+  leaderboard on the device that has it and add a password.</li>
+  <li>A forgotten password cannot be reset, because there is no email to send
+  a reset to.</li>
 </ul>
-<p>To use your name on a new device, finish a game there, choose "Already have a
-name? Use recovery code", and enter the name and the code. Your name then
-works on both devices.</p>
+<p>To use your account on a new device, choose Account, then "Have an account?
+Log in", and enter the name and password. Log out from the bottom of the
+leaderboard.</p>
 
 <h2>How you are scored</h2>
 <table>
@@ -77,11 +84,11 @@ ahead of you it also says how many more hits would pass them.</p>
 <h2>When something goes wrong</h2>
 <table>
   <tr><th>What you see</th><th>Why</th></tr>
-  <tr><td>"That name is taken"</td><td>Someone already saved it. Pick another, or use your recovery code if it is yours.</td></tr>
-  <tr><td>"That name and code don't match"</td><td>The recovery code or name was mistyped.</td></tr>
+  <tr><td>"That name is taken"</td><td>Someone already saved it. Pick another, or log in if it is your account.</td></tr>
+  <tr><td>"That name and password don't match"</td><td>The name or password was mistyped, or the name was saved without a password.</td></tr>
   <tr><td>"Leaderboard is unavailable right now"</td><td>The leaderboard service could not be reached. The game still plays; your shots are kept on your device and sent when it is back.</td></tr>
-  <tr><td>"Too many tries"</td><td>Too many names or codes were tried in a short time. Wait a minute.</td></tr>
-  <tr><td>Your name is gone</td><td>The browser's data was cleared, or this is a different device. Use your recovery code.</td></tr>
+  <tr><td>"Too many tries"</td><td>Too many names or passwords were tried in a short time. Wait a minute.</td></tr>
+  <tr><td>Your name is gone</td><td>The browser's data was cleared, or this is a different device. Log in if you made an account; a name saved without a password cannot be brought back.</td></tr>
 </table>
 
 <h2>Limits</h2>

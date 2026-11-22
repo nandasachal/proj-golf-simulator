@@ -57,8 +57,7 @@ export function startAnalytics() {
     app_version: process.env.REACT_APP_VERSION || "dev",
     player_saved: false,
   });
-  if (internalDevice(window.localStorage))
-    posthog.register({ internal: true });
+  if (internalDevice(window.localStorage)) posthog.register({ internal: true });
   const first = firstVisit(window.localStorage, window.sessionStorage);
   posthog.register({ first_visit: first });
   // Replays only of first visits, to see where new players get stuck. Inputs

@@ -26,5 +26,8 @@ services:
         fromDatabase:
           name: golf-leaderboard-db
           property: connectionString
+      # Our own account names, comma-separated: set in the dashboard.
+      - key: INTERNAL_NAMES
+        sync: false
       - key: ADMIN_TOKEN
         generateValue: true

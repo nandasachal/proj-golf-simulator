@@ -30,7 +30,13 @@ async function playerRequest(path, body, key) {
     if (response.ok) {
       const { id, name, key: saved, account, internal } = data;
       return {
-        player: { id, name, key: saved, account: !!account, internal: !!internal },
+        player: {
+          id,
+          name,
+          key: saved,
+          account: !!account,
+          internal: !!internal,
+        },
       };
     }
     if (response.status === 401) return { error: "wrong_login" };

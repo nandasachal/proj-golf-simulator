@@ -374,9 +374,15 @@ in the leaderboard dialog; from then on every scored game shot
 is recorded under it and ranked on a leaderboard by share of targets hit. The
 rules a contributor needs:
 
-- **Identity is a name plus a browser-held key**, no account. `POST /players`
-  returns the key and a one-time recovery code; the key lives in localStorage
-  (`golf.player`). The server stores only hashes.
+- **Identity is a name plus a browser-held key.** `POST /players` returns the
+  key, which lives in localStorage (`golf.player`). A name saved alone belongs
+  to that browser. Saved with a password it is an **account**:
+  `POST /players/login` gives another device its own key for the same player,
+  and a name saved alone can add a password later (`POST /players/password`).
+  Saving is optional ("Not now"). The server stores only hashes; there is no
+  email, so no password reset. Accounts are built into the API rather than a
+  separate identity server (Keycloak was considered, 2026-11-22): one optional
+  login does not justify a second service and database.
 - **Every scored shot counts when it lands**, abandoned games included, so a bad
   start cannot be restarted away. Practice shots are never recorded.
 - **15 attempts to be ranked** (three games), per mode and period; below that a
@@ -418,14 +424,16 @@ with carry, offline, apex, shape and the seven controls at impact),
 `game_started`, `target_attempted`, `game_finished` (all four game events share
 a `game_id`), `game_abandoned`, `setting_changed` (mode, club, bird's-eye view),
 `info_opened`, `save_name_shown`, `name_saved`, `name_save_failed`,
-`player_recovered`, `leaderboard_opened`, `leaderboard_filter_changed`, `app_ready` (load time and
+`save_name_skipped`, `player_logged_in`, `player_logged_out`, `account_created`, `leaderboard_opened`, `leaderboard_filter_changed`, `app_ready` (load time and
 whether the modelled golfer or the fallback figure was used) and `app_error`
 (`webgl_unsupported`, `scene_failed`, `model_load_failed`, `api_unreachable`,
 once per kind per page load); unhandled errors go to `$exception`. Every event
 carries `app_version`, `player_saved` and `viewport`. A saved player is
-identified by player id only (no name). Opening the site once with `?internal=1`
-marks that browser as ours (`?internal=0` unmarks it): its events carry
+identified by player id only (no name). Logging in to one of our own
+accounts (the API's `INTERNAL_NAMES`) marks that browser as ours
+(`golf.internal` in localStorage, kept after a log out): its events carry
 `internal: true`, which the project's internal-users filter in PostHog hides.
+`?internal=1` is retired; browsers it marked stay marked.
 The dashboards (Traffic, Gameplay, Players and retention) are linked from the spec.
 
 ### Hosting

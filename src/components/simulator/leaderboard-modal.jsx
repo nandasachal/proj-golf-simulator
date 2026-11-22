@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { track } from "../../analytics";
 import { Dialog } from "@headlessui/react";
-import SaveName from "./save-name";
+import SaveName, { AddPassword } from "./save-name";
 import { Trophy, X } from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
 import { Segmented } from "./settings-modal";
@@ -148,10 +148,8 @@ const Board = ({ board, playerId }) => {
 
 // The leaderboard, behind the trophy button: one board per game mode, for
 // this week or all time, with the saved player's own row always in view.
-const LeaderboardModal = ({ player, startMode, onPlayer }) => {
+const LeaderboardModal = ({ player, startMode, onPlayer, onLogOut }) => {
   const [open, setOpen] = useState(false);
-  // Shown once, straight after a name is saved here.
-  const [recoveryCode, setRecoveryCode] = useState(null);
   const [mode, setMode] = useState(startMode);
   const [period, setPeriod] = useState("all");
   // { key, board } or { key, failed } for the latest answer; the key says
@@ -183,7 +181,6 @@ const LeaderboardModal = ({ player, startMode, onPlayer }) => {
         onClick={() => {
           setMode(startMode);
           setAnswer(null);
-          setRecoveryCode(null);
           setOpen(true);
           track("leaderboard_opened", { mode: startMode });
         }}
@@ -258,28 +255,31 @@ const LeaderboardModal = ({ player, startMode, onPlayer }) => {
               )}
             </div>
 
-            {recoveryCode ? (
-              <div className="mt-2 border-t border-white/10 pt-2">
-                <p className="text-xs text-white/70">
-                  Saved as {player?.name}. Your recovery code:
-                </p>
-                <p className="mt-1 select-all font-mono text-base font-bold tracking-wider text-amber-300">
-                  {recoveryCode}
-                </p>
-                <p className="mt-1 text-xs leading-snug text-white/70">
-                  Write this down to use your name on another device. It is only
-                  shown once.
-                </p>
-              </div>
-            ) : player ? null : (
+            {!player ? (
               <SaveName
                 source="leaderboard"
                 prompt="Save a name to get on the board"
-                onSaved={(saved, code) => {
-                  setRecoveryCode(code || null);
-                  onPlayer(saved);
-                }}
+                onSaved={onPlayer}
               />
+            ) : (
+              <div className="mt-2 border-t border-white/10 pt-2">
+                {player.account ? (
+                  <p className="flex items-center justify-between gap-2 text-xs text-white/70">
+                    <span className="min-w-0 truncate">
+                      Logged in as {player.name}
+                    </span>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-md bg-white/10 px-2.5 py-1 font-semibold text-white hover:bg-white/20"
+                      onClick={onLogOut}
+                    >
+                      Log out
+                    </button>
+                  </p>
+                ) : (
+                  <AddPassword player={player} onSaved={onPlayer} />
+                )}
+              </div>
             )}
           </Dialog.Panel>
         </div>

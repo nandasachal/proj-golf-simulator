@@ -42,6 +42,7 @@ Then `curl localhost:8000/healthz`.
 |---|---|
 | `DATABASE_URL` | Postgres connection string. Required. |
 | `ALLOWED_ORIGINS` | Comma-separated CORS origins. Default: the site's domain (with and without `www.`), its onrender.com address and `http://localhost:3000`. |
+| `INTERNAL_NAMES` | Comma-separated account names that are ours, any capitals. Unset means none. |
 | `ADMIN_TOKEN` | Bearer token for `/stats` and `DELETE /admin/players/{id}`. Unset means those always return 401. |
 
 ## API
@@ -50,8 +51,9 @@ Errors are `{"error": "<code>"}`.
 
 | Route | Result |
 |---|---|
-| `POST /players` `{name}` | 201 `{id, name, key, recoveryCode}` · 409 `name_taken` · 422 `invalid_name` |
-| `POST /players/recover` `{name, recoveryCode}` | 200 `{id, name, key}` (a further key; earlier ones keep working) · 401 `invalid_recovery` |
+| `POST /players` `{name, password?}` | 201 `{id, name, key, account, internal}` · 409 `name_taken` · 422 `invalid_name`, `invalid_password` |
+| `POST /players/login` `{name, password}` | 200, the same shape (a further key; earlier ones keep working) · 401 `invalid_login` |
+| `POST /players/password` `Authorization: Bearer <key>`, `{password}` | 200, the same shape: a name saved without a password becomes an account, once · 401 `unauthorized` · 422 `invalid_password` |
 | `POST /shots` `Authorization: Bearer <key>`, `{gameId, mode, club, targetYards, hit}` | 201 `{ok: true}` · 401 `unauthorized` · 409 `game_full` · 422 `invalid_request` · 429 `rate_limited` |
 | `GET /leaderboard?mode=&period=&player=` | `{mode, period, minAttempts, rows, warmingUp, me, passes}` |
 | `GET /stats` (admin) | `{gamesStarted, gamesFinished, namesCreated, playersReturning}` |
@@ -64,8 +66,11 @@ Errors are `{"error": "<code>"}`.
 - Shots: 12 at once per player, then one every 3 s; 40 at once per IP, then one a
   second. The per-IP limit trusts the first `X-Forwarded-For` entry, so the
   per-player limit is the one that holds against a determined sender.
-- The key is stored as SHA-256; the recovery code as salted scrypt, with five
-  tries a minute per name.
+- The key is stored as SHA-256; the password (8 to 128 characters) as salted
+  scrypt, with five login tries a minute per name.
+- `account` is true when the name has a password. `internal` is true for an
+  account whose name is in `INTERNAL_NAMES`; the site then keeps that browser
+  out of the analytics.
 
 ## Deploying on Render
 

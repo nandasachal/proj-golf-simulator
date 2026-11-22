@@ -9,7 +9,7 @@ import GameCard, { GameRow } from "./components/simulator/game-card";
 import OverheadTags from "./components/simulator/overhead-tags";
 import LeaderboardModal from "./components/simulator/leaderboard-modal";
 import { getLeaderboard } from "./players/api";
-import { loadProfile } from "./players/profile";
+import { clearProfile, loadProfile } from "./players/profile";
 import { flush, newGameId, recordShot } from "./players/queue";
 import { identify, reportError, setContext, track } from "./analytics";
 import {
@@ -599,6 +599,14 @@ function App() {
     flush();
   };
 
+  // The account stays; this browser goes back to having no name.
+  const logOut = () => {
+    clearProfile();
+    setPlayer(null);
+    setContext({ player_saved: false });
+    track("player_logged_out");
+  };
+
   // Shots that could not be sent earlier go once the API can be reached.
   useEffect(() => {
     identify(loadProfile());
@@ -910,6 +918,7 @@ function App() {
             player={player}
             startMode={mode === "advanced" ? "advanced" : "normal"}
             onPlayer={savePlayer}
+            onLogOut={logOut}
           />
           {/* Bird's-eye: the camera straight down, and back. */}
           <button
