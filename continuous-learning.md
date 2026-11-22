@@ -89,3 +89,5 @@ before hitting, and don't chase it as an app bug.
 2026-11-21 — mistake — ran 'prettier --write src' to format new files; it reformatted about a dozen unrelated files (this repo's source is not uniformly Prettier-formatted). Format only the files you edited (prettier --write <those files>), and check 'git status' before committing; reverted with git checkout this time.
 2026-11-21 — note — re-exporting tools/blender/golfer.blend gives a 4.8 MB GLB, not the shipped 3.3 MB, so the .blend and public/models/golfer.glb have drifted. Check the build pipeline before any re-export, e.g. for compression.
 2026-11-21 — note — with the browser pane hidden, the 3D scene doesn't animate and a Hit never lands. Check landing and scoring with the scene's own physics in Jest (see "easyTarget against the scene's own shot").
+2026-11-22 — note — Another session committing in the same checkout swept half of an in-flight change into its own commits; check git log before assuming the tree is still yours.
+2026-11-22 — preference — Accounts are built into the leaderboard API (password or Sign in with Google), not Keycloak.
