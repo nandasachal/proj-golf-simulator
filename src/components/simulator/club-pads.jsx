@@ -1405,14 +1405,6 @@ const ClubPads = ({
               Space
             </kbd>
           </button>
-          {beckon && (
-            <p
-              data-first-shot
-              className="absolute bottom-full right-0 mb-3 whitespace-nowrap rounded-lg bg-lime-400 px-3 py-1.5 text-sm font-semibold text-slate-900 shadow-lg"
-            >
-              Press Hit or Space to take your first shot
-            </p>
-          )}
         </div>
       </div>
       <div

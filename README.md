@@ -42,7 +42,7 @@ than abstract.
     (reset by changing mode or club, and by a reload).
   - **First visit** (`src/first-visit.js`, spec
     `planning/product-specs/activation.md`): until a browser's first shot, Hit
-    pulses with a one-line prompt; until its first scored shot, a normal game's
+    pulses (no pop-up: Sachal found it spammy, 2026-11-21); until its first scored shot, a normal game's
     first target is `easyTarget()`, on the centre line where the stock straight
     shot stops, so pressing Hit untouched scores. After a miss the card shows one
     line of advice from `src/simulate/coach.js` (swing speed for long/short,

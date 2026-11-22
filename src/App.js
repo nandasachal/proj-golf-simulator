@@ -308,7 +308,7 @@ function App() {
   // The saved player, if this browser has one, and the leaderboard's answer
   // for them once a game is over.
   const [player, setPlayer] = useState(loadProfile);
-  // First visit: Hit pulses with a prompt until the first shot.
+  // First visit: Hit pulses until the first shot.
   const [beckon, setBeckon] = useState(() => !hasDone(FIRST.shot));
   // What to change for the next target, after a miss.
   const [tip, setTip] = useState(null);
@@ -898,14 +898,6 @@ function App() {
       )}
       {/* Phones: mode and Hit stay at the bottom of the screen. Outside the
           panel, whose blur would otherwise pin the bar to itself. */}
-      {!isDesktop && beckon && (
-        <p
-          data-first-shot
-          className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] right-3 z-30 rounded-lg bg-lime-400 px-3 py-1.5 text-sm font-semibold text-slate-900 shadow-lg"
-        >
-          Tap Hit to take your first shot
-        </p>
-      )}
       {!isDesktop && (
         <ButtonRow
           bar

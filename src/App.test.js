@@ -1316,22 +1316,17 @@ describe("game mode", () => {
     expect(modeButton("Game")).toHaveAttribute("aria-pressed", "true");
   });
 
-  test("a first visit pulses Hit with a prompt, until the first shot", () => {
+  test("a first visit pulses Hit, with no pop-up, until the first shot", () => {
     const { unmount } = renderApp();
-    const prompt = () =>
-      screen.queryByText("Press Hit or Space to take your first shot");
-    expect(prompt()).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^hit$/i })).toHaveClass(
-      "hit-beckon",
-    );
+    const hitButton = () => screen.getByRole("button", { name: /^hit$/i });
+    expect(hitButton()).toHaveClass("hit-beckon");
+    expect(document.querySelector("[data-first-shot]")).toBeNull();
+    expect(screen.queryByText(/take your first shot/i)).toBeNull();
     hit();
-    expect(prompt()).toBeNull();
-    expect(screen.getByRole("button", { name: /^hit$/i })).not.toHaveClass(
-      "hit-beckon",
-    );
+    expect(hitButton()).not.toHaveClass("hit-beckon");
     unmount();
     renderApp();
-    expect(prompt()).toBeNull();
+    expect(hitButton()).not.toHaveClass("hit-beckon");
   });
 
   test("the very first target is one the stock straight shot reaches; later ones are random", () => {
