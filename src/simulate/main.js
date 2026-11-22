@@ -94,7 +94,8 @@ const GOLFER_CLEARANCE = 1.35;
 const ADDRESS_DISTANCE = 6;
 
 export function createSimulator(container, callbacks = {}) {
-  const { onState, onProgress, onResult, onOrbit, onReady, fleet } = callbacks;
+  const { onState, onProgress, onResult, onOrbit, onReady, onOverhead, fleet } =
+    callbacks;
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -346,6 +347,7 @@ export function createSimulator(container, callbacks = {}) {
   let state = ADDRESS;
   let shot = null;
   let analysis = null;
+  const apexPoint = new THREE.Vector3();
   // Bounce and roll after touchdown, as timed points in scene units.
   let runPath = [];
   let runIndex = 0;
@@ -401,6 +403,7 @@ export function createSimulator(container, callbacks = {}) {
     // A new shot always starts from the address view, even mid-flight, and
     // lets go of a view the player dragged round so the camera follows the ball.
     resetView();
+    setOverhead(false);
     director.reset(side);
     golfer.setSide(side);
     swingSeconds = 0;
@@ -418,6 +421,16 @@ export function createSimulator(container, callbacks = {}) {
     const touchdown = shot.points[shot.points.length - 1];
     const run = groundRun(touchdown, turfParameters(turf));
     analysis = { ...analyzeShot(shot, side, run), shape, aimDegrees };
+    // Where the ball peaked, for the overhead view's apex tag (aimed, so on
+    // the line the ball really flew).
+    const peak = shot.points.reduce((high, point) =>
+      point.position.y > high.position.y ? point : high,
+    ).position;
+    apexPoint.set(
+      peak.x * YARDS_PER_METER,
+      peak.y * YARDS_PER_METER + restPosition.y,
+      peak.z * YARDS_PER_METER,
+    );
 
     const positions = [];
     for (let i = 0; i < shot.points.length; i += TRACER_STRIDE) {
@@ -610,7 +623,22 @@ export function createSimulator(container, callbacks = {}) {
       landing,
     });
     camera.position.copy(director.position);
-    camera.lookAt(director.target);
+    const settling = overheadBlend > 0 && overheadBlend < 1;
+    overheadBlend = Math.min(
+      1,
+      Math.max(0, overheadBlend + (overheadOn ? dt : -dt) / OVERHEAD_SECONDS),
+    );
+    if (overheadBlend > 0) {
+      // Ease from behind the golfer to straight down, downrange at the top.
+      const e = overheadBlend * overheadBlend * (3 - 2 * overheadBlend);
+      camera.position.lerp(overheadPosition, e);
+      camera.up.set(0, 1 - e, e).normalize();
+      camera.lookAt(director.target.clone().lerp(overheadLook, e));
+      if (settling && overheadBlend === 1) reportOverhead();
+    } else {
+      camera.up.set(0, 1, 0);
+      camera.lookAt(director.target);
+    }
 
     // Keep the ball readable at range, and give it a ground shadow in the air.
     const distance = camera.position.distanceTo(ball.position);
@@ -668,6 +696,101 @@ export function createSimulator(container, callbacks = {}) {
   resizeObserver.observe(container);
   resize();
 
+  // --- overhead view ---
+  // Bird's-eye as a camera mode: straight down over the range, framed on the
+  // tee, the last shot and the target. Once it has settled it reports where
+  // those fall on the screen, so the UI can pin their numbers there.
+  const OVERHEAD_SECONDS = 0.7;
+  let overheadOn = false;
+  let overheadBlend = 0;
+  // Pixels at the top and bottom of the picture that the UI covers, so the
+  // shot is framed in the clear band between.
+  let overheadInsets = { top: 0, bottom: 0 };
+  const overheadPosition = new THREE.Vector3();
+  const overheadLook = new THREE.Vector3();
+  const restSpot = () => runPath?.[runPath.length - 1]?.position ?? landing;
+  function frameOverhead() {
+    // The tee, with room below it for the result bar, and the far end with
+    // room above it for the tags.
+    const points = [new THREE.Vector3(0, 0, -30), new THREE.Vector3(0, 0, 60)];
+    if (landed) points.push(landing.clone(), restSpot().clone());
+    if (target) {
+      const r = target.radius || 0;
+      points.push(
+        new THREE.Vector3(target.x - r, 0, target.z + r),
+        new THREE.Vector3(target.x + r, 0, target.z - r),
+      );
+    }
+    const box = new THREE.Box3().setFromPoints(points);
+    box.max.z += 25;
+    const centre = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const half = Math.tan((camera.fov * Math.PI) / 360);
+    const pixels = container.clientHeight || 1;
+    const { top, bottom } = overheadInsets;
+    const clear = Math.max(0.3, (pixels - top - bottom) / pixels);
+    // Room for the tags round the edges.
+    const height =
+      Math.max(
+        (size.z * 1.15) / 2 / half / clear,
+        (size.x * 1.25 + 40) / 2 / (half * camera.aspect),
+      ) + 5;
+    // Move the camera so the shot sits in the middle of the clear band.
+    const yardsPerPixel = (2 * height * half) / pixels;
+    const z = centre.z + ((top - bottom) / 2) * yardsPerPixel;
+    overheadPosition.set(centre.x, height, z);
+    overheadLook.set(centre.x, 0, z + 0.001);
+  }
+  function screenOf(point) {
+    const v = point.clone().project(camera);
+    return {
+      x: ((v.x + 1) / 2) * container.clientWidth,
+      y: ((1 - v.y) / 2) * container.clientHeight,
+    };
+  }
+  function reportOverhead() {
+    if (!onOverhead) return;
+    if (!overheadOn) return onOverhead(null);
+    // Make sure the matrices are the settled ones before projecting.
+    camera.updateMatrixWorld();
+    const marks = {};
+    if (landed) {
+      marks.landing = screenOf(landing);
+      marks.rest = screenOf(restSpot());
+      marks.apex = screenOf(apexPoint);
+    }
+    if (target) {
+      marks.target = screenOf(
+        new THREE.Vector3(target.x, target.air ? target.y : 0, target.z),
+      );
+    }
+    onOverhead(marks);
+  }
+  function setOverhead(on, insets) {
+    overheadOn = Boolean(on);
+    if (insets) overheadInsets = insets;
+    if (overheadOn) {
+      resetView();
+      frameOverhead();
+      // Already overhead (a new target, say): move and report straight away.
+      if (overheadBlend === 1) {
+        camera.position.copy(overheadPosition);
+        camera.up.set(0, 0, 1);
+        camera.lookAt(overheadLook);
+        reportOverhead();
+      }
+    } else if (onOverhead) {
+      onOverhead(null);
+    }
+  }
+  // A new size reframes it (after the main resize has set the lens).
+  const overheadResize = new ResizeObserver(() =>
+    requestAnimationFrame(() => {
+      if (overheadOn) setOverhead(true, overheadInsets);
+    }),
+  );
+  overheadResize.observe(container);
+
   // --- looking round ---
   // Dragging the picture swings the camera round the golfer, and the wheel
   // moves it in and out; it stays there until reset or the next hit.
@@ -704,6 +827,7 @@ export function createSimulator(container, callbacks = {}) {
     const dx = event.clientX - drag.x;
     const dy = event.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < DRAG_START_PIXELS) return;
+    if (overheadOn) return;
     if (!drag.moved) {
       drag.moved = true;
       canvas.style.cursor = "grabbing";
@@ -720,6 +844,7 @@ export function createSimulator(container, callbacks = {}) {
   }
   function onWheel(event) {
     event.preventDefault();
+    if (overheadOn) return;
     beginOrbit();
     zoomOrbit(orbit, Math.exp(event.deltaY * 0.0015));
   }
@@ -751,6 +876,7 @@ export function createSimulator(container, callbacks = {}) {
   function dispose() {
     cancelAnimationFrame(frameId);
     resizeObserver.disconnect();
+    overheadResize.disconnect();
     canvas.removeEventListener("pointerdown", onPointerDown);
     canvas.removeEventListener("pointermove", onPointerMove);
     canvas.removeEventListener("pointerup", onPointerUp);
@@ -776,6 +902,7 @@ export function createSimulator(container, callbacks = {}) {
     setClub,
     setViewInset,
     resetView,
+    setOverhead,
     // The last shot's line and landing marker, put away once the next shot
     // is being lined up and brought back if it is asked for again.
     showShot(visible) {

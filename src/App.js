@@ -6,7 +6,7 @@ import ButtonRow from "./components/simulator/button-row";
 import ShotReadout from "./components/simulator/shot-readout";
 import SettingsModal from "./components/simulator/settings-modal";
 import GameCard, { GameRow } from "./components/simulator/game-card";
-import FlightMap from "./components/simulator/flight-map";
+import OverheadTags from "./components/simulator/overhead-tags";
 import LeaderboardModal from "./components/simulator/leaderboard-modal";
 import { getLeaderboard } from "./players/api";
 import { loadProfile } from "./players/profile";
@@ -302,9 +302,10 @@ function App() {
   const stage = useRef(null);
   const [live, setLive] = useState(null);
   const [result, setResult] = useState(null);
-  // False once the bird's-eye card has gone back to the current shot: the
-  // last shot's numbers and its line on the range are then put away.
-  const [past, setPast] = useState(true);
+  // Bird's-eye: the camera straight down over the range, and where the
+  // scene says the tagged points fall on screen once it has settled.
+  const [overhead, setOverhead] = useState(false);
+  const [overheadMarks, setOverheadMarks] = useState(null);
   // True once the view has been dragged round, until it is reset.
   const [orbiting, setOrbiting] = useState(false);
   const [target, setTarget] = useState(null);
@@ -321,8 +322,6 @@ function App() {
   const [beckon, setBeckon] = useState(() => !hasDone(FIRST.shot));
   // What to change for the next target, after a miss.
   const [tip, setTip] = useState(null);
-  // Phones: the bird's-eye card is shown only when its button asks for it.
-  const [mapOpen, setMapOpen] = useState(false);
   const [board, setBoard] = useState(null);
   // Set when a shot has been scored, so the next target appears once the
   // camera is back.
@@ -351,6 +350,7 @@ function App() {
           );
         },
         onOrbit: setOrbiting,
+        onOverhead: setOverheadMarks,
         onProgress: setLive,
         onResult: (shotResult) => {
           setResult(shotResult);
@@ -557,9 +557,16 @@ function App() {
     simulator.current.setTarget(target);
   }, [target]);
 
+  // Overhead, framed again whenever there is a new target or shot to show,
+  // in the band the HUD leaves clear: the result bar along the bottom, and on
+  // phones the corner buttons at the top and the game row under the result.
   useEffect(() => {
-    simulator.current.showShot?.(past);
-  }, [past]);
+    const bottom = (result ? 96 : 16) + (phoneRow ? (tip ? 96 : 60) : 0);
+    simulator.current.setOverhead?.(overhead, {
+      top: isDesktop ? 16 : 64,
+      bottom,
+    });
+  }, [overhead, target, result, isDesktop, phoneRow, tip]);
 
   useEffect(() => {
     window.addEventListener("pagehide", reportAbandoned);
@@ -681,6 +688,8 @@ function App() {
   };
 
   const handleHit = () => {
+    // A shot is watched from behind the golfer.
+    setOverhead(false);
     if (beckon) {
       markDone(FIRST.shot);
       setBeckon(false);
@@ -796,6 +805,7 @@ function App() {
           covers the golfer or the ball. */}
       <div className="relative h-[50dvh] md:h-[calc(100dvh-var(--strip,0px))]">
         <div id="display-container" ref={stage} className="absolute inset-0" />
+        <OverheadTags marks={overheadMarks} result={result} target={target} />
 
         <div className="pointer-events-none absolute inset-0 flex items-start justify-between gap-3 p-3 md:p-4">
           {/* Above the shot readout: on a phone the finished card, with its
@@ -816,16 +826,6 @@ function App() {
                 tip={tip}
               />
             )}
-            {/* On phones it is kept (it follows the shots either way) but
-                shown only while its button in the corner asks for it. */}
-            <div hidden={!isDesktop && !mapOpen}>
-              <FlightMap
-                result={result}
-                target={target}
-                startOpen
-                onPast={setPast}
-              />
-            </div>
           </div>
         </div>
         {/* Along the bottom: the result bar with Hit to its right, the pair
@@ -838,7 +838,7 @@ function App() {
           }`}
         >
           <div className="pointer-events-auto relative flex max-w-full items-stretch gap-2">
-            <ShotReadout live={live} result={past ? result : null} />
+            <ShotReadout live={live} result={result} />
           </div>
         </div>
         {/* Back to the usual view once it has been dragged: bottom right on
@@ -868,9 +868,9 @@ function App() {
             />
           </div>
         )}
-        {/* Settings and the leaderboard, bottom left; on phones top left,
-            with the bird's-eye button, leaving the foot of the picture to the
-            game row. */}
+        {/* Settings, the leaderboard and the bird's-eye button: bottom left on
+            laptops, top left on phones (the foot of the picture is the game
+            row there). */}
         <div className="absolute left-3 top-3 z-20 flex gap-2 md:bottom-4 md:left-4 md:top-auto">
           <SettingsModal
             side={side}
@@ -890,19 +890,26 @@ function App() {
             startMode={mode === "advanced" ? "advanced" : "normal"}
             onPlayer={savePlayer}
           />
-          {!isDesktop && (
-            <button
-              type="button"
-              aria-label="Bird's-eye view"
-              aria-pressed={mapOpen}
-              className={`hud-panel flex h-10 w-10 items-center justify-center !rounded-full transition-colors ${
-                mapOpen ? "!bg-lime-400 text-slate-900" : "text-white/90"
-              }`}
-              onClick={() => setMapOpen(!mapOpen)}
-            >
-              <MapIcon size={16} aria-hidden="true" />
-            </button>
-          )}
+          {/* Bird's-eye: the camera straight down, and back. */}
+          <button
+            type="button"
+            aria-label="Bird's-eye view"
+            aria-pressed={overhead}
+            title={overhead ? "Back behind the golfer" : "Bird's-eye view"}
+            className={`hud-panel flex h-10 w-10 items-center justify-center !rounded-full transition-colors ${
+              overhead ? "!bg-lime-400 text-slate-900" : "text-white/90"
+            }`}
+            onClick={() => {
+              track("setting_changed", {
+                setting: "birds_eye",
+                from: overhead ? "on" : "off",
+                to: overhead ? "off" : "on",
+              });
+              setOverhead(!overhead);
+            }}
+          >
+            <MapIcon size={16} aria-hidden="true" />
+          </button>
         </div>
       </div>
 

@@ -329,20 +329,19 @@ React UI (App.js, components/)          src/simulate/ (no React)
 
 ### Bird's-eye view
 
-A card under the game card shows the range from straight above
-(`components/simulator/flight-map.jsx`), with its 50 yd lines. In a game it
-has two views, switched by a pair of buttons: **Current shot** is the target
-that is up, before it is hit at, with its distance, line and (in advanced) its
-altitude; **Previous shot** is the last shot's flight (solid), run (dotted),
-where it landed and stopped, the target it was hit at, and its carry, run,
-offline and apex. It turns to the previous shot when one stops and back to
-the current one 5 seconds later; either can be asked for again. While it is on
-the current shot, the last shot's line on the range and its numbers along
-the bottom are put away too (`showShot` on the simulator), and they come back
-with the previous shot. In practice there is only the
-last shot, shown once it has stopped. The heading folds the card away; it
-starts folded on phones. A shot's points come with its result as `track`
-(`simulate/shot-track.js`, pure and tested).
+A camera mode, not a card: the map button (beside Settings and the
+leaderboard; bottom left on laptops, top left on phones, lime while on) swings
+the 3D camera straight down over the range, downrange at the top, and again
+flies back behind the golfer; pressing Hit always flies back first. The scene
+(`setOverhead(on, insets)` in `main.js`) frames the tee, the last shot and the
+target inside the band the HUD leaves clear (the `insets` App passes: the
+result bar, and on phones the corner buttons and the game row), and once the
+camera has settled reports where the landing spot, the stop, the apex and the
+target fall on screen (`onOverhead`). `components/simulator/overhead-tags.jsx`
+pins the numbers there: carry and line at the landing spot, the run at the
+stop, the apex beside the line, the target on its ring. Dragging the view is
+off while overhead. (Before 2026-11-22 this was a 2D card with Previous /
+Current shot views; it was removed.)
 
 ### Load time
 

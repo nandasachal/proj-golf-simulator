@@ -83,6 +83,7 @@ beforeEach(() => {
     showShot: jest.fn(),
     setClub: jest.fn(),
     setViewInset: jest.fn(),
+    setOverhead: jest.fn(),
     dispose: jest.fn(),
   };
   viewport(true);
@@ -1809,81 +1810,99 @@ describe("club selection", () => {
 });
 
 describe("bird's-eye view", () => {
-  // Phones start with it folded away.
-  beforeEach(() => viewport(false));
   const landed = {
     shape: "Fade",
-    carryYards: 200,
+    carryYards: 200.4,
+    carryOfflineYards: 11.6,
     runYards: 20,
     totalYards: 220,
     offlineYards: 12,
     apexYards: 25,
-    track: {
-      air: [
-        [0, 0],
-        [4, 100],
-        [10, 200],
-      ],
-      run: [
-        [10, 200],
-        [12, 220],
-      ],
-      target: null,
-    },
   };
-  const map = () => screen.queryByRole("region", { name: "Bird's-eye view" });
-  // On phones it shows only when the button in the corner asks for it.
-  const openMap = () =>
-    fireEvent.click(screen.getByRole("button", { name: "Bird's-eye view" }));
+  const toggle = () => screen.getByRole("button", { name: "Bird's-eye view" });
+  const tag = (id) => document.querySelector(`[data-tag="${id}"]`);
+  const marks = {
+    landing: { x: 200, y: 120 },
+    rest: { x: 205, y: 100 },
+    apex: { x: 190, y: 200 },
+    target: { x: 180, y: 160 },
+  };
 
-  test("is not there until a shot has finished", () => {
-    renderApp("/?mode=practice");
-    openMap();
-    expect(map()).not.toBeInTheDocument();
-    act(() => callbacks.onResult(landed));
-    expect(map()).toBeInTheDocument();
-    expect(map()).toHaveTextContent("220 yd");
+  test("is a camera mode, the same button on laptop and phone", () => {
+    for (const desktop of [true, false]) {
+      viewport(desktop);
+      const { unmount } = renderApp("/?mode=practice");
+      expect(toggle()).toHaveAttribute("aria-pressed", "false");
+      fireEvent.click(toggle());
+      expect(toggle()).toHaveAttribute("aria-pressed", "true");
+      expect(simulator.setOverhead).toHaveBeenLastCalledWith(
+        true,
+        expect.objectContaining({ top: expect.any(Number) }),
+      );
+      fireEvent.click(toggle());
+      expect(simulator.setOverhead).toHaveBeenLastCalledWith(
+        false,
+        expect.any(Object),
+      );
+      unmount();
+    }
+    // there is no bird's-eye card any more
+    expect(
+      screen.queryByRole("region", { name: "Bird's-eye view" }),
+    ).toBeNull();
   });
 
-  test("is hidden on a phone until its corner button is pressed, and again after", () => {
-    renderApp("/?mode=practice");
+  test("pins the shot's numbers where the scene says they fell, and the target's on its ring", () => {
+    renderApp("/");
     act(() => callbacks.onResult(landed));
-    expect(map()).not.toBeInTheDocument();
-    openMap();
-    expect(map()).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Bird's-eye view" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    openMap();
-    expect(map()).not.toBeInTheDocument();
+    fireEvent.click(toggle());
+    expect(tag("carry")).toBeNull();
+    act(() => callbacks.onOverhead(marks));
+    expect(tag("carry")).toHaveTextContent("200 yd carry · 12 R");
+    expect(tag("carry")).toHaveStyle({ left: "200px", top: "120px" });
+    expect(tag("run")).toHaveTextContent("+20 run → 220 yd");
+    expect(tag("apex")).toHaveTextContent("apex 25 yd");
+    const aimedAt = simulator.setTarget.mock.calls.at(-1)[0];
+    expect(tag("target")).toHaveTextContent(
+      `Target ${aimedAt.distanceYards} yd`,
+    );
+    // the scene says when it is no longer overhead
+    act(() => callbacks.onOverhead(null));
+    expect(tag("carry")).toBeNull();
   });
 
-  test("folds open and shut, and draws the flight and the run", () => {
+  test("Hit goes back behind the golfer", () => {
     renderApp("/?mode=practice");
-    act(() => callbacks.onResult(landed));
-    openMap();
-    const toggle = within(map()).getByRole("button");
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(
-      within(map()).getByRole("img", {
-        name: "Fade: 220 yards, 12 yards right",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      map().querySelector('[data-map="flight"]').getAttribute("points"),
-    ).toBe("0,0 4,-100 10,-200");
-    expect(map().querySelector('[data-map="run"]')).not.toBeNull();
-
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(map().querySelector("svg[role=img]")).toBeNull();
+    fireEvent.click(toggle());
+    expect(toggle()).toHaveAttribute("aria-pressed", "true");
+    hit();
+    expect(toggle()).toHaveAttribute("aria-pressed", "false");
+    expect(simulator.setOverhead).toHaveBeenLastCalledWith(
+      false,
+      expect.any(Object),
+    );
   });
 
-  test("goes away when the next shot is hit", () => {
+  test("is framed again when there is a new shot to show", () => {
     renderApp("/?mode=practice");
+    fireEvent.click(toggle());
+    const calls = simulator.setOverhead.mock.calls.length;
     act(() => callbacks.onResult(landed));
-    fireEvent.click(screen.getByRole("button", { name: /^hit$/i }));
-    expect(map()).not.toBeInTheDocument();
+    expect(simulator.setOverhead.mock.calls.length).toBeGreaterThan(calls);
+    expect(simulator.setOverhead).toHaveBeenLastCalledWith(
+      true,
+      expect.objectContaining({ top: expect.any(Number) }),
+    );
+  });
+
+  test("turning it on or off sends setting_changed", () => {
+    renderApp("/?mode=practice");
+    fireEvent.click(toggle());
+    expect(track).toHaveBeenCalledWith("setting_changed", {
+      setting: "birds_eye",
+      from: "off",
+      to: "on",
+    });
   });
 });
 
@@ -1930,132 +1949,6 @@ describe("what each mode is", () => {
       "aria-pressed",
       "true",
     );
-  });
-});
-
-describe("bird's-eye view in a game", () => {
-  beforeEach(() => viewport(false));
-  const map = () => screen.getByRole("region", { name: "Bird's-eye view" });
-  const tab = (name) => within(map()).getByRole("button", { name });
-  const landed = {
-    shape: "Fade",
-    carryYards: 200,
-    runYards: 20,
-    totalYards: 220,
-    offlineYards: 12,
-    apexYards: 25,
-    target: { hit: false, longYards: -9, rightYards: 4 },
-    track: {
-      air: [
-        [0, 0],
-        [10, 200],
-      ],
-      run: [
-        [10, 200],
-        [12, 220],
-      ],
-      target: { right: 5, downrange: 230, radius: 15, air: false },
-    },
-  };
-  // On phones the map shows only when its corner button asks for it.
-  const unfold = () =>
-    fireEvent.click(screen.getByRole("button", { name: "Bird's-eye view" }));
-
-  test("shows the target that is up before it is hit at", () => {
-    renderApp("/");
-    unfold();
-    expect(tab("Current shot")).toHaveAttribute("aria-pressed", "true");
-    expect(tab("Previous shot")).toBeDisabled();
-    expect(
-      within(map()).getByRole("img", { name: /^Target: \d+ yards/ }),
-    ).toBeInTheDocument();
-    expect(map().querySelector('[data-map="target"]')).not.toBeNull();
-    expect(map().querySelector('[data-map="flight"]')).toBeNull();
-    expect(within(map()).queryByText("Altitude")).not.toBeInTheDocument();
-  });
-
-  test("turns to the previous shot when one lands, and back on request", () => {
-    renderApp("/");
-    unfold();
-    act(() => callbacks.onResult(landed));
-    expect(tab("Previous shot")).toHaveAttribute("aria-pressed", "true");
-    expect(map().querySelector('[data-map="flight"]')).not.toBeNull();
-    const stats = within(map().querySelector('[data-map="stats"]'));
-    expect(stats.getByText("200 yd")).toBeInTheDocument();
-    expect(stats.getByText("12 yd right")).toBeInTheDocument();
-    expect(stats.getByText("75 ft")).toBeInTheDocument();
-
-    fireEvent.click(tab("Current shot"));
-    expect(tab("Current shot")).toHaveAttribute("aria-pressed", "true");
-    expect(map().querySelector('[data-map="flight"]')).toBeNull();
-  });
-
-  test("goes back to the current shot by itself 5 seconds after one lands", () => {
-    jest.useFakeTimers();
-    try {
-      renderApp("/");
-      unfold();
-      act(() => callbacks.onResult(landed));
-      act(() => jest.advanceTimersByTime(4900));
-      expect(tab("Previous shot")).toHaveAttribute("aria-pressed", "true");
-      act(() => jest.advanceTimersByTime(200));
-      expect(tab("Current shot")).toHaveAttribute("aria-pressed", "true");
-      expect(map().querySelector('[data-map="flight"]')).toBeNull();
-
-      // and the shot can be asked for again
-      fireEvent.click(tab("Previous shot"));
-      expect(map().querySelector('[data-map="flight"]')).not.toBeNull();
-      act(() => jest.advanceTimersByTime(10000));
-      expect(tab("Previous shot")).toHaveAttribute("aria-pressed", "true");
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  test("the shot's numbers along the bottom and its line on the range go with it", () => {
-    jest.useFakeTimers();
-    try {
-      renderApp("/");
-      unfold();
-      const bar = () => screen.queryByRole("status", { name: "Shot result" });
-      act(() => callbacks.onResult(landed));
-      expect(bar()).toHaveTextContent("220");
-      expect(simulator.showShot).toHaveBeenLastCalledWith(true);
-
-      act(() => jest.advanceTimersByTime(5100));
-      expect(bar()).not.toBeInTheDocument();
-      expect(simulator.showShot).toHaveBeenLastCalledWith(false);
-
-      // asked for again, they come back
-      fireEvent.click(tab("Previous shot"));
-      expect(bar()).toHaveTextContent("220");
-      expect(simulator.showShot).toHaveBeenLastCalledWith(true);
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  test("a view asked for during the 5 seconds stays", () => {
-    jest.useFakeTimers();
-    try {
-      renderApp("/");
-      unfold();
-      act(() => callbacks.onResult(landed));
-      act(() => jest.advanceTimersByTime(2000));
-      fireEvent.click(tab("Previous shot"));
-      act(() => jest.advanceTimersByTime(10000));
-      expect(tab("Previous shot")).toHaveAttribute("aria-pressed", "true");
-      expect(map().querySelector('[data-map="flight"]')).not.toBeNull();
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  test("gives an air target's altitude in advanced mode", () => {
-    renderApp("/?mode=advanced");
-    unfold();
-    const stats = map().querySelector('[data-map="stats"]');
-    expect(stats).toHaveTextContent(/Altitude\d+ yd · \d+ ft/);
   });
 });
 
@@ -2818,35 +2711,6 @@ describe("analytics events", () => {
       within(modeGroup()).getByRole("button", { name: "Practice" }),
     );
     expect(sent("game_abandoned")).toHaveLength(0);
-  });
-
-  test("turning the bird's-eye card to the current shot sends setting_changed", () => {
-    renderApp();
-    act(() =>
-      callbacks.onResult({
-        shape: "Fade",
-        carryYards: 200,
-        runYards: 20,
-        totalYards: 220,
-        offlineYards: 12,
-        apexYards: 25,
-        track: {
-          air: [
-            [0, 0],
-            [10, 200],
-          ],
-          run: [],
-          target: null,
-        },
-      }),
-    );
-    expect(sent("setting_changed")).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: "Current shot" }));
-    expect(track).toHaveBeenCalledWith("setting_changed", {
-      setting: "view",
-      from: "previous",
-      to: "current",
-    });
   });
 
   test("changing the leaderboard's mode or period sends leaderboard_filter_changed", async () => {
