@@ -295,8 +295,8 @@ function App() {
     ],
   );
 
-  // Set when the club (and so the target) changes, until the next hit: a
-  // ball already in the air was not aimed at the new target.
+  // Set when a new game starts, until the next hit: a ball already in the
+  // air was not aimed at the new game's first target.
   const staleShot = useRef(false);
   const simulator = useRef(null);
   const stage = useRef(null);
@@ -355,8 +355,8 @@ function App() {
         onResult: (shotResult) => {
           setResult(shotResult);
           setLive(null);
-          // A shot only counts against the target it was hit at: changing club
-          // mid-flight puts up a new one.
+          // A shot only counts against the target it was hit at: starting a
+          // new game mid-flight puts up a new one.
           const { target: aimedAt, goal } = game.current;
           track(
             "shot_landed",
@@ -469,12 +469,6 @@ function App() {
     simulator.current.setSide(side);
   }, [side]);
 
-  // On laptops the shot panel lies over the left of the picture: tell the
-  // scene how much, so it can keep the golfer clear of it.
-  useEffect(() => {
-    simulator.current.setViewInset(isDesktop ? PANEL_RIGHT_PIXELS : 0);
-  }, [isDesktop]);
-
   useEffect(() => {
     simulator.current.setAim(aim);
   }, [aim]);
@@ -484,12 +478,23 @@ function App() {
   }, [club]);
 
   // Entering game mode puts up a first target; leaving it clears the range.
-  // A change of club starts again too, with targets that club can reach.
+  // Changing club keeps the game and the target in front of you (picking the
+  // club for the target is the point); each new target is one the club in
+  // hand can reach.
   const reach = useMemo(() => targetReach(club.id), [club]);
   const goal = GOALS[mode] || null;
   const gameOver = Boolean(goal) && round.length >= goal.targets;
   // Phones show a game in progress as a row, not the card.
   const phoneRow = !isDesktop && Boolean(goal) && !gameOver;
+  // On laptops the shot panel lies over the left of the picture; on phones
+  // the result card and the game row lie along the bottom. Tell the scene,
+  // so it can keep the golfer and ball clear of them.
+  useEffect(() => {
+    simulator.current.setViewInset(
+      isDesktop ? PANEL_RIGHT_PIXELS : 0,
+      isDesktop ? 0 : 96 + (phoneRow ? 60 : 0),
+    );
+  }, [isDesktop, phoneRow]);
   // Normal targets are on the ground, advanced ones in the air.
   const nextTarget = useMemo(
     () =>
@@ -551,7 +556,7 @@ function App() {
     setSession(NO_SESSION);
     startGame();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nextTarget]);
+  }, [mode]);
 
   useEffect(() => {
     simulator.current.setTarget(target);
@@ -624,7 +629,6 @@ function App() {
   // starts from its own.
   const handleClub = (id) => {
     if (id !== club.id) {
-      staleShot.current = true;
       track("setting_changed", { setting: "club", from: club.id, to: id });
     }
     setDraft(

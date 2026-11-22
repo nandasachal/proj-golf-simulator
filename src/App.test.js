@@ -1761,11 +1761,17 @@ describe("club selection", () => {
     expect(target.z).toBeGreaterThan(55);
   });
 
-  test("a ball in the air when the club changes is not scored against the new target", () => {
+  test("changing club keeps the target and the game", () => {
     renderPanel("/?mode=game");
+    const before = simulator.setTarget.mock.calls.at(-1)[0];
+    expect(before).toBeTruthy();
     hit();
     const settings = openSettings();
     pick(settings, "Lob wedge");
+    expect(simulator.setTarget.mock.calls.at(-1)[0]).toBe(before);
+
+    // a ball in the air when the club changes was hit at that same target,
+    // so it still counts
     act(() =>
       callbacks.onResult({
         shape: "Straight",
@@ -1774,26 +1780,10 @@ describe("club selection", () => {
         totalYards: 220,
         offlineYards: 0,
         apexYards: 25,
-        target: { hit: false, longYards: 120, rightYards: 0 },
-      }),
-    );
-    const game = screen.getByRole("status", { name: "Game", hidden: true });
-    expect(game).toHaveTextContent("0 hit / 3 to win");
-    expect(game).not.toHaveTextContent("Missed");
-
-    // the next shot, hit at the new target, counts
-    hitBehindDialog();
-    act(() =>
-      callbacks.onResult({
-        shape: "Straight",
-        carryYards: 80,
-        runYards: 1,
-        totalYards: 81,
-        offlineYards: 0,
-        apexYards: 20,
         target: { hit: true, longYards: 1, rightYards: 0 },
       }),
     );
+    const game = screen.getByRole("status", { name: "Game", hidden: true });
     expect(game).toHaveTextContent("1 hit / 3 to win");
   });
 

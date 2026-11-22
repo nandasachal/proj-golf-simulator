@@ -659,6 +659,11 @@ export function createSimulator(container, callbacks = {}) {
 
   // --- render loop ---
   let viewInset = 0;
+  // Pixels along the bottom that the UI covers (phones: the result card and
+  // the game row), and how far the picture is lifted to keep the golfer and
+  // ball clear of them. It is a lens shift too, so the sky gives way.
+  let bottomInset = 0;
+  let lift = 0;
   function resize() {
     const width = container.clientWidth;
     const height = container.clientHeight;
@@ -680,16 +685,18 @@ export function createSimulator(container, callbacks = {}) {
             width * 0.3,
             Math.max(0, viewInset + golferPixels + 8 - width / 2),
           );
-    if (shift) {
-      camera.setViewOffset(width, height, -shift, 0, width, height);
+    lift = Math.min(height * 0.2, bottomInset * 0.55);
+    if (shift || lift) {
+      camera.setViewOffset(width, height, -shift, lift, width, height);
     } else {
       camera.clearViewOffset();
     }
     camera.updateProjectionMatrix();
     tracerMaterial.resolution.set(width, height);
   }
-  function setViewInset(leftPixels) {
+  function setViewInset(leftPixels, bottomPixels = 0) {
     viewInset = leftPixels;
+    bottomInset = bottomPixels;
     resize();
   }
   const resizeObserver = new ResizeObserver(resize);
@@ -737,7 +744,8 @@ export function createSimulator(container, callbacks = {}) {
       ) + 5;
     // Move the camera so the shot sits in the middle of the clear band.
     const yardsPerPixel = (2 * height * half) / pixels;
-    const z = centre.z + ((top - bottom) / 2) * yardsPerPixel;
+    // The lens lift raises the look point `lift` pixels above the middle.
+    const z = centre.z + ((top - bottom) / 2 + lift) * yardsPerPixel;
     overheadPosition.set(centre.x, height, z);
     overheadLook.set(centre.x, 0, z + 0.001);
   }
