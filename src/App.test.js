@@ -660,10 +660,31 @@ describe("keyboard", () => {
       screen.getByRole("button", { name: "Swing speed back to stock" }),
     );
     expect(valueOf("Swing speed")).toBe(95);
+  });
+
+  test("a normal game's three boxes have rulers; with all seven the boxes are compact and the 3D handles do the dragging", () => {
+    renderPanel("/?mode=normal");
     fireEvent.change(screen.getByRole("slider", { name: "Club path ruler" }), {
       target: { value: "-3" },
     });
-    expect(textOf("Club path")).toBe("3° out-to-in");
+    expect(boxText("Club path")).toBe("3° out-to-in");
+    expect(screen.getAllByRole("slider", { name: / ruler$/ })).toHaveLength(3);
+    expect(screen.getByText("Distances in Settings")).toBeInTheDocument();
+  });
+
+  test("with all seven controls the boxes are compact: no rulers, word beside the number", () => {
+    renderPanel();
+    expect(screen.queryAllByRole("slider", { name: / ruler$/ })).toHaveLength(
+      0,
+    );
+    expect(screen.queryByText("Distances in Settings")).toBeNull();
+    // still stepped, typed and reset in place
+    fireEvent.click(
+      screen.getByRole("button", { name: "Club path: 1° out-to-in" }),
+    );
+    expect(valueOf("Club path")).toBe(-1);
+    typeValue("Swing speed", "101");
+    expect(boxText("Swing speed")).toBe("101 mph");
   });
 
   test("clicking a box, or grabbing its handle, puts the keyboard on it", () => {

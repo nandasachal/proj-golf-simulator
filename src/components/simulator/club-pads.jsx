@@ -351,12 +351,15 @@ const Ruler = ({ control, range, value, text, onChange, onSelect, tall }) => {
   );
 };
 
-const StepButton = ({ label, disabled, onClick, children }) => (
+const StepButton = ({ label, disabled, onClick, compact, children }) => (
   <button
     type="button"
     aria-label={label}
     disabled={disabled}
-    className="flex h-10 w-7 shrink-0 items-center justify-center rounded-md bg-white/[0.07] text-white/75 transition-colors hover:bg-white/15 hover:text-white disabled:pointer-events-none disabled:opacity-30"
+    className={classNames(
+      compact ? "h-8 w-5" : "h-10 w-7",
+      "flex shrink-0 items-center justify-center rounded-md bg-white/[0.07] text-white/75 transition-colors hover:bg-white/15 hover:text-white disabled:pointer-events-none disabled:opacity-30",
+    )}
     onClick={onClick}
   >
     {children}
@@ -365,7 +368,9 @@ const StepButton = ({ label, disabled, onClick, children }) => (
 
 // One control on a laptop, every row the same height in every box so they
 // line up: name with its (i) and a reset; ‹ number ›; the ruler; the word.
-// The box the keyboard is on is outlined.
+// `compact`, when all seven show, is the name row and one row of ‹ number
+// word ›, so the 3D views (whose handles do the dragging) still fit on the
+// screen. The box the keyboard is on is outlined.
 const ControlCell = ({
   control,
   range,
@@ -380,6 +385,7 @@ const ControlCell = ({
   about,
   onAbout,
   start,
+  compact,
 }) => {
   const { name, colour, words } = describe[control];
   const neutral = neutralOf(control, range);
@@ -388,7 +394,8 @@ const ControlCell = ({
   return (
     <div
       className={classNames(
-        "flex min-w-0 flex-col gap-2 rounded-lg p-3 ring-inset transition-colors",
+        "flex min-w-0 flex-col rounded-lg ring-inset transition-colors",
+        compact ? "gap-1 p-2" : "gap-2 p-3",
         active ? "bg-white/[0.14]" : "bg-white/[0.06]",
         selected && "ring-2 ring-lime-400",
       )}
@@ -430,15 +437,26 @@ const ControlCell = ({
           <ArrowCounterclockwise size={11} aria-hidden="true" />
         </button>
       </div>
-      <div className="flex h-10 items-center gap-1">
+      <div
+        className={classNames(
+          "flex items-center",
+          compact ? "h-8 gap-0.5" : "h-10 gap-1",
+        )}
+      >
         <StepButton
+          compact={compact}
           label={`${name}: ${stepText(control, range)} ${words[0]}`}
           disabled={value <= range.MIN}
           onClick={() => step(-1)}
         >
           <ChevronLeft size={12} aria-hidden="true" />
         </StepButton>
-        <div className="min-w-0 flex-1">
+        <div
+          className={classNames(
+            "flex min-w-0 flex-1 items-center",
+            compact && "justify-center",
+          )}
+        >
           <NumberField
             control={control}
             range={range}
@@ -447,12 +465,39 @@ const ControlCell = ({
             number={number}
             onChange={onChange}
             start={start}
-            className="h-10 w-full whitespace-nowrap rounded-md text-center text-xl font-semibold tabular-nums tracking-tight transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
-            inputClassName="block h-10 w-full rounded-md bg-white text-center text-xl font-semibold tabular-nums text-slate-900 outline-none"
-            unitClassName="text-[11px] font-medium text-white/55"
+            className={classNames(
+              "whitespace-nowrap rounded-md font-semibold tabular-nums tracking-tight transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
+              compact
+                ? "h-8 shrink-0 px-1 text-sm"
+                : "h-10 w-full text-center text-xl",
+            )}
+            inputClassName={classNames(
+              "block rounded-md bg-white text-center font-semibold tabular-nums text-slate-900 outline-none",
+              compact ? "h-8 w-full text-sm" : "h-10 w-full text-xl",
+            )}
+            unitClassName={classNames(
+              "font-medium text-white/55",
+              // No room for "mph" beside "faster" in a compact box; it is
+              // still read out.
+              compact && control === "swingSpeed"
+                ? "sr-only"
+                : compact
+                  ? "text-[10px]"
+                  : "text-[11px]",
+            )}
           />
+          {compact && (
+            <WordSelect
+              control={control}
+              range={range}
+              value={value}
+              onChange={onChange}
+              className="text-[11px]"
+            />
+          )}
         </div>
         <StepButton
+          compact={compact}
           label={`${name}: ${stepText(control, range)} ${words[2]}`}
           disabled={value >= range.MAX}
           onClick={() => step(1)}
@@ -460,39 +505,57 @@ const ControlCell = ({
           <ChevronRight size={12} aria-hidden="true" />
         </StepButton>
       </div>
-      <Ruler
-        control={control}
-        range={range}
-        value={value}
-        text={text}
-        onChange={onChange}
-        onSelect={onSelect}
-      />
-      <div className="flex h-5 justify-center text-xs">
-        <WordSelect
-          control={control}
-          range={range}
-          value={value}
-          onChange={onChange}
-        />
-      </div>
+      {!compact && (
+        <>
+          <Ruler
+            control={control}
+            range={range}
+            value={value}
+            text={text}
+            onChange={onChange}
+            onSelect={onSelect}
+          />
+          <div className="flex h-5 justify-center text-xs">
+            <WordSelect
+              control={control}
+              range={range}
+              value={value}
+              onChange={onChange}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 };
 
 // The club, in the same rows as a control box beside it.
-const ClubCell = ({ club, stock, onClub }) => (
-  <div className="flex min-w-0 flex-col gap-2 rounded-lg bg-white/[0.06] p-3">
-    <div className="flex h-5 items-center text-[11px] font-medium text-white/65">
+const ClubCell = ({ club, stock, onClub, compact }) => (
+  <div
+    className={classNames(
+      "flex min-w-0 flex-col rounded-lg bg-white/[0.06]",
+      compact ? "gap-1 p-2" : "gap-2 p-3",
+    )}
+  >
+    <div className="flex h-5 items-center justify-between text-[11px] font-medium text-white/65">
       Club
+      {compact && (
+        <span className="font-normal tabular-nums text-white/50">
+          stock {stock} mph
+        </span>
+      )}
     </div>
-    <ClubMenu club={club} onClub={onClub} />
-    <div className="flex h-6 items-center text-[11px] tabular-nums text-white/60">
-      stock {stock} mph
-    </div>
-    <div className="flex h-5 items-center text-[11px] text-white/40">
-      Distances in Settings
-    </div>
+    <ClubMenu club={club} onClub={onClub} compact={compact} />
+    {!compact && (
+      <>
+        <div className="flex h-6 items-center text-[11px] tabular-nums text-white/60">
+          stock {stock} mph
+        </div>
+        <div className="flex h-5 items-center text-[11px] text-white/40">
+          Distances in Settings
+        </div>
+      </>
+    )}
   </div>
 );
 
@@ -935,10 +998,15 @@ const FlightIcon = ({ sketch }) => (
 
 // The club in hand, as a button that opens the bag. Distances are set in
 // Settings.
-const ClubMenu = ({ club, onClub }) => (
+const ClubMenu = ({ club, onClub, compact }) => (
   <Listbox value={club.id} onChange={onClub}>
     <div className="relative min-w-0">
-      <Listbox.Button className="flex h-10 w-full items-center gap-1.5 rounded-md bg-white/[0.07] px-2.5 text-left transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400">
+      <Listbox.Button
+        className={classNames(
+          compact ? "h-8" : "h-10",
+          "flex w-full items-center gap-1.5 rounded-md bg-white/[0.07] px-2.5 text-left transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
+        )}
+      >
         <span
           className="min-w-0 flex-1 truncate text-sm font-semibold"
           data-club
@@ -1272,12 +1340,15 @@ const ClubPads = ({
     onSelect,
     about: about === control,
     start: typed?.control === control ? typed : null,
+    compact,
     onAbout: (opened) => {
       if (opened) track("info_opened", { topic: opened });
       setAbout(opened);
     },
   });
 
+  // All seven and the 3D views do not fit a laptop screen at full size.
+  const compact = controls.length > 3;
   const boxes = [
     "clubFaceAngle",
     "clubPathAngle",
@@ -1340,6 +1411,7 @@ const ClubPads = ({
                   club={club}
                   stock={ranges.swingSpeed.DEFAULT}
                   onClub={onClub}
+                  compact={compact}
                 />
               </>
             )}
@@ -1403,7 +1475,11 @@ const ClubPads = ({
             caption={`Above ×${GAIN.face}`}
             options={topOptions}
             setup={topSetup}
-            className="h-[clamp(150px,22dvh,230px)]"
+            className={
+              compact
+                ? "h-[clamp(150px,20dvh,230px)]"
+                : "h-[clamp(150px,22dvh,230px)]"
+            }
             onScene={onTopScene}
           >
             {inOrder(
@@ -1417,7 +1493,11 @@ const ClubPads = ({
               caption={`Toe ×${GAIN.attack}`}
               options={sideOptions}
               setup={sideSetup}
-              className="h-[clamp(96px,13dvh,140px)]"
+              className={
+                compact
+                  ? "h-[clamp(96px,12dvh,140px)]"
+                  : "h-[clamp(96px,13dvh,140px)]"
+              }
               note={`launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
                 launch.backspinRPM,
               )} rpm`}

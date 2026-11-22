@@ -84,8 +84,8 @@
 - [done] Shot-control redesign (2026-11-21) — designed in Claude Design
   (Desktop B v2, Mobile B v2): laptop boxes with ‹ number ›, a ruler and a
   key bar, type a digit to edit; phones show one control at a time with the
-  bag as chips in the drawer. Open: Practice/Advanced now scrolls the laptop
-  panel to reach the 3D views at 900 px tall.
+  bag as chips in the drawer. With all seven controls (Practice/Advanced)
+  the laptop boxes are compact so the 3D views fit a 900 px screen.
 - [done] 3D control views (2026-11-16) — the two flat control diagrams are now
   live 3D views of the driver with the drag handles on top.
 - Free-look close-up: the orbiting, enlargeable 3D view was removed when the

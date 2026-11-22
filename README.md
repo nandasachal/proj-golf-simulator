@@ -159,6 +159,9 @@ React UI (App.js, components/)          src/simulate/ (no React)
     rows, so they line up across the grid: the name with its (i) and a reset
     to neutral; ‹ number ›; a ruler (a real range input laid invisibly over a
     drawn scale, neutral marked, the distance from it filled in); the word.
+    When all seven show (Practice, Advanced) the boxes are compact, the name
+    row over one row of ‹ number word ›, with no ruler (the 3D handles do the
+    dragging), so the panel and both views fit a 900 px screen.
     Under them is the club in hand at impact in two live
     3D views, built from the same scene as the old close-up (`club-scene.js`,
     below): from above (aim, face, path, strike) and from the toe (attack
