@@ -1,4 +1,4 @@
-import { loadProfile, saveProfile } from "./profile";
+import { clearProfile, loadProfile, saveProfile } from "./profile";
 
 beforeEach(() => window.localStorage.clear());
 afterEach(() => jest.restoreAllMocks());
@@ -7,9 +7,20 @@ test("there is no player until one is saved", () => {
   expect(loadProfile()).toBeNull();
 });
 
-test("a saved player comes back with id, name and key, and nothing else", () => {
-  saveProfile({ id: "p1", name: "Sachal", key: "secret", recoveryCode: "X" });
-  expect(loadProfile()).toEqual({ id: "p1", name: "Sachal", key: "secret" });
+test("a saved player comes back with id, name, key and account, and nothing else", () => {
+  saveProfile({ id: "p1", name: "Sachal", key: "secret", internal: true });
+  expect(loadProfile()).toEqual({
+    id: "p1",
+    name: "Sachal",
+    key: "secret",
+    account: false,
+  });
+});
+
+test("logging out forgets the player", () => {
+  saveProfile({ id: "p1", name: "Sachal", key: "secret", account: true });
+  clearProfile();
+  expect(loadProfile()).toBeNull();
 });
 
 test("junk in storage is no player", () => {

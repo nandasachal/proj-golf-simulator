@@ -94,7 +94,8 @@ export const gameAbandoned = ({ gameId, mode, club, shotsTaken }) => ({
 const SAVE_FAILURES = {
   name_taken: "taken",
   invalid_name: "invalid",
-  wrong_code: "wrong_code",
+  wrong_login: "wrong_login",
+  invalid_password: "invalid",
   rate_limited: "rate_limited",
   unavailable: "network",
 };

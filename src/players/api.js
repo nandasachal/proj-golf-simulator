@@ -20,17 +20,20 @@ const post = (path, body, key) =>
     body: JSON.stringify(body),
   });
 
-// Both resolve to { player: { id, name, key }, recoveryCode } or { error },
-// where error is the API's own code, "wrong_code", "rate_limited" or "unavailable".
-async function playerRequest(path, body) {
+// All three resolve to { player: { id, name, key, account, internal } } or
+// { error }, where error is the API's own code, "wrong_login", "rate_limited"
+// or "unavailable".
+async function playerRequest(path, body, key) {
   try {
-    const response = await post(path, body);
+    const response = await post(path, body, key);
     const data = await response.json().catch(() => ({}));
     if (response.ok) {
-      const { id, name, key, recoveryCode } = data;
-      return { player: { id, name, key }, recoveryCode };
+      const { id, name, key: saved, account, internal } = data;
+      return {
+        player: { id, name, key: saved, account: !!account, internal: !!internal },
+      };
     }
-    if (response.status === 401) return { error: "wrong_code" };
+    if (response.status === 401) return { error: "wrong_login" };
     if (response.status === 429) return { error: "rate_limited" };
     if (response.status === 409 || response.status === 422)
       return { error: data.error || "invalid_name" };
@@ -41,10 +44,16 @@ async function playerRequest(path, body) {
   }
 }
 
-export const createPlayer = (name) => playerRequest("/players", { name });
+// With a password the name is an account; without one it is this browser's.
+export const createPlayer = (name, password) =>
+  playerRequest("/players", { name, ...(password && { password }) });
 
-export const recoverPlayer = (name, recoveryCode) =>
-  playerRequest("/players/recover", { name, recoveryCode });
+export const loginPlayer = (name, password) =>
+  playerRequest("/players/login", { name, password });
+
+// Makes an account of the name this browser already holds.
+export const addPassword = (key, password) =>
+  playerRequest("/players/password", { password }, key);
 
 // The HTTP status, or 0 when the API could not be reached.
 export async function postShot(key, shot) {

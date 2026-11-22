@@ -151,7 +151,7 @@ test("an abandoned game says how far it got", () => {
 test("a failed save is named from the API error code", () => {
   expect(saveFailReason("name_taken")).toBe("taken");
   expect(saveFailReason("invalid_name")).toBe("invalid");
-  expect(saveFailReason("wrong_code")).toBe("wrong_code");
+  expect(saveFailReason("wrong_login")).toBe("wrong_login");
   expect(saveFailReason("rate_limited")).toBe("rate_limited");
   expect(saveFailReason("unavailable")).toBe("network");
   expect(saveFailReason("anything else")).toBe("network");

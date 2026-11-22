@@ -21,8 +21,8 @@ than abstract.
   driver examples.
 - **Game mode** (`src/simulate/game.js`) — a game is 5 targets with one shot at
   each. The shot panel's top row switches Practice or Game; the
-  difficulty, Normal or Advanced, is switched on the game card (on phones, in
-  the bar at the bottom) (`?mode=practice`
+  difficulty, Normal or Advanced, is switched on the game card (on phones, a
+  menu in the game row) (`?mode=practice`
   turns the game off, `?mode=advanced` picks advanced; normal is the default).
   A normal game shows only club face, club path and swing speed; the other four
   controls play at their defaults. Practice and advanced show all seven
@@ -205,9 +205,10 @@ React UI (App.js, components/)          src/simulate/ (no React)
     the chip row), Reset (on laptops the icon in the top-right corner of the club view
     from above; on phones top right of the panel) and the mode (a Practice / Game switch with
     one (i) for both, in the panel's top row beside the shot shape; the
-    game's difficulty is on the game card). On phones Hit is a bar fixed to the
-    bottom of the screen, with Normal / Advanced beside it during a game
-    (`PhoneBar` in `button-row.jsx`; in practice Hit has the bar to itself), a game in progress is one row along the foot of
+    game's difficulty is on the game card). On phones Hit is a full-width bar fixed to
+    the bottom of the screen (`PhoneBar` in `button-row.jsx`), the difficulty
+    is a "Normal ▾" menu in the game row (Normal: target on the ground;
+    Advanced: target in the air), a game in progress is one row along the foot of
     the picture (target, pips, Restart, the last tip; `GameRow` in
     `game-card.jsx`) and the full card only appears when the game ends, the
     bar's switch is Practice | Normal | Advanced, the bird's-eye card shows

@@ -8,17 +8,22 @@ const KEY = process.env.REACT_APP_POSTHOG_KEY;
 const INTERNAL = "golf.internal";
 let on = false;
 
-// Our own devices: opening the site once with ?internal=1 marks this browser,
-// and every event from it then carries internal: true, which PostHog's
-// "filter out internal and test users" rule hides. ?internal=0 unmarks it.
-export function internalDevice(search, storage) {
+// Our own devices: logging in to one of our accounts marks the browser, and
+// every event from it then carries internal: true, which PostHog's "filter
+// out internal and test users" rule hides. It stays marked after a log out.
+export function internalDevice(storage) {
   try {
-    const asked = new URLSearchParams(search).get("internal");
-    if (asked === "1") storage.setItem(INTERNAL, "1");
-    if (asked === "0") storage.removeItem(INTERNAL);
     return storage.getItem(INTERNAL) === "1";
   } catch {
     return false;
+  }
+}
+
+export function markInternal(storage) {
+  try {
+    storage.setItem(INTERNAL, "1");
+  } catch {
+    // Not marked: this visit's events are still tagged below.
   }
 }
 
@@ -52,7 +57,7 @@ export function startAnalytics() {
     app_version: process.env.REACT_APP_VERSION || "dev",
     player_saved: false,
   });
-  if (internalDevice(window.location.search, window.localStorage))
+  if (internalDevice(window.localStorage))
     posthog.register({ internal: true });
   const first = firstVisit(window.localStorage, window.sessionStorage);
   posthog.register({ first_visit: first });
@@ -83,7 +88,10 @@ export const setContext = (properties) => {
 // Ties this browser's events to the saved player. The id only: the name is
 // already public on the leaderboard and PostHog does not need it.
 export const identify = (player) => {
-  if (!on || !player) return;
+  if (!player) return;
+  if (player.internal) markInternal(window.localStorage);
+  if (!on) return;
+  if (player.internal) posthog.register({ internal: true });
   posthog.identify(player.id);
   posthog.register({ player_saved: true });
 };

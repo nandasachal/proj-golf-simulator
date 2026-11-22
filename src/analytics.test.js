@@ -1,4 +1,4 @@
-import { internalDevice } from "./analytics";
+import { identify, internalDevice, markInternal } from "./analytics";
 
 const storage = () => {
   const kept = {};
@@ -9,18 +9,19 @@ const storage = () => {
   };
 };
 
-test("?internal=1 marks the browser and it stays marked on later visits", () => {
+test("a browser is internal once it is marked, and stays so on later visits", () => {
   const browser = storage();
-  expect(internalDevice("", browser)).toBe(false);
-  expect(internalDevice("?mode=practice&internal=1", browser)).toBe(true);
-  expect(internalDevice("", browser)).toBe(true);
+  expect(internalDevice(browser)).toBe(false);
+  markInternal(browser);
+  expect(internalDevice(browser)).toBe(true);
 });
 
-test("?internal=0 unmarks it", () => {
-  const browser = storage();
-  internalDevice("?internal=1", browser);
-  expect(internalDevice("?internal=0", browser)).toBe(false);
-  expect(internalDevice("", browser)).toBe(false);
+test("identifying one of our own accounts marks the browser", () => {
+  window.localStorage.clear();
+  identify({ id: "p1", name: "Ada", internal: false });
+  expect(internalDevice(window.localStorage)).toBe(false);
+  identify({ id: "p2", name: "Sachal", internal: true });
+  expect(internalDevice(window.localStorage)).toBe(true);
 });
 
 test("a browser with no storage is not internal", () => {
@@ -29,7 +30,7 @@ test("a browser with no storage is not internal", () => {
       throw new Error("blocked");
     },
   };
-  expect(internalDevice("", broken)).toBe(false);
+  expect(internalDevice(broken)).toBe(false);
 });
 
 describe("with analytics on", () => {
