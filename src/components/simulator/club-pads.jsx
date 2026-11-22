@@ -3,12 +3,19 @@ import { Listbox } from "@headlessui/react";
 import {
   ArrowCounterclockwise,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   InfoCircle,
 } from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
 import { track } from "../../analytics";
 import { CATEGORIES, CLUBS } from "../../simulate/clubs";
-import { ALL_CONTROLS, neutralOf, stateOf } from "../../utils/shortcuts";
+import {
+  ALL_CONTROLS,
+  neutralOf,
+  shouldIgnoreKey,
+  stateOf,
+} from "../../utils/shortcuts";
 import {
   GAIN,
   fromGround,
@@ -104,11 +111,262 @@ const describe = {
   },
 };
 
-// One value box: the control's name, with an (i) that says what it does, over
-// two fields. The word (square, open, closed) is a menu of the three it can
-// be; the number can be clicked to type over (Enter or clicking away keeps
-// it, Escape puts it back). The box the keyboard is on is outlined.
-const ValueChip = ({
+// Phones show one control at a time, picked from tabs: its short name, and a
+// line under the big number saying what it does.
+const PHONE = {
+  clubFaceAngle: ["Face", "Decides where the ball starts"],
+  clubPathAngle: ["Path", "Against the face, decides the curve"],
+  strike: ["Strike", "Off-centre curves it and costs distance"],
+  aim: ["Aim", "Turns the whole shot left or right"],
+  attackAngle: ["Attack", "Up launches higher with less spin"],
+  loftChange: ["Loft", "More loft, higher and shorter"],
+  swingSpeed: ["Speed", "More speed, more distance"],
+};
+
+// Controls with a direction. Typing a bare number into one sets its size and
+// keeps the side it is on; a + or − picks the side.
+const SIGNED = [
+  "clubFaceAngle",
+  "clubPathAngle",
+  "strike",
+  "aim",
+  "attackAngle",
+];
+
+// One step of a control, as it reads: 1°, 0.25 in, 1 mph.
+const stepText = (control, range) =>
+  control === "swingSpeed"
+    ? `${range.STEP} mph`
+    : control === "strike"
+      ? `${range.STEP} in`
+      : `${range.STEP}°`;
+
+// The number, with a unit word (mph, in) set smaller than the figure; a
+// degree sign stays with it.
+const Figure = ({ number, unitClassName }) => {
+  const unit = number.match(/ (mph|in)$/);
+  if (!unit) return number;
+  return (
+    <>
+      {number.slice(0, -unit[0].length)}
+      <span className={unitClassName}> {unit[1]}</span>
+    </>
+  );
+};
+
+// A control's number. Click it, or type a digit while its control is
+// selected, to type over it: Enter or clicking away keeps it, Escape puts it
+// back.
+const NumberField = ({
+  control,
+  range,
+  value,
+  text,
+  number,
+  onChange,
+  start,
+  className,
+  inputClassName,
+  unitClassName,
+}) => {
+  const [draft, setDraft] = useState(null);
+  const button = useRef(null);
+  // After finishing with the keyboard, put focus back on the value that was
+  // typed into. Not after clicking away: the click chose where focus goes.
+  const returnFocus = useRef(false);
+  // A click selects what is there to type over it; a typed digit is kept.
+  const selectAll = useRef(true);
+  useEffect(() => {
+    if (draft === null && returnFocus.current) {
+      returnFocus.current = false;
+      button.current?.focus();
+    }
+  }, [draft]);
+  useEffect(() => {
+    if (!start) return;
+    selectAll.current = false;
+    setDraft(start.digit);
+  }, [start]);
+  const { name, typing } = describe[control];
+  const signed = SIGNED.includes(control);
+
+  const commit = () => {
+    const typedText = draft.trim();
+    let typed = Number.parseFloat(typedText);
+    if (signed && value < 0 && !/^[+-]/.test(typedText)) typed = -typed;
+    if (Number.isFinite(typed)) onChange(control, snap(typed, range));
+    setDraft(null);
+  };
+
+  if (draft === null)
+    return (
+      <button
+        ref={button}
+        type="button"
+        className={className}
+        aria-label={`Edit ${name.toLowerCase()}: ${text}`}
+        data-field="number"
+        onClick={() => {
+          selectAll.current = true;
+          setDraft(String(signed ? Math.abs(value) : value));
+        }}
+      >
+        <Figure number={number} unitClassName={unitClassName} />
+      </button>
+    );
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      aria-label={name}
+      title={`${name} in ${typing} (${range.MIN} to ${range.MAX})`}
+      className={inputClassName}
+      value={draft}
+      autoFocus
+      onFocus={(event) => {
+        if (selectAll.current) event.target.select();
+      }}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          returnFocus.current = true;
+          commit();
+        }
+        if (event.key === "Escape") {
+          returnFocus.current = true;
+          setDraft(null);
+        }
+      }}
+    />
+  );
+};
+
+// The word a control reads as (closed, square, open), coloured off neutral.
+// It is a menu of the three: choosing one goes to neutral, or the same size
+// on the other side of it (one step out from neutral).
+const WordSelect = ({ control, range, value, onChange, className }) => {
+  const { name, words, colour } = describe[control];
+  const neutral = neutralOf(control, range);
+  const state = stateOf(control, value, range);
+  const choose = (next) => {
+    if (next === state) return;
+    const size = Math.abs(value - neutral) || range.STEP;
+    onChange(control, snap(neutral + next * size, range));
+  };
+  return (
+    <span className="relative inline-flex min-w-0 items-center">
+      <select
+        aria-label={`${name}: ${words[state + 1]}`}
+        data-field="word"
+        className={classNames(
+          "min-w-0 cursor-pointer appearance-none truncate rounded bg-transparent py-0.5 pl-1.5 pr-4 font-semibold hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
+          state === 0 && "text-white/60",
+          className,
+        )}
+        style={state === 0 ? undefined : { color: colour }}
+        value={state}
+        onChange={(event) => choose(Number(event.target.value))}
+      >
+        {words.map((option, i) => (
+          <option key={option} value={i - 1} style={{ color: "#0f172a" }}>
+            {option}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        size={9}
+        className="pointer-events-none absolute right-1 text-white/50"
+        aria-hidden="true"
+      />
+    </span>
+  );
+};
+
+// A scale to drag a control along: ticks, neutral marked, the distance from
+// neutral filled in the control's colour, the value as a bar. It is a real
+// range input, laid invisibly over the drawing.
+const Ruler = ({ control, range, value, text, onChange, onSelect, tall }) => {
+  const { name, colour } = describe[control];
+  const pct = (x) => ((x - range.MIN) / (range.MAX - range.MIN)) * 100;
+  const at = pct(value);
+  const mid = pct(neutralOf(control, range));
+  return (
+    <div className={classNames("relative", tall ? "h-16" : "h-6")}>
+      <input
+        type="range"
+        className="ruler-input"
+        aria-label={`${name} ruler`}
+        aria-valuetext={text}
+        min={range.MIN}
+        max={range.MAX}
+        step={range.STEP}
+        value={value}
+        onChange={(event) =>
+          onChange(control, snap(Number(event.target.value), range))
+        }
+        onFocus={() => onSelect(control)}
+      />
+      <div aria-hidden="true" className="ruler-rail pointer-events-none">
+        <div className="absolute inset-x-0 inset-y-1 flex items-center justify-between">
+          {Array.from({ length: 21 }, (_, i) => (
+            <span
+              key={i}
+              className={classNames(
+                "rounded-full bg-white/25",
+                tall ? "w-0.5" : "w-px",
+                i % 5 === 0 ? (tall ? "h-6" : "h-3") : tall ? "h-3" : "h-1.5",
+              )}
+            />
+          ))}
+        </div>
+        <span
+          className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-white/50"
+          style={{ left: `${mid}%` }}
+        />
+        <span
+          className={classNames(
+            "absolute top-1/2 -translate-y-1/2 rounded-full opacity-50",
+            tall ? "h-2" : "h-[3px]",
+          )}
+          style={{
+            left: `${Math.min(at, mid)}%`,
+            width: `${Math.abs(at - mid)}%`,
+            background: colour,
+          }}
+        />
+        <span
+          className={classNames(
+            "absolute inset-y-0 -translate-x-1/2 rounded-full",
+            tall ? "w-1.5" : "w-1",
+          )}
+          style={{
+            left: `${at}%`,
+            background: colour,
+            boxShadow: "0 0 0 3px rgba(12,24,17,0.95)",
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const StepButton = ({ label, disabled, onClick, children }) => (
+  <button
+    type="button"
+    aria-label={label}
+    disabled={disabled}
+    className="flex h-10 w-7 shrink-0 items-center justify-center rounded-md bg-white/[0.07] text-white/75 transition-colors hover:bg-white/15 hover:text-white disabled:pointer-events-none disabled:opacity-30"
+    onClick={onClick}
+  >
+    {children}
+  </button>
+);
+
+// One control on a laptop, every row the same height in every box so they
+// line up: name with its (i) and a reset; ‹ number ›; the ruler; the word.
+// The box the keyboard is on is outlined.
+const ControlCell = ({
   control,
   range,
   value,
@@ -121,41 +379,17 @@ const ValueChip = ({
   onSelect,
   about,
   onAbout,
+  start,
 }) => {
-  const [draft, setDraft] = useState(null);
-  const button = useRef(null);
-  // After finishing with the keyboard, put focus back on the value that was
-  // typed into. Not after clicking away: the click chose where focus goes.
-  const returnFocus = useRef(false);
-  useEffect(() => {
-    if (draft === null && returnFocus.current) {
-      returnFocus.current = false;
-      button.current?.focus();
-    }
-  }, [draft]);
-  const { name, typing, colour } = describe[control];
+  const { name, colour, words } = describe[control];
   const neutral = neutralOf(control, range);
-  const state = stateOf(control, value, range);
-  const word = describe[control].words[state + 1];
-  // Choosing a word: neutral, or the same size on the other side of it (one
-  // step out from neutral).
-  const choose = (next) => {
-    if (next === state) return;
-    const size = Math.abs(value - neutral) || range.STEP;
-    onChange(control, snap(neutral + next * size, range));
-  };
-
-  const commit = () => {
-    const typed = Number.parseFloat(draft);
-    if (Number.isFinite(typed)) onChange(control, snap(typed, range));
-    setDraft(null);
-  };
-
+  const step = (direction) =>
+    onChange(control, snap(value + direction * range.STEP, range));
   return (
     <div
       className={classNames(
-        "flex h-12 items-center gap-2 rounded-lg px-2.5 ring-inset transition-colors md:h-11",
-        active ? "bg-white/20" : "bg-white/[0.07]",
+        "flex min-w-0 flex-col gap-2 rounded-lg p-3 ring-inset transition-colors",
+        active ? "bg-white/[0.14]" : "bg-white/[0.06]",
         selected && "ring-2 ring-lime-400",
       )}
       data-chip={control}
@@ -165,97 +399,298 @@ const ValueChip = ({
       onPointerDown={() => onSelect(control)}
       onFocus={() => onSelect(control)}
     >
-      <span
-        aria-hidden="true"
-        className="h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ background: colour }}
+      <div className="flex h-5 items-center gap-1">
+        <span
+          aria-hidden="true"
+          data-dot
+          className="mr-0.5 h-2 w-2 shrink-0 rounded-full"
+          style={{ background: colour }}
+        />
+        <span className="min-w-0 truncate text-[11px] font-medium text-white/65">
+          {name}
+        </span>
+        <button
+          type="button"
+          aria-label={`About ${name.toLowerCase()}`}
+          aria-expanded={about}
+          aria-controls="control-info"
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/45 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
+          onClick={() => onAbout(about ? null : control)}
+        >
+          <InfoCircle size={11} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          aria-label={`${name} back to ${words[1]}`}
+          title={`Back to ${words[1]}`}
+          disabled={value === neutral}
+          className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25"
+          onClick={() => onChange(control, neutral)}
+        >
+          <ArrowCounterclockwise size={11} aria-hidden="true" />
+        </button>
+      </div>
+      <div className="flex h-10 items-center gap-1">
+        <StepButton
+          label={`${name}: ${stepText(control, range)} ${words[0]}`}
+          disabled={value <= range.MIN}
+          onClick={() => step(-1)}
+        >
+          <ChevronLeft size={12} aria-hidden="true" />
+        </StepButton>
+        <div className="min-w-0 flex-1">
+          <NumberField
+            control={control}
+            range={range}
+            value={value}
+            text={text}
+            number={number}
+            onChange={onChange}
+            start={start}
+            className="h-10 w-full whitespace-nowrap rounded-md text-center text-xl font-semibold tabular-nums tracking-tight transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
+            inputClassName="block h-10 w-full rounded-md bg-white text-center text-xl font-semibold tabular-nums text-slate-900 outline-none"
+            unitClassName="text-[11px] font-medium text-white/55"
+          />
+        </div>
+        <StepButton
+          label={`${name}: ${stepText(control, range)} ${words[2]}`}
+          disabled={value >= range.MAX}
+          onClick={() => step(1)}
+        >
+          <ChevronRight size={12} aria-hidden="true" />
+        </StepButton>
+      </div>
+      <Ruler
+        control={control}
+        range={range}
+        value={value}
+        text={text}
+        onChange={onChange}
+        onSelect={onSelect}
       />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1 text-[11px] leading-tight text-white/60">
-          <span className="truncate">{name}</span>
+      <div className="flex h-5 justify-center text-xs">
+        <WordSelect
+          control={control}
+          range={range}
+          value={value}
+          onChange={onChange}
+        />
+      </div>
+    </div>
+  );
+};
+
+// The club, in the same rows as a control box beside it.
+const ClubCell = ({ club, stock, onClub }) => (
+  <div className="flex min-w-0 flex-col gap-2 rounded-lg bg-white/[0.06] p-3">
+    <div className="flex h-5 items-center text-[11px] font-medium text-white/65">
+      Club
+    </div>
+    <ClubMenu club={club} onClub={onClub} />
+    <div className="flex h-6 items-center text-[11px] tabular-nums text-white/60">
+      stock {stock} mph
+    </div>
+    <div className="flex h-5 items-center text-[11px] text-white/40">
+      Distances in Settings
+    </div>
+  </div>
+);
+
+// On a phone: the bag as a row of chips, a tab per control, and the selected
+// control large, with its ruler and three buttons under it. Hit is in the bar
+// at the bottom of the screen.
+const PhoneControls = ({
+  shown,
+  club,
+  stock,
+  onClub,
+  selected,
+  onSelect,
+  ranges,
+  values,
+  text,
+  number,
+  onChange,
+  start,
+}) => {
+  const control = shown.includes(selected) ? selected : shown[0];
+  const range = ranges[control];
+  const value = values[control];
+  const { name, words, colour } = describe[control];
+  const neutral = neutralOf(control, range);
+  const short = (word) => word.split("-")[0];
+  const unit =
+    control === "swingSpeed" ? "" : control === "strike" ? " in" : "°";
+  const step = stepText(control, range);
+  const set = (next) => onChange(control, snap(next, range));
+  const chosen = useRef(null);
+  useEffect(() => {
+    chosen.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [club.id]);
+  const button =
+    "h-12 rounded-xl bg-white/[0.08] text-[15px] font-semibold transition-colors active:bg-white/20 disabled:opacity-30";
+
+  return (
+    <div className="flex flex-col pt-1">
+      <div className="flex h-4 items-center justify-between text-xs">
+        <span className="font-medium text-white/65">Club</span>
+        <span className="tabular-nums text-white/60" data-club>
+          {club.loftDegrees}° loft · stock {stock} mph
+        </span>
+      </div>
+      <div
+        role="radiogroup"
+        aria-label="Club"
+        className="no-scrollbar -mx-4 mt-2 flex gap-2 overflow-x-auto px-4"
+      >
+        {CLUBS.map((entry) => {
+          const on = entry.id === club.id;
+          return (
+            <button
+              key={entry.id}
+              ref={on ? chosen : undefined}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              aria-label={`${entry.name}, ${entry.loftDegrees}°`}
+              className={classNames(
+                "h-11 shrink-0 rounded-full px-4 text-sm font-semibold transition-colors",
+                on
+                  ? "bg-white text-slate-900"
+                  : "bg-white/[0.08] text-white/80",
+              )}
+              onClick={() => onClub(entry.id)}
+            >
+              {on ? entry.name : entry.shortName}
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        role="tablist"
+        aria-label="Shot controls to change"
+        className={classNames(
+          "mt-4 gap-2",
+          shown.length <= 3
+            ? "grid grid-cols-3"
+            : "no-scrollbar -mx-4 flex overflow-x-auto px-4",
+        )}
+      >
+        {shown.map((each) => {
+          const on = each === control;
+          return (
+            <button
+              key={each}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              aria-controls="shot-control-panel"
+              className={classNames(
+                "flex h-[60px] min-w-0 shrink-0 flex-col items-start justify-center gap-1 rounded-xl px-3 text-left ring-inset transition-colors",
+                shown.length > 3 && "w-28",
+                on ? "bg-white/[0.12] ring-2" : "bg-white/[0.05]",
+              )}
+              style={
+                on ? { "--tw-ring-color": describe[each].colour } : undefined
+              }
+              onClick={() => onSelect(each)}
+            >
+              <span className="flex items-center gap-1.5 text-xs font-medium text-white/65">
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: describe[each].colour }}
+                />
+                {PHONE[each][0]}
+              </span>
+              <span className="max-w-full truncate text-[15px] font-semibold tabular-nums">
+                {text[each]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        role="tabpanel"
+        id="shot-control-panel"
+        aria-label={name}
+        data-chip={control}
+        data-selected="true"
+      >
+        <div className="mt-6 flex flex-col items-center">
+          <div className="flex items-center gap-1">
+            <NumberField
+              control={control}
+              range={range}
+              value={value}
+              text={text[control]}
+              number={number[control]}
+              onChange={onChange}
+              start={start}
+              className="h-14 whitespace-nowrap rounded-lg px-2 text-5xl font-semibold tabular-nums tracking-tight active:bg-white/10"
+              inputClassName="block h-14 w-32 rounded-lg bg-white text-center text-4xl font-semibold tabular-nums text-slate-900 outline-none"
+              unitClassName="text-lg font-semibold text-white/60"
+            />
+            <WordSelect
+              control={control}
+              range={range}
+              value={value}
+              onChange={onChange}
+              className="text-lg"
+            />
+          </div>
+          <p className="mt-1 text-[13px] text-white/60">{PHONE[control][1]}</p>
+        </div>
+        <div className="mt-4">
+          <Ruler
+            tall
+            control={control}
+            range={range}
+            value={value}
+            text={text[control]}
+            onChange={onChange}
+            onSelect={onSelect}
+          />
+          <div className="mt-2 flex h-4 items-center justify-between text-xs text-white/60">
+            <span>{control === "swingSpeed" ? range.MIN : words[0]}</span>
+            <span>
+              {control === "swingSpeed" ? `stock ${neutral}` : words[1]}
+            </span>
+            <span>{control === "swingSpeed" ? range.MAX : words[2]}</span>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <button
             type="button"
-            aria-label={`About ${name.toLowerCase()}`}
-            aria-expanded={about}
-            aria-controls="control-info"
-            className="-my-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/50 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
-            onClick={() => onAbout(about ? null : control)}
+            className={button}
+            disabled={value <= range.MIN}
+            onClick={() => set(value - range.STEP)}
           >
-            <InfoCircle size={11} aria-hidden="true" />
+            {control === "swingSpeed"
+              ? `−${step}`
+              : `${range.STEP}${unit} ${short(words[0])}`}
           </button>
-        </div>
-        <div className="flex items-baseline gap-1">
-          <span className="relative -ml-1 flex min-w-0 items-center">
-            <select
-              aria-label={`${name}: ${word}`}
-              data-field="word"
-              className={classNames(
-                "min-w-0 cursor-pointer appearance-none truncate rounded bg-transparent py-0 pl-1 pr-3.5 text-sm font-semibold leading-tight hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
-                state === 0 ? "text-white/70" : "text-white",
-              )}
-              value={state}
-              onChange={(event) => choose(Number(event.target.value))}
-            >
-              {describe[control].words.map((option, i) => (
-                <option key={option} value={i - 1} className="text-slate-900">
-                  {option}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size={9}
-              className="pointer-events-none absolute right-0.5 text-white/50"
-              aria-hidden="true"
-            />
-          </span>
-          {draft === null ? (
-            <button
-              ref={button}
-              type="button"
-              className="ml-auto shrink-0 rounded bg-white/10 px-1.5 py-px text-center text-sm font-semibold tabular-nums leading-tight hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
-              aria-label={`Edit ${name.toLowerCase()}: ${text}`}
-              data-field="number"
-              onClick={() => setDraft(String(value))}
-            >
-              {/* The unit is set small, so the word beside it has room. */}
-              {number.endsWith(" mph") ? (
-                <>
-                  {number.slice(0, -4)}
-                  <span className="text-[10px] font-medium text-white/60">
-                    {" "}
-                    mph
-                  </span>
-                </>
-              ) : (
-                number
-              )}
-            </button>
-          ) : (
-            <input
-              type="number"
-              aria-label={name}
-              title={`${name} in ${typing} (${range.MIN} to ${range.MAX})`}
-              className="ml-auto block w-16 rounded bg-white px-1 text-right text-sm font-semibold tabular-nums leading-tight text-slate-900 outline-none"
-              min={range.MIN}
-              max={range.MAX}
-              step={range.STEP}
-              value={draft}
-              autoFocus
-              onFocus={(event) => event.target.select()}
-              onChange={(event) => setDraft(event.target.value)}
-              onBlur={commit}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  returnFocus.current = true;
-                  commit();
-                }
-                if (event.key === "Escape") {
-                  returnFocus.current = true;
-                  setDraft(null);
-                }
-              }}
-            />
-          )}
+          <button
+            type="button"
+            className={classNames(button, "text-white/75")}
+            style={value === neutral ? undefined : { color: colour }}
+            disabled={value === neutral}
+            onClick={() => set(neutral)}
+          >
+            {words[1][0].toUpperCase() + words[1].slice(1)}
+          </button>
+          <button
+            type="button"
+            className={button}
+            disabled={value >= range.MAX}
+            onClick={() => set(value + range.STEP)}
+          >
+            {control === "swingSpeed"
+              ? `+${step}`
+              : `${range.STEP}${unit} ${short(words[2])}`}
+          </button>
         </div>
       </div>
     </div>
@@ -498,24 +933,17 @@ const FlightIcon = ({ sketch }) => (
   </svg>
 );
 
-// The club at impact, shown twice in 3D, as the shot controls: drag a
-// handle, use its keys, or click a value to type it.
-// The club in hand, as a chip that opens the bag. Distances are set in
+// The club in hand, as a button that opens the bag. Distances are set in
 // Settings.
 const ClubMenu = ({ club, onClub }) => (
   <Listbox value={club.id} onChange={onClub}>
     <div className="relative min-w-0">
-      <Listbox.Button className="flex h-12 w-full items-center gap-1.5 rounded-lg bg-white/[0.07] px-2.5 text-left transition-colors hover:bg-white/20 md:h-11">
-        <span className="min-w-0 flex-1">
-          <span className="block text-[11px] font-normal leading-tight text-white/60">
-            Club
-          </span>
-          <span
-            className="block truncate text-sm font-semibold leading-tight"
-            data-club
-          >
-            {club.name} · {club.loftDegrees}°
-          </span>
+      <Listbox.Button className="flex h-10 w-full items-center gap-1.5 rounded-md bg-white/[0.07] px-2.5 text-left transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400">
+        <span
+          className="min-w-0 flex-1 truncate text-sm font-semibold"
+          data-club
+        >
+          {club.name} · {club.loftDegrees}°
         </span>
         <ChevronDown
           size={11}
@@ -561,6 +989,25 @@ const ClubMenu = ({ club, onClub }) => (
   </Listbox>
 );
 
+const Hint = ({ keys, children }) => (
+  <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex gap-0.5">
+      {keys.map((key) => (
+        <kbd
+          key={key}
+          className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded bg-white/10 px-1 font-sans text-[10px] font-semibold text-white/85 shadow-[inset_0_-1px_0_rgba(0,0,0,0.4)]"
+        >
+          {key}
+        </kbd>
+      ))}
+    </span>{" "}
+    {children}
+  </span>
+);
+
+// The club at impact as the shot controls: a box per control (drag its
+// ruler, step it, or type its number), and on laptops the club shown twice
+// in 3D with a handle per control to drag.
 const ClubPads = ({
   values,
   side,
@@ -598,6 +1045,23 @@ const ClubPads = ({
     };
   }, [about]);
   const [dragging, setDragging] = useState(null);
+  // A digit typed while no field has the keyboard starts typing into the
+  // selected control's number.
+  const [typed, setTyped] = useState(null);
+  const selectedNow = useRef(selected);
+  selectedNow.current = selected;
+  useEffect(() => {
+    const listener = (event) => {
+      if (!/^[0-9]$/.test(event.key)) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (shouldIgnoreKey(event)) return;
+      if (document.querySelector('[role="dialog"], [role="listbox"]')) return;
+      event.preventDefault();
+      setTyped({ control: selectedNow.current, digit: event.key });
+    };
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
   // The two scenes, once built. `layout` only exists to redraw the handles
   // when a view is created, resized or flipped for the other hand.
   const scenes = useRef({ top: null, side: null });
@@ -807,11 +1271,21 @@ const ClubPads = ({
     onActive: setActive,
     onSelect,
     about: about === control,
+    start: typed?.control === control ? typed : null,
     onAbout: (opened) => {
       if (opened) track("info_opened", { topic: opened });
       setAbout(opened);
     },
   });
+
+  const boxes = [
+    "clubFaceAngle",
+    "clubPathAngle",
+    "strike",
+    "aim",
+    "attackAngle",
+    "loftChange",
+  ].filter(shows);
 
   // Each view is built for one club.
   const topOptions = useMemo(() => ({ ...VIEW_FROM_ABOVE, club }), [club]);
@@ -850,50 +1324,74 @@ const ClubPads = ({
         </button>
       </div>
 
-      {/* Every control together; the explanation of the one asked about
-          opens under them. */}
-      <div ref={chips} className="relative flex flex-col gap-2">
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            "clubFaceAngle",
-            "clubPathAngle",
-            "strike",
-            "aim",
-            "attackAngle",
-            "loftChange",
-          ]
-            .filter(shows)
-            .map((control) => (
-              <ValueChip key={control} {...chipProps(control)} />
+      {/* Laptops: every control as a box, in the grid the arrow keys move
+          through, swing speed beside the club; the explanation of the one
+          asked about opens under them. Phones: one control at a time. */}
+      {views ? (
+        <div ref={chips} className="relative flex flex-col gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            {boxes.map((control) => (
+              <ControlCell key={control} {...chipProps(control)} />
             ))}
-        </div>
-        {/* Swing speed, and beside it the club it is swung with. */}
-        <div className="grid grid-cols-2 gap-2">
-          <ValueChip {...chipProps("swingSpeed")} />
-          <ClubMenu club={club} onClub={onClub} />
-        </div>
-        {about && (
-          <p
-            id="control-info"
-            role="note"
-            className="absolute inset-x-0 top-full z-40 mt-2 rounded-lg border border-white/15 bg-slate-950/95 px-3 py-2 text-xs leading-snug text-white/90 shadow-lg"
-          >
-            <span
-              className="font-bold"
-              style={{ color: describe[about].colour }}
+            {shows("swingSpeed") && (
+              <>
+                <ControlCell {...chipProps("swingSpeed")} />
+                <ClubCell
+                  club={club}
+                  stock={ranges.swingSpeed.DEFAULT}
+                  onClub={onClub}
+                />
+              </>
+            )}
+          </div>
+          {about && (
+            <p
+              id="control-info"
+              role="note"
+              className="absolute inset-x-0 top-full z-40 mt-2 rounded-lg border border-white/15 bg-slate-950/95 px-3 py-2 text-xs leading-snug text-white/90 shadow-lg"
             >
-              {describe[about].name}.{" "}
-            </span>
-            {describe[about].info}
-          </p>
-        )}
-      </div>
-      <p
-        className="hidden text-center text-[10px] leading-tight text-white/45 md:block"
-        data-key-hint
-      >
-        ←↑↓→ move · ⌘←→ number · ⌘↑↓ word · Space hit
-      </p>
+              <span
+                className="font-bold"
+                style={{ color: describe[about].colour }}
+              >
+                {describe[about].name}.{" "}
+              </span>
+              {describe[about].info}
+            </p>
+          )}
+        </div>
+      ) : (
+        <PhoneControls
+          shown={[...boxes, "swingSpeed"].filter(shows)}
+          club={club}
+          stock={ranges.swingSpeed.DEFAULT}
+          onClub={onClub}
+          selected={selected}
+          onSelect={onSelect}
+          ranges={ranges}
+          values={values}
+          text={text}
+          number={number}
+          onChange={onChange}
+          start={typed}
+        />
+      )}
+      {views && (
+        <div
+          className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 pt-1 text-[11px] text-white/55"
+          data-key-hint
+        >
+          <Hint keys={["←", "↑", "↓", "→"]}>move</Hint>
+          <Hint keys={["⌘", "←", "→"]}>
+            ±{stepText(selected, ranges[selected])}
+          </Hint>
+          <Hint keys={["⌘", "↑", "↓"]}>
+            {describe[selected].words.join(" · ")}
+          </Hint>
+          <Hint keys={["0–9"]}>type</Hint>
+          <Hint keys={["Space"]}>hit</Hint>
+        </div>
+      )}
 
       {/* The club at impact, twice. Left off on phones, where the boxes are
           the controls and the pictures would push them off the screen. */}

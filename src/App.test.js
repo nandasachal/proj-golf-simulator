@@ -11,6 +11,7 @@ import App from "./App";
 import { createSimulator } from "./simulate/main";
 import { createClubScene } from "./simulate/club-scene";
 import { TURF_PRESETS } from "./simulate/ground";
+import { CLUBS } from "./simulate/clubs";
 import { reportError, setContext, track } from "./analytics";
 
 // jsdom has no WebGL, so the 3D scene can't start under Jest; the fake stands
@@ -187,8 +188,10 @@ const startTyping = (name) => {
   fireEvent.click(
     screen.getByRole("button", { name: new RegExp(`^Edit ${name}:`, "i") }),
   );
-  return screen.getByRole("spinbutton", { name });
+  return screen.getByRole("textbox", { name });
 };
+// The field a value is being typed into, if any.
+const typingField = () => document.querySelector('input[inputmode="decimal"]');
 const typeValue = (name, value, key = "Enter") => {
   const input = startTyping(name);
   fireEvent.change(input, { target: { value } });
@@ -556,7 +559,7 @@ describe("keyboard", () => {
 
   test("the dots are seven different colours", () => {
     renderPanel();
-    const dots = [...document.querySelectorAll("[data-chip] > span")].map(
+    const dots = [...document.querySelectorAll("[data-chip] [data-dot]")].map(
       (dot) => dot.style.background,
     );
     expect(dots).toHaveLength(7);
@@ -572,16 +575,95 @@ describe("keyboard", () => {
     expect(selectedBox()).toBe("aim");
   });
 
-  test("on a phone the panel is the boxes alone, without the two club views", () => {
+  test("on a phone one control shows at a time, picked from tabs, without the two club views", () => {
     viewport(false);
-    renderPanel();
+    renderPanel("/?mode=normal&face=2");
     expect(createClubScene).not.toHaveBeenCalled();
-    expect(screen.queryByRole("slider", { name: "Aim" })).toBeNull();
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual([
+      "Face2° open",
+      "Pathsquare",
+      "Speed95 mph",
+    ]);
+    // only the selected control is open, as a big number with its ruler
+    expect(screen.getByRole("tab", { selected: true })).toBe(tabs[0]);
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Club face");
+    expect(screen.queryByRole("slider", { name: "Club face" })).toBeNull();
     expect(
-      screen.getByRole("button", { name: /^Edit aim:/i }),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("slider")).toBeNull();
+      screen.getByRole("slider", { name: "Club face ruler" }),
+    ).toHaveAttribute("aria-valuetext", "2° open");
+
+    fireEvent.click(tabs[2]);
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Swing speed");
+    fireEvent.click(screen.getByRole("button", { name: "+1 mph" }));
+    expect(valueOf("Swing speed")).toBe(96);
+    fireEvent.click(screen.getByRole("button", { name: "Stock" }));
     expect(valueOf("Swing speed")).toBe(95);
+    fireEvent.change(
+      screen.getByRole("slider", { name: "Swing speed ruler" }),
+      {
+        target: { value: "101" },
+      },
+    );
+    expect(valueOf("Swing speed")).toBe(101);
+
+    fireEvent.click(tabs[0]);
+    fireEvent.click(screen.getByRole("button", { name: "1° closed" }));
+    expect(
+      screen.getByRole("slider", { name: "Club face ruler" }),
+    ).toHaveAttribute("aria-valuetext", "1° open");
+  });
+
+  test("on a phone the bag is a row of chips in the panel", () => {
+    viewport(false);
+    renderPanel("/?mode=normal");
+    const bag = within(screen.getByRole("radiogroup", { name: "Club" }));
+    expect(bag.getAllByRole("radio")).toHaveLength(CLUBS.length);
+    expect(bag.getByRole("radio", { checked: true })).toHaveTextContent(
+      "Driver",
+    );
+    fireEvent.click(bag.getByRole("radio", { name: "7 iron, 34°" }));
+    expect(address()).toContain("club=7i");
+    expect(bag.getByRole("radio", { checked: true })).toHaveTextContent(
+      "7 iron",
+    );
+    fireEvent.click(screen.getByRole("tab", { name: /^Speed/ }));
+    expect(valueOf("Swing speed")).toBe(76);
+  });
+
+  test("a digit typed with no field open starts typing into the box the keyboard is on", () => {
+    renderPanel();
+    selectBox("club face");
+    press("4");
+    const input = screen.getByRole("textbox", { name: "Club face" });
+    expect(input).toHaveValue("4");
+    fireEvent.change(input, { target: { value: "45" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    // held to the range
+    expect(valueOf("Club face")).toBe(6);
+    // not while Settings is open
+    openSettings();
+    press("2");
+    expect(typingField()).toBeNull();
+  });
+
+  test("each box steps with its arrows and goes back to neutral with its reset", () => {
+    renderPanel("/?face=-1&speed=100");
+    fireEvent.click(screen.getByRole("button", { name: "Club face: 1° open" }));
+    expect(valueOf("Club face")).toBe(0);
+    expect(
+      screen.getByRole("button", { name: "Club face back to square" }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Club face: 1° open" }));
+    expect(textOf("Club face")).toBe("1° open");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Swing speed back to stock" }),
+    );
+    expect(valueOf("Swing speed")).toBe(95);
+    fireEvent.change(screen.getByRole("slider", { name: "Club path ruler" }), {
+      target: { value: "-3" },
+    });
+    expect(textOf("Club path")).toBe("3° out-to-in");
   });
 
   test("clicking a box, or grabbing its handle, puts the keyboard on it", () => {
@@ -652,9 +734,18 @@ describe("keyboard", () => {
   test("the keys are explained in the panel, with no letters on the boxes", () => {
     renderPanel();
     const pads = screen.getByLabelText("Shot controls");
-    expect(pads).toHaveTextContent(
-      "←↑↓→ move · ⌘←→ number · ⌘↑↓ word · Space hit",
-    );
+    // the step and the words follow the box the keyboard is on (Aim)
+    for (const hint of [
+      "←↑↓→ move",
+      "⌘←→ ±1°",
+      "⌘↑↓ left · straight · right",
+      "0–9 type",
+      "Space hit",
+    ])
+      expect(pads).toHaveTextContent(hint);
+    selectBox("swing speed");
+    expect(pads).toHaveTextContent("⌘←→ ±1 mph");
+    expect(pads).toHaveTextContent("⌘↑↓ slower · stock · faster");
     expect(pads).not.toHaveTextContent(/\bQ E\b|\bA D\b|\bS W\b/);
     expect(document.querySelector("[data-tooltip-content]")).toBeNull();
   });
@@ -787,12 +878,12 @@ describe("club pads", () => {
     renderPanel();
     const input = startTyping("Club face");
     expect(input).toHaveFocus();
-    expect(input).toHaveValue(0);
+    expect(input).toHaveValue("0");
     fireEvent.change(input, { target: { value: "4" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(valueOf("Club face")).toBe(4);
-    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    expect(typingField()).toBeNull();
     expect(
       screen.getByRole("button", { name: "Edit club face: 4° open" }),
     ).toBeInTheDocument();
@@ -807,12 +898,19 @@ describe("club pads", () => {
 
     typeValue("Aim", "7", "Escape");
     expect(valueOf("Aim")).toBe(0);
-    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    expect(typingField()).toBeNull();
   });
 
   test("typed values are snapped to the step and held to the range; junk is ignored", () => {
     renderPanel();
     typeValue("Club path", "-2.4");
+    expect(valueOf("Club path")).toBe(-2);
+    // a bare number is the size and keeps the side; a sign picks the side
+    typeValue("Club path", "3");
+    expect(valueOf("Club path")).toBe(-3);
+    typeValue("Club path", "+1");
+    expect(valueOf("Club path")).toBe(1);
+    typeValue("Club path", "-2");
     expect(valueOf("Club path")).toBe(-2);
     typeValue("Strike", "0.6");
     expect(valueOf("Strike")).toBe(0.5);
@@ -884,7 +982,7 @@ describe("club pads", () => {
     expect(within(pads).getByText("Push Slice")).toBeInTheDocument();
 
     typeValue("Club face", "-1");
-    typeValue("Club path", "2");
+    typeValue("Club path", "+2");
     expect(within(pads).getByText("Draw")).toBeInTheDocument();
   });
 

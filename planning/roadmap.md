@@ -81,6 +81,11 @@
   view's size on short screens.
 - [done] Direct-manipulation shot controls (2026-11-16) — drag handles on the
   club, click-to-type values, live shot-shape preview; sliders removed.
+- [done] Shot-control redesign (2026-11-21) — designed in Claude Design
+  (Desktop B v2, Mobile B v2): laptop boxes with ‹ number ›, a ruler and a
+  key bar, type a digit to edit; phones show one control at a time with the
+  bag as chips in the drawer. Open: Practice/Advanced now scrolls the laptop
+  panel to reach the 3D views at 900 px tall.
 - [done] 3D control views (2026-11-16) — the two flat control diagrams are now
   live 3D views of the driver with the drag handles on top.
 - Free-look close-up: the orbiting, enlargeable 3D view was removed when the

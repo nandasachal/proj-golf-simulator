@@ -153,22 +153,31 @@ React UI (App.js, components/)          src/simulate/ (no React)
 - **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
   viewport with a HUD over it (stacked under the scene on phones).
   - **Shot controls are the club itself** (`components/simulator/club-pads.jsx`).
-    The left panel holds every control's value box together (face, path,
-    strike, aim, attack angle, loft and swing speed, with the club menu beside
-    it), each with a dot
-    of its own colour, and under them the club in hand at impact in two live
+    The left panel (360px) holds a box per control in a two-column grid (face,
+    path, strike, aim, attack angle, loft and swing speed, with the Club box
+    beside it), each with a dot of its own colour. Every box has the same
+    rows, so they line up across the grid: the name with its (i) and a reset
+    to neutral; ‹ number ›; a ruler (a real range input laid invisibly over a
+    drawn scale, neutral marked, the distance from it filled in); the word.
+    Under them is the club in hand at impact in two live
     3D views, built from the same scene as the old close-up (`club-scene.js`,
     below): from above (aim, face, path, strike) and from the toe (attack
-    angle, loft). Phones get the boxes alone: the views are not built there. Drag handles are laid over each view at the screen
+    angle, loft). Phones get no views (they are not built there) and show one control at a
+    time: the bag as a scrolling row of chips, a tab per control with its
+    value, then the selected control's big number and word, a tall ruler, and
+    step / neutral / step buttons. Drag handles are laid over each view at the screen
     position of a point in the scene, and a drag is read back by casting a
     ray from the pointer onto the turf (or the upright plane through the ball
-    and target). Every control can be set three ways: drag its handle, use
-    the keyboard, or click its number to type one. Each control has a value
+    and target). Every control can be set several ways: drag its handle or its
+    ruler, step it with ‹ ›, use the keyboard, or type its number (click it,
+    or just type a digit, which goes to the selected box). A bare typed number
+    is the size and keeps the side it is on; + or − picks the side. Each control has a value
     box showing two fields: a word (closed / square / open) and a number.
     The keyboard (`src/utils/shortcuts.js`) works on the boxes: the arrow
     keys move between them, Command (Ctrl) with ←/→ changes the selected
     box's number by a step, Command with ↑/↓ steps its word (one side,
-    neutral, the other side), and Space hits. There are no letter shortcuts.
+    neutral, the other side), and Space hits. A key bar under the grid lists
+    the keys, with the step and the three words of the selected box. There are no letter shortcuts.
     The word is a menu of the three it can be: neutral, or the same size on the
     other side. Each box has an (i) that says what the control does when
     clicked; nothing in the app explains itself on hover. The keyboard starts
@@ -182,8 +191,8 @@ React UI (App.js, components/)          src/simulate/ (no React)
     ×4, strike ×2 (the × is shown in each view's corner; the numbers are
     always true). The handle geometry is pure and tested in
     `src/utils/club-handles.js`, in the scene's own centimetres.
-  - The shot panel carries the club in hand (the chip beside swing speed opens the
-    bag), Reset (the icon top right) and the mode (Practice, Normal, Advanced,
+  - The shot panel carries the club in hand (the Club box beside swing speed opens the
+    bag; on phones, the chip row), Reset (the icon top right) and the mode (Practice, Normal, Advanced,
     along the bottom). On phones the mode and Hit are a bar fixed to the
     bottom of the screen, the game card shrinks to the target, pips and
     score, and Settings and Reset view sit in the bottom corners of the

@@ -79,8 +79,8 @@ const clamp = (value, range) =>
     : range.DEFAULT;
 
 // Shot controls and the query param each is saved under.
-// Right edge of the shot panel on laptops: left-4 plus its 340px width.
-const PANEL_RIGHT_PIXELS = 356;
+// Right edge of the shot panel on laptops: left-4 plus its 360px width.
+const PANEL_RIGHT_PIXELS = 376;
 
 const SHOT_PARAMS = {
   clubFaceAngle: "face",
@@ -846,7 +846,7 @@ function App() {
       </div>
 
       {/* Left column: the shot controls, then the club-at-impact views. */}
-      <div className="z-10 m-3 flex flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-5.5rem)] md:w-[340px] md:overflow-y-auto">
+      <div className="z-10 m-3 flex flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-5.5rem)] md:w-[360px] md:overflow-y-auto">
         <div className="hud-panel p-4">
           <ClubPads
             values={{

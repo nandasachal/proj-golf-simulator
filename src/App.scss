@@ -106,3 +106,44 @@ div.club-handle:focus-visible {
     box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.6);
   }
 }
+
+// A ruler's range input lies invisibly over its drawing; its thumb is made
+// as thin as the drawn bar so a press lands where it looks.
+.ruler-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+  touch-action: pan-y;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+.ruler-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 4px;
+  height: 64px;
+}
+.ruler-input::-moz-range-thumb {
+  width: 4px;
+  height: 64px;
+  border: 0;
+}
+.ruler-rail {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+}
+.ruler-input:focus-visible + .ruler-rail {
+  outline: 2px solid #a3e635;
+  outline-offset: 3px;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
