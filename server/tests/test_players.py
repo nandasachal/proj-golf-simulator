@@ -1,3 +1,5 @@
+import pytest
+
 from conftest import shoot, signup
 
 PASSWORD = "correct horse"
@@ -125,6 +127,79 @@ def test_our_own_accounts_are_marked_internal(client, monkeypatch):
     # a name with no password proves nothing about who holds it
     monkeypatch.setenv("INTERNAL_NAMES", "guest")
     assert signup(client, "Guest")["internal"] is False
+
+
+@pytest.fixture
+def google(app, monkeypatch):
+    """Credentials are "google:<sub>"; anything else is not from Google."""
+    monkeypatch.setattr(
+        app,
+        "google_subject",
+        lambda credential: credential.removeprefix("google:")
+        if credential.startswith("google:")
+        else None,
+    )
+
+
+def google_sign_in(client, credential="google:sub-1", name=None, key=None):
+    return client.post(
+        "/players/google",
+        json={"credential": credential, **({"name": name} if name else {})},
+        headers={"Authorization": f"Bearer {key}"} if key else {},
+    )
+
+
+def test_a_new_google_account_needs_a_name_then_logs_in_without_one(client, google):
+    assert google_sign_in(client, "forged").status_code == 401
+    first = google_sign_in(client)
+    assert first.status_code == 409
+    assert first.json() == {"error": "name_needed"}
+    assert google_sign_in(client, name="a").json() == {"error": "invalid_name"}
+
+    made = google_sign_in(client, name=" Sachal ")
+    assert made.status_code == 201
+    player = made.json()
+    assert player["name"] == "Sachal"
+    assert player["account"] is True
+    assert shoot(client, player["key"]).status_code == 201
+
+    again = google_sign_in(client)
+    assert again.status_code == 200
+    assert again.json()["id"] == player["id"]
+    assert again.json()["key"] != player["key"]
+    assert shoot(client, again.json()["key"]).status_code == 201
+    # another Google account cannot take the name
+    taken = google_sign_in(client, "google:sub-2", name="sachal")
+    assert taken.status_code == 409
+    assert taken.json() == {"error": "name_taken"}
+
+
+def test_a_saved_name_is_tied_to_google_from_the_browser_that_holds_it(
+    client, google
+):
+    player = signup(client)
+    tied = google_sign_in(client, key=player["key"])
+    assert tied.status_code == 200
+    assert tied.json() == {**player, "account": True}
+    assert google_sign_in(client).json()["id"] == player["id"]
+    # a second Google account cannot be tied over the first
+    other = google_sign_in(client, "google:sub-2", key=player["key"])
+    assert other.json() == {"error": "name_needed"}
+
+
+def test_only_the_google_sub_is_stored(client, db, google):
+    google_sign_in(client, name="Sachal")
+    assert db.execute("SELECT google_sub, password_hash FROM players").fetchone() == (
+        "sub-1",
+        None,
+    )
+
+
+def test_without_a_client_id_no_credential_is_from_google(app, monkeypatch):
+    monkeypatch.delenv("GOOGLE_CLIENT_ID", raising=False)
+    assert app.google_subject("anything") is None
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "client")
+    assert app.google_subject("not-a-jwt") is None
 
 
 def test_cors_allows_only_the_site(client):

@@ -13,6 +13,9 @@ from fastapi import FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from google.auth.exceptions import GoogleAuthError
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
 from pydantic import BaseModel, Field, StrictBool
 
 from . import db
@@ -133,6 +136,42 @@ def player_json(player_id, name, key, account):
     }
 
 
+# Who Google says this is: the "sub" of a Sign in with Google credential made
+# for our client id, or None. Only the sub is kept; no email, no Google name.
+def google_subject(credential):
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    if not client_id or not credential:
+        return None
+    try:
+        claims = id_token.verify_oauth2_token(
+            credential, google_requests.Request(), client_id
+        )
+    except (ValueError, GoogleAuthError):
+        return None
+    return claims.get("sub")
+
+
+def clean_name(raw):
+    name = " ".join(raw.split())
+    if (
+        not 2 <= len(name) <= 16
+        or not name.isprintable()
+        # Start of a word only: "Mishit" is a golf shot, not an insult.
+        or any(
+            part.startswith(BLOCKED_WORDS)
+            for part in re.split(r"[^a-z]+", name.lower())
+        )
+    ):
+        return None
+    return name
+
+
+class GoogleSignIn(BaseModel):
+    credential: str = ""
+    # The leaderboard name, the first time this Google account signs in.
+    name: str | None = None
+
+
 class NewPlayer(BaseModel):
     name: str = ""
     # With a password the name is an account that can be logged in to
@@ -168,16 +207,8 @@ def healthz():
 def create_player(body: NewPlayer, request: Request):
     if not signups_by_ip.allow(client_ip(request)):
         return error(429, "rate_limited")
-    name = " ".join(body.name.split())
-    lowered = name.lower()
-    if (
-        not 2 <= len(name) <= 16
-        or not name.isprintable()
-        # Start of a word only: "Mishit" is a golf shot, not an insult.
-        or any(
-            part.startswith(BLOCKED_WORDS) for part in re.split(r"[^a-z]+", lowered)
-        )
-    ):
+    name = clean_name(body.name)
+    if not name:
         return error(422, "invalid_name")
     if body.password is not None and not valid_password(body.password):
         return error(422, "invalid_password")
@@ -191,7 +222,7 @@ def create_player(body: NewPlayer, request: Request):
                 (
                     player_id,
                     name,
-                    lowered,
+                    name.lower(),
                     key_hash(key),
                     hashed_password(body.password) if body.password else None,
                 ),
@@ -224,6 +255,58 @@ def login(body: Login, request: Request):
             (key_hash(key), player_id),
         )
     return player_json(player_id, name, key, True)
+
+
+# Sign in with Google. A Google account seen before is logged in; one holding
+# the key of a saved name is tied to that name; otherwise it needs a name to
+# become a new player.
+@app.post("/players/google")
+def google_sign_in(
+    body: GoogleSignIn, request: Request, authorization: str | None = Header(None)
+):
+    if not logins_by_ip.allow(client_ip(request)):
+        return error(429, "rate_limited")
+    sub = google_subject(body.credential)
+    if not sub:
+        return error(401, "invalid_login")
+    held = bearer(authorization)
+    try:
+        with request.app.state.pool.connection() as conn:
+            known = conn.execute(
+                "SELECT id, name FROM players WHERE google_sub = %s", (sub,)
+            ).fetchone()
+            if known:
+                key = secrets.token_urlsafe(32)
+                conn.execute(
+                    "INSERT INTO player_keys (key_hash, player_id) VALUES (%s, %s)",
+                    (key_hash(key), known[0]),
+                )
+                return player_json(known[0], known[1], key, True)
+            if held:
+                tied = conn.execute(
+                    "UPDATE players SET google_sub = %(sub)s"
+                    " WHERE google_sub IS NULL AND (key_hash = %(key)s OR id ="
+                    " (SELECT player_id FROM player_keys WHERE key_hash = %(key)s))"
+                    " RETURNING id, name",
+                    {"sub": sub, "key": key_hash(held)},
+                ).fetchone()
+                if tied:
+                    return player_json(tied[0], tied[1], held, True)
+            if body.name is None:
+                return error(409, "name_needed")
+            name = clean_name(body.name)
+            if not name:
+                return error(422, "invalid_name")
+            key = secrets.token_urlsafe(32)
+            player_id = uuid.uuid4()
+            conn.execute(
+                "INSERT INTO players (id, name, name_key, key_hash, google_sub)"
+                " VALUES (%s, %s, %s, %s, %s)",
+                (player_id, name, name.lower(), key_hash(key), sub),
+            )
+    except psycopg.errors.UniqueViolation:
+        return error(409, "name_taken")
+    return JSONResponse(player_json(player_id, name, key, True), status_code=201)
 
 
 # A name saved without a password becomes an account, from the browser that

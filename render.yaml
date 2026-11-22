@@ -26,6 +26,10 @@ services:
         fromDatabase:
           name: golf-leaderboard-db
           property: connectionString
+      # The Google OAuth client id, the same one the site is built with
+      # (REACT_APP_GOOGLE_CLIENT_ID): set in the dashboard.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
       # Our own account names, comma-separated: set in the dashboard.
       - key: INTERNAL_NAMES
         sync: false

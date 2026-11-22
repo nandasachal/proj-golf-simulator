@@ -20,9 +20,9 @@ const post = (path, body, key) =>
     body: JSON.stringify(body),
   });
 
-// All three resolve to { player: { id, name, key, account, internal } } or
-// { error }, where error is the API's own code, "wrong_login", "rate_limited"
-// or "unavailable".
+// These resolve to { player: { id, name, key, account, internal }, created }
+// or { error }, where error is the API's own code, "wrong_login",
+// "rate_limited" or "unavailable". `created` says the player is new.
 async function playerRequest(path, body, key) {
   try {
     const response = await post(path, body, key);
@@ -37,6 +37,7 @@ async function playerRequest(path, body, key) {
           account: !!account,
           internal: !!internal,
         },
+        created: response.status === 201,
       };
     }
     if (response.status === 401) return { error: "wrong_login" };
@@ -56,6 +57,12 @@ export const createPlayer = (name, password) =>
 
 export const loginPlayer = (name, password) =>
   playerRequest("/players/login", { name, password });
+
+// Sign in with Google: logs in a Google account seen before, ties it to the
+// name this browser holds (`key`), or makes a new player called `name`.
+// Answers "name_needed" when it is new and no name was given.
+export const googlePlayer = (credential, name, key) =>
+  playerRequest("/players/google", { credential, ...(name && { name }) }, key);
 
 // Makes an account of the name this browser already holds.
 export const addPassword = (key, password) =>

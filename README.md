@@ -379,6 +379,12 @@ rules a contributor needs:
   to that browser. Saved with a password it is an **account**:
   `POST /players/login` gives another device its own key for the same player,
   and a name saved alone can add a password later (`POST /players/password`).
+  An account can instead be **Sign in with Google** (`POST /players/google`):
+  Google's button gives the site a signed credential, the API checks it
+  against `GOOGLE_CLIENT_ID` and keeps only Google's id for the person (no
+  email, no Google name), and a new Google account picks its own leaderboard
+  name. The button shows only when the site is built with
+  `REACT_APP_GOOGLE_CLIENT_ID` (the same id).
   Saving is optional ("Not now"). The server stores only hashes; there is no
   email, so no password reset. Accounts are built into the API rather than a
   separate identity server (Keycloak was considered, 2026-11-22): one optional

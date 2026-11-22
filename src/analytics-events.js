@@ -96,6 +96,7 @@ const SAVE_FAILURES = {
   invalid_name: "invalid",
   wrong_login: "wrong_login",
   invalid_password: "invalid",
+  google_failed: "google_failed",
   rate_limited: "rate_limited",
   unavailable: "network",
 };

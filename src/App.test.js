@@ -2469,6 +2469,123 @@ describe("players and leaderboard", () => {
     ).toBeInTheDocument();
   });
 
+  describe("with Google sign-in on", () => {
+    let signIn;
+    const rendered = () => window.google.accounts.id.renderButton;
+    beforeEach(() => {
+      process.env.REACT_APP_GOOGLE_CLIENT_ID = "client-1";
+      window.google = {
+        accounts: {
+          id: {
+            initialize: ({ callback }) => {
+              signIn = (credential) => callback({ credential });
+            },
+            renderButton: jest.fn(),
+          },
+        },
+      };
+    });
+    afterEach(() => {
+      delete process.env.REACT_APP_GOOGLE_CLIENT_ID;
+      delete window.google;
+    });
+
+    test("a new Google account picks a name; one seen before is logged straight in", async () => {
+      const account = { ...SACHAL, account: true };
+      let known = false;
+      api({
+        "POST /players/google": (_url, options) => {
+          if (known) return respond(200, account);
+          if (!JSON.parse(options.body).name)
+            return respond(409, { error: "name_needed" });
+          known = true;
+          return respond(201, account);
+        },
+        "GET /leaderboard": () => respond(200, board({})),
+      });
+      renderApp();
+      const dialog = await openLeaderboard();
+      const form = () =>
+        dialog.getByRole("form", { name: "Save to the leaderboard" });
+      // a name alone has nothing to sign in to
+      expect(dialog.queryByTestId("google-button")).toBeNull();
+      fireEvent.click(within(form()).getByRole("button", { name: "Account" }));
+      await waitFor(() => expect(rendered()).toHaveBeenCalledTimes(1));
+
+      await act(async () => signIn("google-credential"));
+      expect(form()).toHaveTextContent(
+        "Signed in with Google. Pick your leaderboard name.",
+      );
+      expect(within(form()).queryByLabelText("Password")).toBeNull();
+      fireEvent.change(within(form()).getByLabelText("Name"), {
+        target: { value: "Sachal" },
+      });
+      fireEvent.click(within(form()).getByRole("button", { name: "Save" }));
+      expect(
+        await dialog.findByText("Logged in as Sachal"),
+      ).toBeInTheDocument();
+      expect(
+        requests("POST", "/players/google").map(([, options]) =>
+          JSON.parse(options.body),
+        ),
+      ).toEqual([
+        { credential: "google-credential" },
+        { credential: "google-credential", name: "Sachal" },
+      ]);
+
+      fireEvent.click(dialog.getByRole("button", { name: "Log out" }));
+      fireEvent.click(within(form()).getByRole("button", { name: "Account" }));
+      await waitFor(() => expect(rendered()).toHaveBeenCalledTimes(2));
+      await act(async () => signIn("google-credential"));
+      expect(
+        await dialog.findByText("Logged in as Sachal"),
+      ).toBeInTheDocument();
+    });
+
+    test("a credential the API does not accept says so and asks again", async () => {
+      api({
+        "POST /players/google": () => respond(401),
+        "GET /leaderboard": () => respond(200, board({})),
+      });
+      renderApp();
+      const dialog = await openLeaderboard();
+      fireEvent.click(dialog.getByRole("button", { name: "Account" }));
+      await waitFor(() => expect(rendered()).toHaveBeenCalled());
+      await act(async () => signIn("forged"));
+      expect(await dialog.findByRole("alert")).toHaveTextContent(
+        "Google sign-in didn't work",
+      );
+      expect(window.localStorage.getItem("golf.player")).toBeNull();
+    });
+
+    test("a name saved on this device is tied to Google with the key it holds", async () => {
+      savePlayer();
+      api({
+        "POST /players/google": () =>
+          respond(200, { ...SACHAL, account: true }),
+        "GET /leaderboard": () => respond(200, board({})),
+      });
+      renderApp();
+      const dialog = await openLeaderboard();
+      await waitFor(() => expect(rendered()).toHaveBeenCalled());
+      await act(async () => signIn("google-credential"));
+      expect(
+        await dialog.findByText("Logged in as Sachal"),
+      ).toBeInTheDocument();
+      const [, options] = requests("POST", "/players/google")[0];
+      expect(options.headers.Authorization).toBe("Bearer secret");
+    });
+  });
+
+  test("without a Google client id there is no Google button", async () => {
+    api({ "GET /leaderboard": () => respond(200, board({})) });
+    renderApp();
+    const dialog = await openLeaderboard();
+    fireEvent.click(dialog.getByRole("button", { name: "Account" }));
+    expect(dialog.getByLabelText("Password")).toBeInTheDocument();
+    expect(dialog.queryByTestId("google-button")).toBeNull();
+  });
+
   test("a name saved on this device becomes an account by adding a password", async () => {
     savePlayer();
     api({
