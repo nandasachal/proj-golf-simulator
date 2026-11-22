@@ -16,6 +16,7 @@
   [product-specs/profiles-leaderboard.md](product-specs/profiles-leaderboard.md)
   and [eng-plans/profiles-leaderboard.md](eng-plans/profiles-leaderboard.md).
   - [done] Shorter game: 5 targets, 3 to win, 4 in advanced (2026-11-17).
+  - [done] Optional accounts (name + password) replace recovery codes; save form is Name only / Account / Not now; our own accounts mark the browser internal, replacing `?internal=1` (2026-11-22, built and pushed; deploy pending).
   - [done] **Analytics instrumentation and dashboards** (2026-11-21; bot
     filtering and a real `app_version` outstanding) — every action tracked with
     a game id, load and error events, three PostHog dashboards. See
