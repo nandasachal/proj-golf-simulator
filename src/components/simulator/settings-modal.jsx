@@ -252,6 +252,8 @@ const SettingsModal = ({
   onClub,
   onClubCarry,
   onResetCarries,
+  starWars = false,
+  onStarWars,
 }) => {
   const [open, setOpen] = useState(false);
   return (
@@ -313,6 +315,34 @@ const SettingsModal = ({
                   onChange={onSide}
                 />
               </Section>
+
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <div>
+                  <h3 id="star-wars-label" className="text-sm font-bold">
+                    Star Wars Mode
+                  </h3>
+                  <p className="mt-0.5 text-xs text-white/50">
+                    A fleet of capital ships and fighters crosses the sky.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={starWars}
+                  aria-labelledby="star-wars-label"
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400 ${
+                    starWars ? "bg-lime-400" : "bg-white/20"
+                  }`}
+                  onClick={() => onStarWars(!starWars)}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      starWars ? "translate-x-5" : ""
+                    }`}
+                  />
+                </button>
+              </div>
 
               <Section
                 title="Turf"

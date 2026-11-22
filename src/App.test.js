@@ -84,6 +84,7 @@ beforeEach(() => {
     setClub: jest.fn(),
     setViewInset: jest.fn(),
     setOverhead: jest.fn(),
+    setFleet: jest.fn(),
     dispose: jest.fn(),
   };
   viewport(true);
@@ -1893,6 +1894,44 @@ describe("bird's-eye view", () => {
       from: "off",
       to: "on",
     });
+  });
+});
+
+describe("Star Wars Mode", () => {
+  const toggle = (settings) =>
+    settings.getByRole("switch", { name: "Star Wars Mode" });
+
+  test("off to start with; switching it on shows the fleet without a reload", () => {
+    renderApp("/");
+    expect(simulator.setFleet).toHaveBeenLastCalledWith(false);
+    const settings = openSettings();
+    expect(toggle(settings)).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(toggle(settings));
+    expect(toggle(settings)).toHaveAttribute("aria-checked", "true");
+    expect(simulator.setFleet).toHaveBeenLastCalledWith(true);
+    expect(createSimulator).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenCalledWith("setting_changed", {
+      setting: "star_wars",
+      from: "off",
+      to: "on",
+    });
+    fireEvent.click(toggle(settings));
+    expect(simulator.setFleet).toHaveBeenLastCalledWith(false);
+  });
+
+  test("it is remembered in this browser", () => {
+    const { unmount } = renderApp("/");
+    fireEvent.click(toggle(openSettings()));
+    unmount();
+    renderApp("/");
+    expect(simulator.setFleet).toHaveBeenLastCalledWith(true);
+    expect(toggle(openSettings())).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("?empire in the URL no longer does anything", () => {
+    renderApp("/?empire=1");
+    expect(simulator.setFleet).toHaveBeenLastCalledWith(false);
+    expect(createSimulator.mock.calls[0][1]).not.toHaveProperty("fleet");
   });
 });
 

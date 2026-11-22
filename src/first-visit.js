@@ -20,3 +20,13 @@ export const markDone = (key, storage = window.localStorage) => {
     storage.setItem(key, "1");
   } catch {}
 };
+
+// A switch remembered in this browser the same way: Star Wars Mode.
+export const STAR_WARS = "golf.starWars";
+
+export const remember = (key, on, storage = window.localStorage) => {
+  try {
+    if (on) storage.setItem(key, "1");
+    else storage.removeItem(key);
+  } catch {}
+};

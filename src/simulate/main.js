@@ -93,8 +93,11 @@ function bandTexture() {
 const GOLFER_CLEARANCE = 1.35;
 const ADDRESS_DISTANCE = 6;
 
+// How far the camera sees, without Star Wars Mode's far-off fleet.
+const SCENE_FAR = 2600;
+
 export function createSimulator(container, callbacks = {}) {
-  const { onState, onProgress, onResult, onOrbit, onReady, onOverhead, fleet } =
+  const { onState, onProgress, onResult, onOrbit, onReady, onOverhead } =
     callbacks;
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -109,7 +112,6 @@ export function createSimulator(container, callbacks = {}) {
   scene.fog = new THREE.Fog(FOG.color, FOG.near, FOG.far);
   const range = buildRange({
     anisotropy: renderer.capabilities.getMaxAnisotropy(),
-    fleet,
   });
   scene.add(range);
 
@@ -117,8 +119,15 @@ export function createSimulator(container, callbacks = {}) {
     48,
     1,
     0.5,
-    fleet ? FLEET_FAR : 2600,
+    SCENE_FAR,
   );
+  // Star Wars Mode: the fleet in the sky, switched live. Its ships fly far
+  // beyond the mountains, so the camera has to see further while it is on.
+  function setFleet(on) {
+    range.userData.setFleet(Boolean(on));
+    camera.far = on ? FLEET_FAR : SCENE_FAR;
+    camera.updateProjectionMatrix();
+  }
   // The win confetti hangs off the camera, which draws only if it is in the scene.
   scene.add(camera);
   const celebration = createCelebration(camera);
@@ -909,6 +918,7 @@ export function createSimulator(container, callbacks = {}) {
     setTarget,
     setClub,
     setViewInset,
+    setFleet,
     resetView,
     setOverhead,
     // The last shot's line and landing marker, put away once the next shot

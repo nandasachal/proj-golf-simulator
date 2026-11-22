@@ -20,7 +20,7 @@ export {
 } from "./scenery/shared";
 export { FOG } from "./scenery/sky";
 
-export function buildRange({ anisotropy = 1, fleet = false } = {}) {
+export function buildRange({ anisotropy = 1 } = {}) {
   const random = seededRandom(20261115);
   const range = new THREE.Group();
   range.name = "range";
@@ -32,10 +32,20 @@ export function buildRange({ anisotropy = 1, fleet = false } = {}) {
     buildTrees({ random }),
     buildLights(),
   ];
-  if (fleet) parts.push(buildFleet());
   for (const part of parts) range.add(part.object);
+  // Star Wars Mode's fleet: built the first time it is switched on, then
+  // only shown or hidden.
+  let fleet = null;
+  range.userData.setFleet = (on) => {
+    if (on && !fleet) {
+      fleet = buildFleet();
+      range.add(fleet.object);
+    }
+    if (fleet) fleet.object.visible = on;
+  };
   range.userData.update = (seconds, camera) => {
     for (const part of parts) part.update(seconds, camera);
+    if (fleet?.object.visible) fleet.update(seconds, camera);
   };
   return range;
 }

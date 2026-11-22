@@ -35,7 +35,7 @@ import {
   GOALS,
 } from "./simulate/game";
 import { coachMiss } from "./simulate/coach";
-import { FIRST, hasDone, markDone } from "./first-visit";
+import { FIRST, STAR_WARS, hasDone, markDone, remember } from "./first-visit";
 import { getClub, swingSpeedRange, DEFAULT_CLUB_ID } from "./simulate/clubs";
 import { standardAttackAngle } from "./simulate/launch-conditions";
 import { carryLimits, speedForCarry } from "./simulate/club-distances";
@@ -153,8 +153,6 @@ function App() {
     false,
   );
   const [rawClub] = useQueryState("club", DEFAULT_CLUB_ID, false);
-  // Hidden: ?empire puts a fleet in the sky. Read once, when the scene is built.
-  const [empire] = useQueryState("empire", null, false);
   const club = getClub(rawClub);
   // Swing speeds set for this session by editing a club's distance in
   // Settings. Not saved anywhere: a reload goes back to the stock distances.
@@ -320,6 +318,9 @@ function App() {
   const [player, setPlayer] = useState(loadProfile);
   // First visit: Hit pulses until the first shot.
   const [beckon, setBeckon] = useState(() => !hasDone(FIRST.shot));
+  // Star Wars Mode: a fleet in the sky, switched in Settings and remembered
+  // in this browser.
+  const [starWars, setStarWars] = useState(() => hasDone(STAR_WARS));
   // What to change for the next target, after a miss.
   const [tip, setTip] = useState(null);
   const [board, setBoard] = useState(null);
@@ -331,7 +332,6 @@ function App() {
     const sim = guardScene(() =>
       createSimulator(stage.current, {
         side,
-        fleet: empire != null,
         // The golfer is on the tee: fade out the loading screen in index.html
         // once a frame with him in it has been drawn.
         onReady: ({ model } = {}) => {
@@ -468,6 +468,19 @@ function App() {
   useEffect(() => {
     simulator.current.setSide(side);
   }, [side]);
+
+  useEffect(() => {
+    simulator.current.setFleet?.(starWars);
+  }, [starWars]);
+  const handleStarWars = (on) => {
+    setStarWars(on);
+    remember(STAR_WARS, on);
+    track("setting_changed", {
+      setting: "star_wars",
+      from: on ? "off" : "on",
+      to: on ? "on" : "off",
+    });
+  };
 
   useEffect(() => {
     simulator.current.setAim(aim);
@@ -888,6 +901,8 @@ function App() {
             onClub={handleClub}
             onClubCarry={handleClubCarry}
             onResetCarries={handleResetCarries}
+            starWars={starWars}
+            onStarWars={handleStarWars}
           />
           <LeaderboardModal
             player={player}

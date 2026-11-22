@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { HORIZON_COLOR, canvasTexture, seededRandom } from "./shared";
 
-// A hidden extra (?empire in the URL): a fleet of wedge-shaped capital ships
+// Star Wars Mode (a switch in Settings): a fleet of wedge-shaped capital ships
 // crossing the sky left to right. They are the size of towns and fly beyond
 // the mountains, so they move slowly and sit deep in the haze.
 
