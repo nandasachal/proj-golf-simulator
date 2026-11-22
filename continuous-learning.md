@@ -87,3 +87,5 @@ correctly scored shot can look unscored during browser verification (the scene's
 target was still null at hit time). Flush with a click or render (e.g. Restart)
 before hitting, and don't chase it as an app bug.
 2026-11-21 — mistake — ran 'prettier --write src' to format new files; it reformatted about a dozen unrelated files (this repo's source is not uniformly Prettier-formatted). Format only the files you edited (prettier --write <those files>), and check 'git status' before committing; reverted with git checkout this time.
+2026-11-21 — note — re-exporting tools/blender/golfer.blend gives a 4.8 MB GLB, not the shipped 3.3 MB, so the .blend and public/models/golfer.glb have drifted. Check the build pipeline before any re-export, e.g. for compression.
+2026-11-21 — note — with the browser pane hidden, the 3D scene doesn't animate and a Hit never lands. Check landing and scoring with the scene's own physics in Jest (see "easyTarget against the scene's own shot").
