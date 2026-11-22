@@ -31,20 +31,19 @@ BLOCKED_WORDS = (
     "fuck", "shit", "cunt", "bitch", "nigg", "fagg", "whore", "slut", "nazi",
     "hitler", "penis", "vagina", "asshole", "pussy", "retard", "twat", "wank",
 )  # fmt: skip
-RECOVERY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
 # A real shot takes about 8 s; the burst lets an offline queue of ~10 flush.
 shots_by_player = RateLimiter(burst=12, every=3)
 shots_by_ip = RateLimiter(burst=40, every=1)
 signups_by_ip = RateLimiter(burst=10, every=60)
-recoveries_by_name = RateLimiter(burst=5, every=60)
-recoveries_by_ip = RateLimiter(burst=10, every=60)
+logins_by_name = RateLimiter(burst=5, every=60)
+logins_by_ip = RateLimiter(burst=10, every=60)
 LIMITERS = (
     shots_by_player,
     shots_by_ip,
     signups_by_ip,
-    recoveries_by_name,
-    recoveries_by_ip,
+    logins_by_name,
+    logins_by_ip,
 )
 
 
@@ -99,21 +98,55 @@ def key_hash(key):
     return hashlib.sha256(key.encode()).hexdigest()
 
 
-def recovery_hash(code, salt):
-    return hashlib.scrypt(code.encode(), salt=salt, n=2**14, r=8, p=1).hex()
+def hashed_password(password):
+    salt = secrets.token_bytes(16)
+    digest = hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1)
+    return f"{salt.hex()}${digest.hex()}"
 
 
-def normalise_code(code):
-    return "".join(ch for ch in code.upper() if ch.isalnum())
+def password_matches(password, stored):
+    salt, _, expected = stored.partition("$")
+    actual = hashlib.scrypt(
+        password.encode(), salt=bytes.fromhex(salt), n=2**14, r=8, p=1
+    )
+    return hmac.compare_digest(actual.hex(), expected)
+
+
+def valid_password(password):
+    return 8 <= len(password) <= 128
+
+
+# Our own accounts, by name: their devices mark themselves internal so their
+# play stays out of the analytics.
+def is_internal(name):
+    names = os.environ.get("INTERNAL_NAMES", "").lower().split(",")
+    return name.lower() in {entry.strip() for entry in names if entry.strip()}
+
+
+def player_json(player_id, name, key, account):
+    return {
+        "id": str(player_id),
+        "name": name,
+        "key": key,
+        "account": account,
+        "internal": account and is_internal(name),
+    }
 
 
 class NewPlayer(BaseModel):
     name: str = ""
+    # With a password the name is an account that can be logged in to
+    # anywhere; without one it belongs to the browser that saved it.
+    password: str | None = None
 
 
-class Recovery(BaseModel):
+class Login(BaseModel):
     name: str = ""
-    recoveryCode: str = ""
+    password: str = ""
+
+
+class NewPassword(BaseModel):
+    password: str = ""
 
 
 class NewShot(BaseModel):
@@ -146,60 +179,75 @@ def create_player(body: NewPlayer, request: Request):
         )
     ):
         return error(422, "invalid_name")
+    if body.password is not None and not valid_password(body.password):
+        return error(422, "invalid_password")
     key = secrets.token_urlsafe(32)
-    code = "".join(secrets.choice(RECOVERY_ALPHABET) for _ in range(8))
-    salt = secrets.token_bytes(16)
     player_id = uuid.uuid4()
     try:
         with request.app.state.pool.connection() as conn:
             conn.execute(
-                "INSERT INTO players (id, name, name_key, key_hash, recovery_hash)"
+                "INSERT INTO players (id, name, name_key, key_hash, password_hash)"
                 " VALUES (%s, %s, %s, %s, %s)",
                 (
                     player_id,
                     name,
                     lowered,
                     key_hash(key),
-                    f"{salt.hex()}${recovery_hash(code, salt)}",
+                    hashed_password(body.password) if body.password else None,
                 ),
             )
     except psycopg.errors.UniqueViolation:
         return error(409, "name_taken")
-    return {
-        "id": str(player_id),
-        "name": name,
-        "key": key,
-        "recoveryCode": f"{code[:4]}-{code[4:]}",
-    }
+    return player_json(player_id, name, key, body.password is not None)
 
 
-@app.post("/players/recover")
-def recover_player(body: Recovery, request: Request):
+@app.post("/players/login")
+def login(body: Login, request: Request):
     name_key = " ".join(body.name.split()).lower()
-    if not recoveries_by_ip.allow(client_ip(request)) or not recoveries_by_name.allow(
+    if not logins_by_ip.allow(client_ip(request)) or not logins_by_name.allow(
         name_key
     ):
         return error(429, "rate_limited")
     with request.app.state.pool.connection() as conn:
         row = conn.execute(
-            "SELECT id, name, recovery_hash FROM players WHERE name_key = %s",
+            "SELECT id, name, password_hash FROM players WHERE name_key = %s",
             (name_key,),
         ).fetchone()
-        if not row:
-            return error(401, "invalid_recovery")
-        player_id, name, stored = row
-        salt, _, expected = stored.partition("$")
-        actual = recovery_hash(normalise_code(body.recoveryCode), bytes.fromhex(salt))
-        if not hmac.compare_digest(actual, expected):
-            return error(401, "invalid_recovery")
+        if not row or not row[2] or not password_matches(body.password, row[2]):
+            return error(401, "invalid_login")
+        player_id, name, _ = row
         key = secrets.token_urlsafe(32)
-        # Another key for the same player: the device that had the name
-        # before keeps working.
+        # Another key for the same player: the devices already logged in
+        # keep working.
         conn.execute(
             "INSERT INTO player_keys (key_hash, player_id) VALUES (%s, %s)",
             (key_hash(key), player_id),
         )
-    return {"id": str(player_id), "name": name, "key": key}
+    return player_json(player_id, name, key, True)
+
+
+# A name saved without a password becomes an account, from the browser that
+# holds its key.
+@app.post("/players/password")
+def set_password(
+    body: NewPassword, request: Request, authorization: str | None = Header(None)
+):
+    if not signups_by_ip.allow(client_ip(request)):
+        return error(429, "rate_limited")
+    if not valid_password(body.password):
+        return error(422, "invalid_password")
+    key = bearer(authorization)
+    with request.app.state.pool.connection() as conn:
+        row = conn.execute(
+            "UPDATE players SET password_hash = %(password)s"
+            " WHERE password_hash IS NULL AND (key_hash = %(key)s OR id ="
+            " (SELECT player_id FROM player_keys WHERE key_hash = %(key)s))"
+            " RETURNING id, name",
+            {"password": hashed_password(body.password), "key": key_hash(key)},
+        ).fetchone()
+    if not row:
+        return error(401, "unauthorized")
+    return player_json(row[0], row[1], key, True)
 
 
 @app.post("/shots", status_code=201)

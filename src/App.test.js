@@ -1433,7 +1433,7 @@ describe("game mode", () => {
     );
   });
 
-  test("on a phone Practice / Game is at the top and the difficulty at the bottom", () => {
+  test("on a phone Practice / Game is at the top and the difficulty is a menu in the game row", () => {
     viewport(false);
     renderApp("/");
     const panel = within(screen.getByLabelText("Shot controls"));
@@ -1442,23 +1442,25 @@ describe("game mode", () => {
       "Practice",
       "Game",
     ]);
-    const bottom = () =>
-      within(screen.getByRole("group", { name: "Difficulty" }));
-    expect(bottom().getAllByRole("button").map((b) => b.textContent)).toEqual([
-      "Normal",
-      "Advanced",
-    ]);
-    expect(bottom().getByRole("button", { name: "Normal" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    fireEvent.click(bottom().getByRole("button", { name: "Advanced" }));
-    expect(address()).toContain("mode=advanced");
+    // the bottom bar is Hit alone
+    expect(screen.queryByRole("group", { name: "Difficulty" })).toBeNull();
 
-    // practice: no difficulty, Hit has the bar to itself
+    const row = () => within(screen.getByRole("status", { name: "Game" }));
+    fireEvent.click(row().getByRole("button", { name: "Difficulty: Normal" }));
+    expect(
+      screen.getByRole("option", { name: /Normal/ }),
+    ).toHaveTextContent("Target on the ground");
+    expect(
+      screen.getByRole("option", { name: /Advanced/ }),
+    ).toHaveTextContent("Target in the air");
+    fireEvent.click(screen.getByRole("option", { name: /Advanced/ }));
+    expect(address()).toContain("mode=advanced");
+    expect(
+      row().getByRole("button", { name: "Difficulty: Advanced" }),
+    ).toBeInTheDocument();
+
     fireEvent.click(top.getByRole("button", { name: "Practice" }));
     expect(address()).toContain("mode=practice");
-    expect(screen.queryByRole("group", { name: "Difficulty" })).toBeNull();
     expect(screen.queryByRole("status", { name: "Game" })).toBeNull();
     expect(screen.getByRole("button", { name: /Hit/ })).toBeInTheDocument();
   });

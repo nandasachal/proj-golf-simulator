@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { ArrowRepeat } from "react-bootstrap-icons";
+import { Listbox } from "@headlessui/react";
+import { ArrowRepeat, Check2, ChevronDown } from "react-bootstrap-icons";
 import SaveName from "./save-name";
 
 const describeSide = (offlineYards) => {
@@ -8,9 +9,59 @@ const describeSide = (offlineYards) => {
 };
 
 const DIFFICULTIES = [
-  { id: "normal", name: "Normal" },
-  { id: "advanced", name: "Advanced" },
+  { id: "normal", name: "Normal", about: "Target on the ground" },
+  { id: "advanced", name: "Advanced", about: "Target in the air" },
 ];
+
+// Phones: the game's difficulty as a small menu in the game row, opening
+// upward over the picture. Picking one starts a new game.
+const DifficultyMenu = ({ mode, onDifficulty }) => {
+  const chosen = DIFFICULTIES.find((entry) => entry.id === mode);
+  return (
+    <Listbox value={mode} onChange={onDifficulty}>
+      <div className="relative">
+        <Listbox.Button
+          aria-label={`Difficulty: ${chosen.name}`}
+          className="flex h-7 items-center gap-1 rounded-lg bg-white/[0.12] px-2 text-xs font-semibold text-white hover:bg-white/20"
+        >
+          {chosen.name}
+          <ChevronDown size={10} aria-hidden="true" className="opacity-70" />
+        </Listbox.Button>
+        <Listbox.Options className="absolute bottom-full right-0 z-40 mb-2 w-52 rounded-xl border border-white/15 bg-slate-950/95 p-1 text-[13px] shadow-xl focus:outline-none">
+          {DIFFICULTIES.map(({ id, name, about }) => (
+            <Listbox.Option
+              key={id}
+              value={id}
+              className={({ active }) =>
+                `flex cursor-pointer items-center justify-between rounded-lg px-2.5 py-2 ${
+                  active ? "bg-white/10" : ""
+                }`
+              }
+            >
+              {({ selected }) => (
+                <>
+                  <span>
+                    <span className="block font-semibold">{name}</span>
+                    <span className="block text-[11px] text-white/50">
+                      {about}
+                    </span>
+                  </span>
+                  {selected && (
+                    <Check2
+                      size={14}
+                      aria-hidden="true"
+                      className="text-lime-400"
+                    />
+                  )}
+                </>
+              )}
+            </Listbox.Option>
+          ))}
+        </Listbox.Options>
+      </div>
+    </Listbox>
+  );
+};
 
 // Where the game stands against its goal, in a few words; `short` fits the
 // phone card.
@@ -343,7 +394,15 @@ const GameCard = ({
 // the card does not cover it. The target that is up, the pips and Restart,
 // with the last miss's tip under them when there is one. The finished game
 // still gets the full card (its result, the name form, Play again).
-export const GameRow = ({ goal, target, round, onRestart, tip }) => {
+export const GameRow = ({
+  goal,
+  target,
+  round,
+  onRestart,
+  tip,
+  mode,
+  onDifficulty,
+}) => {
   const side = target
     ? target.offlineYards === 0
       ? "centre"
@@ -369,10 +428,14 @@ export const GameRow = ({ goal, target, round, onRestart, tip }) => {
           </span>
         )}
         <Pips round={round} total={goal.targets} playing />
+        <span className="ml-auto" />
+        {onDifficulty && (
+          <DifficultyMenu mode={mode} onDifficulty={onDifficulty} />
+        )}
         <button
           type="button"
           aria-label="Restart"
-          className="-mr-1 ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+          className="-mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
           onClick={onRestart}
         >
           <ArrowRepeat size={14} aria-hidden="true" />

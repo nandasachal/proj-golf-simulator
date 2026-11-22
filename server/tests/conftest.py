@@ -36,8 +36,9 @@ def db(app, client):
         yield conn
 
 
-def signup(client, name="Sachal"):
-    response = client.post("/players", json={"name": name})
+def signup(client, name="Sachal", password=None):
+    body = {"name": name, **({"password": password} if password else {})}
+    response = client.post("/players", json=body)
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -61,8 +62,8 @@ def seed(db, name, results, mode="normal", days_ago=0, game_size=5):
     """A player with one shot per character of `results`: 'h' is a hit, 'm' a miss."""
     player_id = uuid.uuid4()
     db.execute(
-        "INSERT INTO players (id, name, name_key, key_hash, recovery_hash)"
-        " VALUES (%s, %s, %s, %s, 'x')",
+        "INSERT INTO players (id, name, name_key, key_hash)"
+        " VALUES (%s, %s, %s, %s)",
         (player_id, name, name.lower(), f"hash-{player_id}"),
     )
     add_shots(db, player_id, results, mode, days_ago, game_size)

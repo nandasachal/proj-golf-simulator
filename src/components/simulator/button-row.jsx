@@ -18,13 +18,6 @@ export const HitButton = ({ onClick, className = "", beckon = false }) => (
   </button>
 );
 
-// On phones the game's difficulty is in the bar at the bottom, since the game
-// card is folded into a row there; Practice / Game is at the top.
-const DIFFICULTIES = [
-  { id: "normal", name: "Normal" },
-  { id: "advanced", name: "Advanced" },
-];
-
 const MODES = [
   {
     id: "practice",
@@ -38,42 +31,11 @@ const MODES = [
   },
 ];
 
-// Phones: a bar fixed to the bottom of the screen with Hit, and the game's
-// difficulty beside it during a game. In practice Hit has the bar to itself.
-export const PhoneBar = ({ mode, onMode, simulate, beckon = false }) => (
-  <div className="fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-2 border-t border-white/10 bg-slate-950/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
-    {mode !== "practice" && (
-      <div
-        className="grid min-w-0 flex-1 grid-cols-2 gap-0.5 rounded-lg bg-white/10 p-0.5 text-[13px]"
-        role="group"
-        aria-label="Difficulty"
-      >
-        {DIFFICULTIES.map(({ id, name }) => {
-          const chosen = mode === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={chosen}
-              className={classNames(
-                "rounded-md px-1 font-semibold leading-tight transition-colors",
-                chosen
-                  ? "bg-lime-400 text-slate-900"
-                  : "text-white/65 hover:text-white",
-              )}
-              onClick={() => onMode(id)}
-            >
-              {name}
-            </button>
-          );
-        })}
-      </div>
-    )}
-    <HitButton
-      onClick={simulate}
-      beckon={beckon}
-      className={mode === "practice" ? "h-11 flex-1" : "w-24 shrink-0"}
-    />
+// Phones: Hit, full width in a bar fixed to the bottom of the screen. A
+// game's difficulty is in the game row.
+export const PhoneBar = ({ simulate, beckon = false }) => (
+  <div className="fixed inset-x-0 bottom-0 z-30 flex border-t border-white/10 bg-slate-950/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
+    <HitButton onClick={simulate} beckon={beckon} className="h-11 flex-1" />
   </div>
 );
 

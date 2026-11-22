@@ -882,6 +882,8 @@ function App() {
               round={round}
               onRestart={startGame}
               tip={tip}
+              mode={mode}
+              onDifficulty={(value) => handleValueChange("mode", value)}
             />
           </div>
         )}
@@ -976,17 +978,9 @@ function App() {
           className="fixed inset-x-0 bottom-0 z-20 bg-slate-950 px-4 pb-3 pt-3"
         />
       )}
-      {/* Phones: Hit, and a game's difficulty, stay at the bottom of the
-          screen. Outside the panel, whose blur would otherwise pin the bar
+      {/* Phones: Hit stays at the bottom of the screen, full width. Outside the panel, whose blur would otherwise pin the bar
           to itself. */}
-      {!isDesktop && (
-        <PhoneBar
-          beckon={beckon}
-          mode={mode}
-          onMode={(value) => handleValueChange("mode", value)}
-          simulate={handleHit}
-        />
-      )}
+      {!isDesktop && <PhoneBar beckon={beckon} simulate={handleHit} />}
     </div>
   );
 }
