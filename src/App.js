@@ -608,10 +608,10 @@ function App() {
     game.current.id = newGameId();
     setRound([]);
     setTip(null);
-    // Someone who has never had a go at a target starts with one the stock
-    // straight shot reaches.
+    // An easy game opens on a target the stock straight shot reaches with
+    // the club in hand, so Hit alone scores the first one.
     const easy =
-      mode === "normal" && !hasDone(FIRST.target)
+      mode === "normal"
         ? easyTarget({ clubId: club.id, speed: speedRange.DEFAULT, turf })
         : null;
     setTarget((previous) => (goal ? easy || nextTarget(previous) : null));

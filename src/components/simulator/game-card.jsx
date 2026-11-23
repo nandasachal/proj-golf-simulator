@@ -196,19 +196,10 @@ const GameCard = ({
 
   return (
     <div
-      className="hud-panel relative w-[150px] whitespace-nowrap px-2.5 py-2 md:w-[268px] md:px-4 md:py-3"
+      className="hud-panel w-[150px] whitespace-nowrap px-2.5 py-2 md:w-[268px] md:px-4 md:py-3"
       role="status"
       aria-label="Game"
     >
-      {player && (
-        <span
-          aria-label={`Signed in as ${player.name}`}
-          title={`Signed in as ${player.name}`}
-          className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-slate-900/40 bg-lime-400 text-[10px] font-bold leading-none text-slate-900 shadow md:-right-2.5 md:-top-2.5 md:h-7 md:w-7 md:text-[11px]"
-        >
-          {initialsOf(player)}
-        </span>
-      )}
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div
           className="hidden rounded-md bg-white/10 p-0.5 text-[10px] font-semibold uppercase tracking-wider md:flex md:text-[11px]"
@@ -275,12 +266,21 @@ const GameCard = ({
       <div className="flex items-end justify-between gap-2">
         <Pips round={round} total={goal.targets} playing={!over} />
         {player && (
-          <p
-            className="min-w-0 truncate text-[10px] text-white/50 md:text-[11px]"
-            aria-label={`Playing as ${player.name}`}
-          >
-            {player.name}
-          </p>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <p
+              className="min-w-0 truncate text-[10px] text-white/50 md:text-[11px]"
+              aria-label={`Playing as ${player.name}`}
+            >
+              {player.name}
+            </p>
+            <span
+              aria-label={`Signed in as ${player.name}`}
+              title={`Signed in as ${player.name}`}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-lime-400 text-[9px] font-bold leading-none text-slate-900 md:h-6 md:w-6 md:text-[10px]"
+            >
+              {initialsOf(player)}
+            </span>
+          </div>
         )}
       </div>
       <div className="mt-1.5 flex items-baseline justify-between gap-2 text-[11px] tabular-nums md:text-xs">

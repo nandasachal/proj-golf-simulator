@@ -107,9 +107,11 @@ than abstract.
     (reset by changing mode or club, and by a reload).
   - **First visit** (`src/first-visit.js`, spec
     `planning/product-specs/activation.md`): until a browser's first shot, Hit
-    pulses (no pop-up: Sachal found it spammy, 2026-11-21); until its first scored shot, a normal game's
+    pulses (no pop-up: Sachal found it spammy, 2026-11-21); every easy game's
     first target is `easyTarget()`, on the centre line where the stock straight
-    shot stops, so pressing Hit untouched scores. After a miss the card shows one
+    shot with the club in hand stops, so pressing Hit untouched scores (until
+    2026-11-22 only a browser's very first target was; medium and hard never
+    open this way). After a miss the card shows one
     line of advice from `src/simulate/coach.js` (swing speed for long/short,
     club face or face-to-path for left/right, loft for over/under an air target).
     A browser's first tab session sends `first_visit: true` and is the only one
@@ -227,10 +229,11 @@ React UI (App.js, components/)          src/simulate/ (no React)
     `behind` in `App.js`); a thin line along the foot of the result bar,
     clipped to its rounded corners, runs down over those seconds. A small x
     inside the bar, at its right end, puts them away at once; it too only
-    appears once the view is back behind the golfer. The scene hides the line
+    appears once the view is back behind the golfer. The line is 4 px on
+    laptops and 3 px on phones. The scene hides the line
     and marker through `showShot(false)`.
-  - **Who is signed in** shows as a circle of two initials on the top right
-    corner of the game card (`initialsOf` in `players/profile.js`). A Google
+  - **Who is signed in** shows as a circle of two initials inside the game
+    card, beside the player's name on the pips row (`initialsOf` in `players/profile.js`). A Google
     sign-in gives the first and last name's initials (`googleInitials` reads
     them from the credential; only the two letters are kept, in the saved
     profile). Any other saved player gets two letters from the leaderboard

@@ -1461,7 +1461,7 @@ describe("game mode", () => {
     expect(hitButton()).not.toHaveClass("hit-beckon");
   });
 
-  test("the very first target is one the stock straight shot reaches; later ones are random", () => {
+  test("every easy game opens on a target the stock straight shot reaches; later ones are random", () => {
     const { unmount } = renderApp();
     const first = lastTarget();
     expect(first.easy).toBe(true);
@@ -1469,11 +1469,22 @@ describe("game mode", () => {
     play(HIT);
     expect(lastTarget().easy).toBeUndefined();
 
-    // a browser that has had a go at a target gets a random first one
+    // the next game opens the same way, and so does a later visit
+    fireEvent.click(within(game()).getByRole("button", { name: "Restart" }));
+    expect(lastTarget().easy).toBe(true);
     unmount();
     renderApp();
-    expect(lastTarget().easy).toBeUndefined();
+    expect(lastTarget().easy).toBe(true);
   });
+
+  test.each(["medium", "hard"])(
+    "a %s game does not open on a stock-shot target",
+    (mode) => {
+      renderApp(`/?mode=${mode}`);
+      expect(lastTarget().easy).toBeUndefined();
+      expect(lastTarget().need).toBeDefined();
+    },
+  );
 
   test("a miss says what to change for the next target; a hit clears it", () => {
     renderApp("/?face=3&path=-1");
@@ -2159,17 +2170,16 @@ describe("auto club", () => {
     land();
     act(() => callbacks.onState("address"));
   };
-  // A browser that has scored before: no easy first target.
-  const returning = () => window.localStorage.setItem("golf.target", "1");
   // Every target as near as targets come.
   const nearTargets = () => jest.spyOn(Math, "random").mockReturnValue(0);
   afterEach(() => jest.restoreAllMocks());
 
   test("on by default: each new target puts the club for its distance in hand", () => {
-    returning();
     nearTargets();
     renderApp("/");
-    // the whole bag is in play, so targets come nearer than a driver's
+    // after the game's opening target the whole bag is in play, so targets
+    // come nearer than a driver's
+    play();
     expect(lastTarget().z).toBeLessThan(100);
     expect(lastClub().id).toBe("lw");
     expect(address()).toContain("club=lw");
@@ -2191,7 +2201,6 @@ describe("auto club", () => {
   });
 
   test("the club is the one the picking rule gives for the target", () => {
-    returning();
     renderApp("/");
     for (let shot = 0; shot < 4; shot++) {
       expect(lastClub().id).toBe(suited(lastTarget()));
@@ -2206,7 +2215,6 @@ describe("auto club", () => {
   });
 
   test("a link that names a club or its swing keeps it until the first shot", () => {
-    returning();
     nearTargets();
     renderApp("/?club=7i&speed=100");
     // a target for the 7 iron, as with auto club off
@@ -2221,9 +2229,9 @@ describe("auto club", () => {
   });
 
   test("a club picked by hand stays for the target that is up, not the next", () => {
-    returning();
     nearTargets();
     renderApp("/");
+    play();
     const target = lastTarget();
     fireEvent.click(screen.getByRole("button", { name: /Lob wedge · 60°/ }));
     fireEvent.click(
@@ -2244,7 +2252,6 @@ describe("auto club", () => {
   test.each(["medium", "advanced"])(
     "a %s target puts the club it names in hand, auto club on or off",
     (mode) => {
-      returning();
       window.localStorage.setItem("golf.autoClubOff", "1");
       renderApp(`/?mode=${mode}`);
       for (let shot = 0; shot < 4; shot++) {
@@ -2255,7 +2262,6 @@ describe("auto club", () => {
   );
 
   test("practice has no target, so the club is left alone", () => {
-    returning();
     renderApp("/?mode=practice&club=7i");
     expect(lastClub().id).toBe("7i");
     hit();
@@ -2266,7 +2272,6 @@ describe("auto club", () => {
   });
 
   test("hitting again before the camera is back hits the new target with its club", () => {
-    returning();
     jest.spyOn(Math, "random").mockReturnValue(0.999);
     renderApp("/");
     expect(lastClub().id).toBe("driver");
@@ -2281,7 +2286,6 @@ describe("auto club", () => {
   });
 
   test("switching it off in Settings leaves the club alone; switching it on picks again", () => {
-    returning();
     renderApp("/");
     const settings = openSettings();
     fireEvent.click(toggle(settings));
@@ -2311,7 +2315,6 @@ describe("auto club", () => {
   });
 
   test("off is remembered in this browser", () => {
-    returning();
     const { unmount } = renderApp("/");
     fireEvent.click(toggle(openSettings()));
     unmount();

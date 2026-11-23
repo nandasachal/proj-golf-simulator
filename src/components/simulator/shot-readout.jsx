@@ -84,7 +84,7 @@ const ShotReadout = ({ live, result, leaving = null, onClose }) => {
         <span
           aria-hidden="true"
           data-shot-countdown
-          className="shot-countdown pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-lime-300/60"
+          className="shot-countdown pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-lime-300/60 md:h-1"
           style={{ animationDuration: `${leaving}ms` }}
         />
       )}
