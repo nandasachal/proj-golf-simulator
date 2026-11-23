@@ -117,7 +117,7 @@ const describe = {
     number: (v) => `${Math.round(v * 100) / 100} mph`,
     typing: "mph",
     colour: SPEED,
-    info: "How fast the club head is moving at impact. More speed is more distance, and more curve on a shot that is already bending.",
+    info: "How fast the club head is moving at impact. More speed is more distance, and more curve on a shot that is already bending. The bottom half of the range is a part swing, for a punch or a chip.",
   },
 };
 

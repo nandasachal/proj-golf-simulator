@@ -14,6 +14,9 @@ const measured = JSON.parse(
   ),
 );
 
-test.each(Object.keys(BASELINE))("%s is no more than 2% over the baseline", (part) => {
-  expect(measured[part]).toBeLessThanOrEqual(BASELINE[part] * 1.02);
-});
+test.each(Object.keys(BASELINE))(
+  "%s is no more than 2% over the baseline",
+  (part) => {
+    expect(measured[part]).toBeLessThanOrEqual(BASELINE[part] * 1.02);
+  },
+);

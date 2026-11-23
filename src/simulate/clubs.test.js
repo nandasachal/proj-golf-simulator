@@ -42,9 +42,10 @@ describe("the bag", () => {
     }
   });
 
-  test("the driver keeps its 80 to 140 mph range; shorter clubs scale down", () => {
+  test("the driver runs 40 to 140 mph, a full swing from 80; shorter clubs scale down", () => {
     expect(swingSpeedRange(getClub("driver"))).toEqual({
-      MIN: 80,
+      MIN: 40,
+      FULL_MIN: 80,
       MAX: 140,
       DEFAULT: 95,
       STEP: 1,
@@ -168,7 +169,9 @@ describe("stock carry distances", () => {
   test("a distance out of reach gives the nearest speed the club allows", () => {
     const range = swingSpeedRange(getClub("7i"));
     const limits = carryLimits("7i");
-    expect(speedForCarry("7i", 20)).toBe(range.MIN);
+    // A stock distance is a full swing's: it stops short of the part swings.
+    expect(speedForCarry("7i", 20)).toBe(range.FULL_MIN);
+    expect(range.FULL_MIN).toBeGreaterThan(range.MIN);
     expect(speedForCarry("7i", 400)).toBe(range.MAX);
     expect(limits.min).toBeLessThan(limits.max);
   });

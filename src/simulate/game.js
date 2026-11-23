@@ -107,9 +107,9 @@ export const curveOf = (shape) => {
 
 // A target that names its club and shape is taken from a real swing, so the
 // combination can always be played: any club in the bag, swung anywhere from
-// its softest to its fullest, with a path, a face and an aim the controls
+// a part swing to its fullest, with a path, a face and an aim the controls
 // can be set to exactly (whole degrees and whole mph, everything else left
-// alone). A soft driver and a flat-out 7 iron both turn up.
+// alone). A driver bumped 80 yd and a flat-out 7 iron both turn up.
 const SHAPED_MAX_PATH = 3;
 const SHAPED_MAX_FACE = 6;
 const SHAPED_MAX_BEND = 5;
@@ -120,6 +120,9 @@ const SHAPED_MAX_AIM = 4;
 const SHAPED_CURVE = { min: 0.02, max: 0.09 };
 const SHAPED_STRAIGHT = 0.006;
 const SHAPED_APART = 20;
+// Nearer than this is no target at all: the softest lob wedge stops about
+// 23 yd out.
+const SHAPED_NEAREST = 30;
 const SHAPED_ATTEMPTS = 60;
 
 function fly({ clubId, shape, speed, face, path, aim }, side) {
@@ -219,7 +222,7 @@ export function shapedTarget(
     const rest = run.points[run.points.length - 1].position;
     const x = toYards(rest.x);
     const z = toYards(rest.z);
-    if (z > FARTHEST) return null;
+    if (z < SHAPED_NEAREST || z > FARTHEST) return null;
     if (Math.abs(x) > Math.min(MAX_OFFLINE, (z * MAX_OFFLINE) / NEAREST))
       return null;
     return {
@@ -250,8 +253,10 @@ export function shapedAirTarget(
     const x = toYards(position.x);
     const z = toYards(position.z);
     const radius = airRadiusAt(z);
-    // Clear of the turf, so it reads as floating.
-    const y = Math.max(toYards(position.y), radius + 1);
+    const y = toYards(position.y);
+    // It has to float clear of the turf, on the flight itself: a part swing
+    // that never gets that high gives no air target.
+    if (z < SHAPED_NEAREST || y < radius + 1) return null;
     return {
       air: true,
       x,

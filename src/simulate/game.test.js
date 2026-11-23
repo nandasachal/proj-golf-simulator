@@ -138,7 +138,7 @@ describe("air targets", () => {
       const target = shapedAirTarget();
       expect(target.air).toBe(true);
       expect(target.y - target.radius).toBeGreaterThanOrEqual(1);
-      expect(target.z).toBeGreaterThan(15);
+      expect(target.z).toBeGreaterThanOrEqual(30);
       expect(target.z).toBeLessThan(330);
       expect(target.radius).toBeGreaterThan(1.6);
       expect(target.radius).toBeLessThan(4);
@@ -278,6 +278,27 @@ describe("targets that name a club and a shape", () => {
     expect([...shapes].sort()).toEqual([...SHAPES].sort());
     expect(soft).toBeGreaterThan(60);
     expect(full).toBeGreaterThan(30);
+  });
+
+  test("part swings turn up: a driver bumped under 100 yd, a wedge chipped under 50", () => {
+    let shortDriver = false;
+    let chip = false;
+    for (let i = 0; i < 4000 && !(shortDriver && chip); i++) {
+      const { need, z } = shapedTarget();
+      expect(z).toBeGreaterThanOrEqual(30);
+      if (need.clubId === "driver" && z < 100) shortDriver = true;
+      if (["pw", "gw", "sw", "lw"].includes(need.clubId) && z < 50) chip = true;
+    }
+    expect(shortDriver).toBe(true);
+    expect(chip).toBe(true);
+  });
+
+  test("an air target is on the flight itself, clear of the turf", () => {
+    for (let i = 0; i < 200; i++) {
+      const target = shapedAirTarget();
+      expect(target.z).toBeGreaterThanOrEqual(30);
+      expect(target.y - target.radius).toBeGreaterThanOrEqual(1);
+    }
   });
 
   test("a straight target comes from a square face, a draw from a closed one, a fade from an open one", () => {

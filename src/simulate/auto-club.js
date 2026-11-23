@@ -66,7 +66,7 @@ const REFINE_STEPS = 7;
 function nearestOfSpread(club, speeds, along, up) {
   const stock = stockSpeed(club, speeds);
   const stockMiss = flightMiss(club, stock, along, up, true);
-  const { MIN, MAX } = swingSpeedRange(club);
+  const { FULL_MIN: MIN, MAX } = swingSpeedRange(club);
   const step = (MAX - MIN) / (SPREAD_SPEEDS - 1);
   let speed = stock;
   let miss = stockMiss;

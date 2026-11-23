@@ -25,20 +25,21 @@ export function stockCarryYards(clubId, swingSpeedMPH) {
   return toYards(shot.points[shot.points.length - 1].position.z);
 }
 
-// The shortest and longest stock carry the swing-speed control allows.
+// The shortest and longest stock carry: a full swing at its softest and its
+// hardest. (The swing-speed control goes lower still, into part swings.)
 export function carryLimits(clubId) {
   const range = swingSpeedRange(getClub(clubId));
   return {
-    min: Math.ceil(stockCarryYards(clubId, range.MIN)),
+    min: Math.ceil(stockCarryYards(clubId, range.FULL_MIN)),
     max: Math.floor(stockCarryYards(clubId, range.MAX)),
   };
 }
 
 // The swing speed (to a tenth of a mph) whose stock carry is `yards`, kept
-// inside the club's swing-speed range. Carry rises with speed, so bisect.
+// inside the club's full-swing range. Carry rises with speed, so bisect.
 export function speedForCarry(clubId, yards) {
   const range = swingSpeedRange(getClub(clubId));
-  let low = range.MIN;
+  let low = range.FULL_MIN;
   let high = range.MAX;
   if (stockCarryYards(clubId, low) >= yards) return low;
   if (stockCarryYards(clubId, high) <= yards) return high;

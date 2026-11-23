@@ -47,8 +47,8 @@ than abstract.
     short it fell. Hit 4 of 5 to win.
   - **How a club-and-shape target is made** (`shapedTarget`, `shapedAirTarget`):
     it is taken from a real swing, so the combination is always playable. A
-    club is drawn from the whole bag and swung anywhere from its softest to
-    its fullest swing speed (a soft driver to about 195 yd and a flat-out 7
+    club is drawn from the whole bag and swung anywhere from a part swing to
+    its fullest swing speed (a driver bumped to about 80 yd and a flat-out 7
     iron to about 205 yd both turn up), with a path of up to 3°, a face up to
     5° open or closed to it, and an aim of up to 4°: whole degrees and whole
     mph, with attack, loft and strike left alone, so the controls can be set to
@@ -57,7 +57,9 @@ than abstract.
     1.2%, and short of a hook or slice at 10%), so a lob wedge is only asked
     to bend the ball where it can; straight curves under 0.6%. A ground target
     goes where that ball comes to rest on the turf in play, inside the same
-    330 yd and 40 yd offline limits as an easy one; the next target is always
+    330 yd and 40 yd offline limits as an easy one and no nearer than 30 yd
+    (an air target has to be on the flight and clear of the turf, so a part
+    swing that stays low gives none); the next target is always
     a different club. The swing is generated for the golfer's hand, since a
     draw bends the other way left-handed. Shape is the way the ball curved
     (`curveOf`): a push draw is a draw and a hook is a big one. The target
@@ -141,7 +143,9 @@ than abstract.
     (`clubLaunch`). At tour speeds the carries land within 4% of TrackMan's
     (regression-tested in `clubs.test.js`).
   - The swing-speed control covers the same golfer for every club: the driver's
-    80–140 mph (95 default) scaled by the tour's speed for that club, so a 7 iron
+    40–140 mph (95 default; 80 and up is a full swing, below it a part swing
+    for a punch or a chip, `FULL_MIN` in `swingSpeedRange`; stock distances
+    in Settings and auto club stay within full swings) scaled by the tour's speed for that club, so a 7 iron
     is 64–112 mph, 76 by default.
   - Face-to-path curves the ball less the more spin loft a club has, the ball
     starts 85% toward the face with woods and 75% with irons, and off-centre

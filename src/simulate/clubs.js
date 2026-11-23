@@ -307,15 +307,20 @@ const BY_ID = Object.fromEntries(CLUBS.map((entry) => [entry.id, entry]));
 // The club for an id from the URL, or the driver if it names nothing.
 export const getClub = (id) => BY_ID[id] || BY_ID[DEFAULT_CLUB_ID];
 
-// The swing-speed control is built around a driver swung at 80 to 140 mph
-// (95 by default). A golfer swings each shorter club slower in about the
-// proportion the tour does, so every club gets the same golfer's range.
-const DRIVER_SPEED = { MIN: 80, MAX: 140, DEFAULT: 95 };
+// The swing-speed control is built around a driver swung at 40 to 140 mph
+// (95 by default). From 80 up is a full swing; below that is a part swing, a
+// punch or a chip, down to a driver bumped about 75 yd. A golfer swings each
+// shorter club slower in about the proportion the tour does, so every club
+// gets the same golfer's range.
+const DRIVER_SPEED = { MIN: 40, FULL_MIN: 80, MAX: 140, DEFAULT: 95 };
 
 export function swingSpeedRange(clubSpec) {
   const ratio = clubSpec.tour.speed / BY_ID.driver.tour.speed;
   return {
     MIN: Math.round(DRIVER_SPEED.MIN * ratio),
+    // The softest full swing: what a club's stock distance can be set to and
+    // what auto club tries.
+    FULL_MIN: Math.round(DRIVER_SPEED.FULL_MIN * ratio),
     MAX: Math.round(DRIVER_SPEED.MAX * ratio),
     DEFAULT: Math.round(DRIVER_SPEED.DEFAULT * ratio),
     STEP: 1,

@@ -720,13 +720,13 @@ describe("keyboard", () => {
   });
 
   test("a control stops at the end of its range", () => {
-    renderPanel("/?face=6&speed=80");
+    renderPanel("/?face=6&speed=40");
     selectBox("club face");
     command("ArrowRight");
     expect(valueOf("Club face")).toBe(6);
     selectBox("swing speed");
     command("ArrowLeft");
-    expect(valueOf("Swing speed")).toBe(80);
+    expect(valueOf("Swing speed")).toBe(40);
   });
 
   test("Space hits whatever has focus, except a field being typed in", () => {
@@ -992,7 +992,7 @@ describe("club pads", () => {
     typeValue("Loft", "99");
     expect(valueOf("Loft")).toBe(4);
     typeValue("Swing speed", "12");
-    expect(valueOf("Swing speed")).toBe(80);
+    expect(valueOf("Swing speed")).toBe(40);
     typeValue("Club face", "");
     expect(valueOf("Club face")).toBe(0);
   });
@@ -1880,7 +1880,7 @@ describe("club selection", () => {
     command("ArrowLeft");
     expect(valueOf("Swing speed")).toBe(75);
     typeValue("Swing speed", "10");
-    expect(valueOf("Swing speed")).toBe(64);
+    expect(valueOf("Swing speed")).toBe(32);
     typeValue("Swing speed", "999");
     expect(valueOf("Swing speed")).toBe(112);
   });

@@ -33,10 +33,7 @@ function playSound(level) {
       const envelope = audio.createGain();
       envelope.gain.setValueAtTime(0.0001, start);
       envelope.gain.linearRampToValueAtTime(note.gain, start + 0.012);
-      envelope.gain.exponentialRampToValueAtTime(
-        0.0001,
-        start + note.duration,
-      );
+      envelope.gain.exponentialRampToValueAtTime(0.0001, start + note.duration);
       oscillator.connect(envelope).connect(master);
       oscillator.start(start);
       oscillator.stop(start + note.duration + 0.02);
