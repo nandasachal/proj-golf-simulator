@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { replayRecording } from "../analytics";
 import { buildRange, groundOverlay, FOG } from "./range";
 import { FLEET_FAR } from "./scenery/fleet";
 import { shotTrack } from "./shot-track";
@@ -106,7 +107,10 @@ export function createSimulator(container, callbacks = {}) {
   const { onState, onProgress, onResult, onOrbit, onReady, onOverhead } =
     callbacks;
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    preserveDrawingBuffer: replayRecording(),
+  });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;

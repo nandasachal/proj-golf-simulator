@@ -98,7 +98,10 @@ describe("with analytics on", () => {
     expect(posthog.init.mock.calls[0][1].session_recording).toEqual({
       maskAllInputs: true,
       maskTextSelector: "*",
+      captureCanvas: { recordCanvas: true, canvasFps: 1, canvasQuality: "0.4" },
+      canvasCapture: { resolutionScale: 0.5 },
     });
+    expect(analytics.replayRecording()).toBe(true);
 
     window.sessionStorage.clear();
     posthog.startSessionRecording.mockClear();

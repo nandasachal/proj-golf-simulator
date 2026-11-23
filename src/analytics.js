@@ -7,6 +7,7 @@ import { FIRST, hasDone, markDone } from "./first-visit";
 const KEY = process.env.REACT_APP_POSTHOG_KEY;
 const INTERNAL = "golf.internal";
 let on = false;
+let replaying = false;
 
 // Our own devices: logging in to one of our accounts marks the browser, and
 // every event from it then carries internal: true, which PostHog's "filter
@@ -47,7 +48,14 @@ export function startAnalytics() {
     // Recording starts below, and only for a first visit.
     disable_session_recording: true,
     // Names on the leaderboard are other people's: no text is recorded.
-    session_recording: { maskAllInputs: true, maskTextSelector: "*" },
+    session_recording: {
+      maskAllInputs: true,
+      maskTextSelector: "*",
+      // The range is a canvas, which a replay otherwise shows blank: one
+      // frame a second at half size is enough to see where the ball went.
+      captureCanvas: { recordCanvas: true, canvasFps: 1, canvasQuality: "0.4" },
+      canvasCapture: { resolutionScale: 0.5 },
+    },
     // The swing controls are dragged and nudged constantly; only the named
     // events below are worth counting.
     autocapture: false,
@@ -64,8 +72,13 @@ export function startAnalytics() {
   // Replays only of first visits, to see where new players get stuck. Inputs
   // and text are masked.
   if (first) posthog.startSessionRecording();
+  replaying = first;
   on = true;
 }
+
+// Whether this visit is being replayed. The scenes then keep their drawing
+// buffer, without which a WebGL canvas reads back blank.
+export const replayRecording = () => replaying;
 
 export const track = (event, properties) => {
   if (on) posthog.capture(event, properties);

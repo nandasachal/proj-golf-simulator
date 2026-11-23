@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { replayRecording } from "../analytics";
 import { groundDirection, risingDirection } from "./club-setup";
 import { getClub } from "./clubs";
 import { buildClubHead } from "./club-heads";
@@ -408,7 +409,11 @@ export function createClubScene(container, options = {}) {
     ? new THREE.Vector3(...fixedCamera.lookAt)
     : LOOK_AT;
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: true,
+    preserveDrawingBuffer: replayRecording(),
+  });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
