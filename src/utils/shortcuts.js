@@ -19,13 +19,8 @@ export const GRID = [
 ];
 export const FIRST_CONTROL = GRID[0][0];
 
-// Every control, and the three a normal game shows: face, path and speed are
-// the lesson, the rest are refinements. Hidden controls play at their
-// defaults.
+// Every control. Every mode shows them all.
 export const ALL_CONTROLS = [...new Set(GRID.flat())];
-const BASIC_CONTROLS = ["clubFaceAngle", "clubPathAngle", "swingSpeed"];
-export const controlsFor = (mode) =>
-  mode === "normal" ? BASIC_CONTROLS : ALL_CONTROLS;
 
 const ARROWS = {
   ArrowLeft: [0, -1],
@@ -34,14 +29,11 @@ const ARROWS = {
   ArrowDown: [1, 0],
 };
 
-// The box an arrow key moves to from `control`, among the `visible` ones.
-// Stops at the edges.
-export function moveSelection(control, key, visible = ALL_CONTROLS) {
+// The box an arrow key moves to from `control`. Stops at the edges.
+export function moveSelection(control, key) {
   const step = ARROWS[key];
   if (!step) return control;
-  const grid = GRID.map((controls) =>
-    controls.filter((name) => visible.includes(name)),
-  ).filter((controls) => controls.length);
+  const grid = GRID;
   let row = grid.findIndex((controls) => controls.includes(control));
   if (row < 0) return grid[0][0];
   let column = grid[row].indexOf(control);

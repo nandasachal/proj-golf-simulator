@@ -24,9 +24,8 @@ than abstract.
   difficulty, Normal or Advanced, is switched on the game card (on phones, a
   menu in the game row) (`?mode=practice`
   turns the game off, `?mode=advanced` picks advanced; normal is the default).
-  A normal game shows only club face, club path and swing speed; the other four
-  controls play at their defaults. Practice and advanced show all seven
-  (`controlsFor` in `src/utils/shortcuts.js`).
+  Every mode shows the same seven controls (`ALL_CONTROLS` in
+  `src/utils/shortcuts.js`); normal and advanced differ only in the target.
   - **Normal**: a random target on the ground, the 3.6 yd radius circle at the foot of a beam, 140–330 yd out with the driver
     (between a soft and a full swing's carry with any other club) and up to 40 yd
     either side. A shot scores if the
@@ -193,9 +192,8 @@ React UI (App.js, components/)          src/simulate/ (no React)
     line up along the strip: the name with its (i) and a reset
     to neutral; ‹ number ›; a ruler (a real range input laid invisibly over a
     drawn scale, neutral marked, the distance from it filled in); the word.
-    When all seven show (Practice, Advanced) the boxes are compact, the name
-    row over one row of ‹ number word ›, with no ruler (the 3D handles do the
-    dragging), so the strip stays short. The left panel (340px) holds the
+    All seven show in every mode, so the boxes use the short names and
+    narrow steppers to fit one row on a wide screen. The left panel (340px) holds the
     shot shape, Reset, the club in hand at impact in two live
     3D views, built from the same scene as the old close-up (`club-scene.js`,
     below): from above (aim, face, path, strike) and from the toe (attack

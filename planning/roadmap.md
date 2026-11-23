@@ -91,8 +91,9 @@
   (Desktop B v2, Mobile B v2): on laptops a strip along the bottom, boxes
   with ‹ number ›, a ruler, the club and Hit on the right, key bar under it;
   type a digit to edit; phones show one control at a time with the
-  bag as chips in the drawer. With all seven controls (Practice/Advanced)
-  the laptop boxes are compact so the strip stays short.
+  bag as chips in the drawer. All seven controls show in every
+  mode, each with its ruler (2026-11-22; a normal game used to show three, and
+  the seven-box strip had no rulers).
 - [done] 3D control views (2026-11-16) — the two flat control diagrams are now
   live 3D views of the driver with the drag handles on top.
 - Free-look close-up: the orbiting, enlargeable 3D view was removed when the

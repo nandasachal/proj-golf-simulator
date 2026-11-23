@@ -378,10 +378,8 @@ const StepButton = ({ label, disabled, onClick, narrow, children }) => (
 
 // One control on a laptop, every row the same height in every box so they
 // line up along the strip: name with its (i) and a reset; ‹ number ›; the
-// ruler; the word. `compact`, when all seven show, leaves the ruler out (the
-// 3D handles do the dragging there) and uses the short names, so the strip
-// stays short and one row wide. The box the
-// keyboard is on is outlined.
+// ruler; the word. The names are the short ones and the steppers narrow, so
+// all seven fit one row. The box the keyboard is on is outlined.
 const ControlCell = ({
   control,
   range,
@@ -396,7 +394,6 @@ const ControlCell = ({
   about,
   onAbout,
   start,
-  compact,
 }) => {
   const { name, colour, words } = describe[control];
   const neutral = neutralOf(control, range);
@@ -425,7 +422,7 @@ const ControlCell = ({
           className="min-w-0 truncate text-[11px] font-medium text-white/65"
           title={name}
         >
-          {compact ? PHONE[control][0] : name}
+          {PHONE[control][0]}
         </span>
         <button
           type="button"
@@ -448,14 +445,9 @@ const ControlCell = ({
           <ArrowCounterclockwise size={11} aria-hidden="true" />
         </button>
       </div>
-      <div
-        className={classNames(
-          "flex h-10 items-center",
-          compact ? "gap-0.5" : "gap-1",
-        )}
-      >
+      <div className="flex h-10 items-center gap-0.5">
         <StepButton
-          narrow={compact}
+          narrow
           label={`${name}: ${stepText(control, range)} ${words[0]}`}
           disabled={value <= range.MIN}
           onClick={() => step(-1)}
@@ -471,16 +463,13 @@ const ControlCell = ({
             number={number}
             onChange={onChange}
             start={start}
-            className={classNames(
-              "h-10 w-full whitespace-nowrap rounded-md text-center font-semibold tabular-nums tracking-tight transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
-              compact ? "text-lg" : "text-xl",
-            )}
+            className="h-10 w-full whitespace-nowrap rounded-md text-center text-lg font-semibold tabular-nums tracking-tight transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
             inputClassName="block h-10 w-full rounded-md bg-white text-center text-xl font-semibold tabular-nums text-slate-900 outline-none"
             unitClassName="text-[11px] font-medium text-white/55"
           />
         </div>
         <StepButton
-          narrow={compact}
+          narrow
           label={`${name}: ${stepText(control, range)} ${words[2]}`}
           disabled={value >= range.MAX}
           onClick={() => step(1)}
@@ -488,16 +477,14 @@ const ControlCell = ({
           <ChevronRight size={12} aria-hidden="true" />
         </StepButton>
       </div>
-      {!compact && (
-        <Ruler
-          control={control}
-          range={range}
-          value={value}
-          text={text}
-          onChange={onChange}
-          onSelect={onSelect}
-        />
-      )}
+      <Ruler
+        control={control}
+        range={range}
+        value={value}
+        text={text}
+        onChange={onChange}
+        onSelect={onSelect}
+      />
       <div className="flex h-5 justify-center text-xs">
         <WordSelect
           control={control}
@@ -511,26 +498,19 @@ const ControlCell = ({
 };
 
 // The club, in the same rows as a control box beside it: the menu level
-// with the numbers, the stock speed level with the rulers (or the words).
-const ClubCell = ({ club, stock, onClub, compact }) => (
+// with the numbers, the stock speed level with the rulers.
+const ClubCell = ({ club, stock, onClub }) => (
   <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-lg bg-white/[0.06] p-3">
     <div className="flex h-5 items-center text-[11px] font-medium text-white/65">
       Club
     </div>
     <ClubMenu club={club} onClub={onClub} />
-    <div
-      className={classNames(
-        "flex items-center text-[11px] tabular-nums text-white/60",
-        compact ? "h-5" : "h-6",
-      )}
-    >
+    <div className="flex h-6 items-center text-[11px] tabular-nums text-white/60">
       stock {stock} mph
     </div>
-    {!compact && (
-      <div className="flex h-5 items-center text-[11px] text-white/40">
-        Distances in Settings
-      </div>
-    )}
+    <div className="flex h-5 items-center text-[11px] text-white/40">
+      Distances in Settings
+    </div>
   </div>
 );
 
@@ -1102,9 +1082,7 @@ const ClubPads = ({
   strip = null,
   modeSwitch = null,
   views = true,
-  controls = ALL_CONTROLS,
 }) => {
-  const shows = (control) => controls.includes(control);
   const mirror = side === "Left" ? -1 : 1;
   const [active, setActive] = useState(null);
   // The control whose (i) is open. A click anywhere else, or Escape, puts
@@ -1273,7 +1251,7 @@ const ClubPads = ({
   // The aim, face and path handles can sit close together, so a press goes
   // to whichever of them is nearest the pointer, not whichever is on top.
   const nearestHandle = (control, event) => {
-    const crowded = ["aim", "clubFaceAngle", "clubPathAngle"].filter(shows);
+    const crowded = ["aim", "clubFaceAngle", "clubPathAngle"];
     if (!crowded.includes(control)) return control;
     const rect = event.currentTarget.closest("svg").getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -1354,23 +1332,11 @@ const ClubPads = ({
     onSelect,
     about: about === control,
     start: typed?.control === control ? typed : null,
-    compact,
     onAbout: (opened) => {
       if (opened) track("info_opened", { topic: opened });
       setAbout(opened);
     },
   });
-
-  // All seven and the 3D views do not fit a laptop screen at full size.
-  const compact = controls.length > 3;
-  const boxes = [
-    "clubFaceAngle",
-    "clubPathAngle",
-    "strike",
-    "aim",
-    "attackAngle",
-    "loftChange",
-  ].filter(shows);
 
   // Each view is built for one club.
   const topOptions = useMemo(() => ({ ...VIEW_FROM_ABOVE, club }), [club]);
@@ -1414,10 +1380,10 @@ const ClubPads = ({
           ref={chips}
           className="relative grid min-w-0 flex-1 gap-1.5"
           style={{
-            gridTemplateColumns: `repeat(auto-fit, minmax(${compact ? 118 : 150}px, 1fr))`,
+            gridTemplateColumns: "repeat(auto-fit, minmax(118px, 1fr))",
           }}
         >
-          {[...boxes, "swingSpeed"].filter(shows).map((control) => (
+          {ALL_CONTROLS.map((control) => (
             <ControlCell key={control} {...chipProps(control)} />
           ))}
           {about && (
@@ -1441,7 +1407,6 @@ const ClubPads = ({
             club={club}
             stock={ranges.swingSpeed.DEFAULT}
             onClub={onClub}
-            compact={compact}
           />
         </div>
         <div className="relative flex w-24 shrink-0">
@@ -1515,7 +1480,7 @@ const ClubPads = ({
         strip && createPortal(stripControls, strip)
       ) : (
         <PhoneControls
-          shown={[...boxes, "swingSpeed"].filter(shows)}
+          shown={ALL_CONTROLS}
           club={club}
           stock={ranges.swingSpeed.DEFAULT}
           onClub={onClub}
@@ -1541,41 +1506,31 @@ const ClubPads = ({
             options={topOptions}
             setup={topSetup}
             corner={resetButton}
-            className={
-              compact
-                ? "h-[clamp(150px,20dvh,230px)]"
-                : "h-[clamp(150px,22dvh,230px)]"
-            }
+            className="h-[clamp(150px,20dvh,230px)]"
             onScene={onTopScene}
           >
-            {inOrder(
-              ["strike", "clubPathAngle", "clubFaceAngle", "aim"].filter(shows),
-            ).map((control) => handle(control, boundsOf(scenes.current.top)))}
+            {inOrder(["strike", "clubPathAngle", "clubFaceAngle", "aim"]).map(
+              (control) => handle(control, boundsOf(scenes.current.top)),
+            )}
           </Pad3D>
-          {(shows("attackAngle") || shows("loftChange")) && (
-            <Pad3D
-              name="Club from the side"
-              key={`side-${club.id}`}
-              caption={`Toe ×${GAIN.attack}`}
-              options={sideOptions}
-              setup={sideSetup}
-              className={
-                compact
-                  ? "h-[clamp(96px,12dvh,140px)]"
-                  : "h-[clamp(96px,13dvh,140px)]"
-              }
-              note={`launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
-                launch.backspinRPM,
-              )} rpm`}
-              // keep it clear of the attack handle, which swaps sides with the golfer
-              noteOnLeft={mirror < 0}
-              onScene={onSideScene}
-            >
-              {inOrder(["attackAngle", "loftChange"].filter(shows)).map(
-                (control) => handle(control, boundsOf(scenes.current.side)),
-              )}
-            </Pad3D>
-          )}
+          <Pad3D
+            name="Club from the side"
+            key={`side-${club.id}`}
+            caption={`Toe ×${GAIN.attack}`}
+            options={sideOptions}
+            setup={sideSetup}
+            className="h-[clamp(96px,12dvh,140px)]"
+            note={`launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
+              launch.backspinRPM,
+            )} rpm`}
+            // keep it clear of the attack handle, which swaps sides with the golfer
+            noteOnLeft={mirror < 0}
+            onScene={onSideScene}
+          >
+            {inOrder(["attackAngle", "loftChange"]).map((control) =>
+              handle(control, boundsOf(scenes.current.side)),
+            )}
+          </Pad3D>
         </>
       )}
     </div>

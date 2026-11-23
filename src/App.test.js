@@ -126,7 +126,6 @@ const renderApp = (url = "/") =>
     </MemoryRouter>,
   );
 
-// Every control shows in practice (and advanced); a normal game shows three.
 // Tests of the controls themselves open in practice unless the URL says.
 const renderPanel = (url = "/") =>
   renderApp(
@@ -230,22 +229,19 @@ describe("shot controls", () => {
     );
   });
 
-  test("a normal game shows face, path and speed; the rest play at their defaults", () => {
+  test("a normal game shows all seven controls, the same as advanced", () => {
     renderApp("/?aim=5&attack=4&loft=-2&strike=0.5&face=2");
     expect(valueOf("Club face")).toBe(2);
-    expect(valueOf("Club path")).toBe(0);
-    expect(valueOf("Swing speed")).toBe(95);
-    for (const name of ["Aim", "Attack angle", "Loft", "Strike"])
-      expect(screen.queryByRole("slider", { name })).toBeNull();
+    expect(valueOf("Aim")).toBe(5);
+    expect(valueOf("Strike")).toBe(0.5);
     expect(
-      screen.queryByRole("group", { name: "Club from the side" }),
-    ).toBeNull();
-    expect(selectedBox()).toBe("clubFaceAngle");
+      screen.getByRole("group", { name: "Club from the side" }),
+    ).toBeInTheDocument();
+    expect(selectedBox()).toBe("aim");
     hit();
-    expect(simulator.setAim).toHaveBeenLastCalledWith(0);
-    expect(lastHit()[3]).toBe(0);
+    expect(simulator.setAim).toHaveBeenLastCalledWith(5);
+    expect(lastHit()[3]).toBe(5);
 
-    // advanced shows all seven, with the values from the URL
     fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
     expect(valueOf("Aim")).toBe(5);
     expect(valueOf("Strike")).toBe(0.5);
@@ -581,12 +577,15 @@ describe("keyboard", () => {
     renderPanel("/?mode=normal&face=2");
     expect(createClubScene).not.toHaveBeenCalled();
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((tab) => tab.textContent)).toEqual([
+    expect(tabs.map((tab) => tab.textContent).slice(0, 2)).toEqual([
       "Face2° open",
       "Pathsquare",
-      "Speed95 mph",
     ]);
+    expect(tabs).toHaveLength(7);
+    expect(tabs[6]).toHaveTextContent("Speed95 mph");
     // only the selected control is open, as a big number with its ruler
+    expect(screen.getByRole("tab", { selected: true })).toBe(tabs[3]);
+    fireEvent.click(tabs[0]);
     expect(screen.getByRole("tab", { selected: true })).toBe(tabs[0]);
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Club face");
     expect(screen.queryByRole("slider", { name: "Club face" })).toBeNull();
@@ -594,7 +593,7 @@ describe("keyboard", () => {
       screen.getByRole("slider", { name: "Club face ruler" }),
     ).toHaveAttribute("aria-valuetext", "2° open");
 
-    fireEvent.click(tabs[2]);
+    fireEvent.click(tabs[6]);
     expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Swing speed");
     fireEvent.click(screen.getByRole("button", { name: "+1 mph" }));
     expect(valueOf("Swing speed")).toBe(96);
@@ -663,23 +662,28 @@ describe("keyboard", () => {
     expect(valueOf("Swing speed")).toBe(95);
   });
 
-  test("a normal game's three boxes have rulers; with all seven the boxes are compact and the 3D handles do the dragging", () => {
-    renderPanel("/?mode=normal");
-    fireEvent.change(screen.getByRole("slider", { name: "Club path ruler" }), {
-      target: { value: "-3" },
-    });
-    expect(boxText("Club path")).toBe("3° out-to-in");
-    expect(screen.getAllByRole("slider", { name: / ruler$/ })).toHaveLength(3);
-    expect(screen.getByText("Distances in Settings")).toBeInTheDocument();
-  });
+  test.each(["normal", "advanced", "practice"])(
+    "in %s every one of the seven boxes has a ruler to drag",
+    (mode) => {
+      renderPanel(`/?mode=${mode}`);
+      fireEvent.change(
+        screen.getByRole("slider", { name: "Club path ruler" }),
+        { target: { value: "-3" } },
+      );
+      expect(boxText("Club path")).toBe("3° out-to-in");
+      fireEvent.change(screen.getByRole("slider", { name: "Aim ruler" }), {
+        target: { value: "4" },
+      });
+      expect(valueOf("Aim")).toBe(4);
+      expect(screen.getAllByRole("slider", { name: / ruler$/ })).toHaveLength(
+        7,
+      );
+      expect(screen.getByText("Distances in Settings")).toBeInTheDocument();
+    },
+  );
 
-  test("with all seven controls the boxes are compact: no rulers, word beside the number", () => {
+  test("the boxes are also stepped, typed and reset in place", () => {
     renderPanel();
-    expect(screen.queryAllByRole("slider", { name: / ruler$/ })).toHaveLength(
-      0,
-    );
-    expect(screen.queryByText("Distances in Settings")).toBeNull();
-    // still stepped, typed and reset in place
     fireEvent.click(
       screen.getByRole("button", { name: "Club path: 1° out-to-in" }),
     );

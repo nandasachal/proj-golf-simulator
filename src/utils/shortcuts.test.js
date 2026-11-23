@@ -24,11 +24,6 @@ describe("moveSelection", () => {
     expect(moveSelection("loftChange", "ArrowRight")).toBe("swingSpeed");
     expect(moveSelection("aim", "ArrowDown")).toBe("aim");
     expect(moveSelection("aim", "ArrowUp")).toBe("aim");
-    // a normal game's three: face, path, speed
-    const basic = ["clubFaceAngle", "clubPathAngle", "swingSpeed"];
-    expect(moveSelection("clubPathAngle", "ArrowRight", basic)).toBe(
-      "swingSpeed",
-    );
   });
 
   test("it stops at the edges rather than wrapping", () => {
@@ -171,29 +166,5 @@ describe("shouldIgnoreKey", () => {
     expect(shouldIgnoreKey(press(" ", "BODY"))).toBe(false);
     expect(shouldIgnoreKey(press(" ", "INPUT", { type: "text" }))).toBe(true);
     expect(shouldIgnoreKey(press(" ", "TEXTAREA"))).toBe(true);
-  });
-});
-
-describe("moveSelection among the controls a normal game shows", () => {
-  const { controlsFor } = require("./shortcuts");
-  const basic = controlsFor("normal");
-
-  test("normal shows face, path and speed; the others show all seven", () => {
-    expect(basic).toEqual(["clubFaceAngle", "clubPathAngle", "swingSpeed"]);
-    expect(controlsFor("advanced")).toHaveLength(7);
-    expect(controlsFor("practice")).toHaveLength(7);
-  });
-
-  test("right from path goes straight to speed, and back", () => {
-    expect(moveSelection("clubPathAngle", "ArrowRight", basic)).toBe(
-      "swingSpeed",
-    );
-    expect(moveSelection("swingSpeed", "ArrowLeft", basic)).toBe(
-      "clubPathAngle",
-    );
-  });
-
-  test("a hidden box moves onto the first shown one", () => {
-    expect(moveSelection("aim", "ArrowDown", basic)).toBe("clubFaceAngle");
   });
 });

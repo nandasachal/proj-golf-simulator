@@ -54,7 +54,6 @@ import { bagReach, pickClub } from "./simulate/auto-club";
 import { standardAttackAngle } from "./simulate/launch-conditions";
 import { carryLimits, speedForCarry } from "./simulate/club-distances";
 import {
-  controlsFor,
   keyAction,
   moveSelection,
   shouldIgnoreKey,
@@ -81,10 +80,8 @@ const guardScene = (create) => {
     throw error;
   }
 };
-// The box the keyboard is on when the page opens and for each new shot: Aim
-// where it is shown, else the club face.
-const startControl = (controls) =>
-  controls.includes("aim") ? "aim" : "clubFaceAngle";
+// The box the keyboard is on when the page opens and for each new shot.
+const START_CONTROL = "aim";
 
 // The query string is user-editable, so keep whatever it says on the sliders.
 const clamp = (value, range) =>
@@ -213,8 +210,6 @@ function App() {
   const turfPreset = matchingPreset(turf);
   // A normal game unless the URL says practice or advanced.
   const mode = ["practice", "advanced"].includes(rawMode) ? rawMode : "normal";
-  // The boxes this mode shows; the rest play at their defaults.
-  const visible = controlsFor(mode);
   // Game, from practice, goes back to the difficulty last played.
   const lastGame = useRef("normal");
   if (mode !== "practice") lastGame.current = mode;
@@ -233,12 +228,7 @@ function App() {
     loftChange: clamp(Number.parseFloat(rawLoft), LOFT_CHANGE_VALUES),
     strike: clamp(Number.parseFloat(rawStrike), STRIKE_VALUES),
   };
-  const shot = Object.fromEntries(
-    Object.entries({ ...saved, ...draft }).map(([control, value]) => [
-      control,
-      visible.includes(control) ? value : (ranges[control]?.DEFAULT ?? value),
-    ]),
-  );
+  const shot = { ...saved, ...draft };
   const {
     clubFaceAngle: faceAngle,
     clubPathAngle: pathAngle,
@@ -618,7 +608,7 @@ function App() {
   game.current.club = club.id;
   game.current.controls = shot;
   game.current.side = side;
-  game.current.startControl = startControl(visible);
+  game.current.startControl = START_CONTROL;
   useEffect(() => {
     setSession(NO_SESSION);
     startGame();
@@ -865,14 +855,7 @@ function App() {
 
   // The value box the keyboard is on: arrows move it, Command-arrows change
   // its value.
-  const [selected, setSelected] = useState(() => startControl(visible));
-  // A mode that hides the box the keyboard was on moves it to the first one.
-  useEffect(() => {
-    setSelected((previous) =>
-      visible.includes(previous) ? previous : startControl(visible),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  const [selected, setSelected] = useState(START_CONTROL);
 
   // Keyboard control of the shot. The handler is replaced every render so it
   // always sees the current values.
@@ -894,7 +877,7 @@ function App() {
     } else if (pressed.action === "move") {
       // A focused handle or value would otherwise look selected too.
       document.activeElement?.blur?.();
-      setSelected((previous) => moveSelection(previous, pressed.key, visible));
+      setSelected((previous) => moveSelection(previous, pressed.key));
     } else {
       // Step from the latest value, not the one this render saw: key
       // repeats can arrive faster than the screen redraws.
@@ -1062,7 +1045,6 @@ function App() {
             selected={selected}
             onSelect={setSelected}
             views={isDesktop}
-            controls={visible}
             preview={preview}
             onChange={handleValueChange}
             onClub={handleClub}
