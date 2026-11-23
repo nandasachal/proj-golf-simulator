@@ -4,7 +4,12 @@ import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { replayRecording } from "../analytics";
 import { buildRange, groundOverlay, FOG } from "./range";
-import { FLEET_FAR } from "./scenery/fleet";
+import {
+  FLEET_FAR,
+  newStrike,
+  stepStrike,
+  stationInSight,
+} from "./scenery/fleet";
 import { shotTrack } from "./shot-track";
 import {
   CameraDirector,
@@ -104,8 +109,15 @@ const ADDRESS_DISTANCE = 6;
 const SCENE_FAR = 2600;
 
 export function createSimulator(container, callbacks = {}) {
-  const { onState, onProgress, onResult, onOrbit, onReady, onOverhead } =
-    callbacks;
+  const {
+    onState,
+    onProgress,
+    onResult,
+    onOrbit,
+    onReady,
+    onOverhead,
+    onStrike,
+  } = callbacks;
 
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -133,10 +145,28 @@ export function createSimulator(container, callbacks = {}) {
   );
   // Star Wars Mode: the fleet in the sky, switched live. Its ships fly far
   // beyond the mountains, so the camera has to see further while it is on.
+  let fleetOn = false;
+  let strike = newStrike();
   function setFleet(on) {
-    range.userData.setFleet(Boolean(on));
-    camera.far = on ? FLEET_FAR : SCENE_FAR;
+    fleetOn = Boolean(on);
+    range.userData.setFleet(fleetOn);
+    camera.far = fleetOn ? FLEET_FAR : SCENE_FAR;
     camera.updateProjectionMatrix();
+    strike = newStrike();
+    range.userData.showStrike(null);
+  }
+  // Looking at the battle station sets it off: it fires on the 300 yard
+  // marker, and when the blast has covered the view the camera goes back to
+  // the address view and the game starts again (`onStrike`).
+  function stepStationStrike(dt) {
+    if (!fleetOn) return;
+    camera.updateMatrixWorld();
+    const sighted = !overheadOn && stationInSight(camera);
+    if (stepStrike(strike, dt, sighted)) {
+      resetView();
+      if (onStrike) onStrike();
+    }
+    range.userData.showStrike(strike.seconds);
   }
   // The win confetti hangs off the camera, which draws only if it is in the scene.
   scene.add(camera);
@@ -886,7 +916,8 @@ export function createSimulator(container, callbacks = {}) {
   let inspectionView = null;
   function frame() {
     frameId = requestAnimationFrame(frame);
-    update(Math.min(clock.getDelta(), MAX_FRAME_SECONDS));
+    const dt = Math.min(clock.getDelta(), MAX_FRAME_SECONDS);
+    update(dt);
     if (orbit) {
       orbitPosition(orbit, camera.position);
       camera.lookAt(orbitTarget(orbit, camera.position));
@@ -895,6 +926,7 @@ export function createSimulator(container, callbacks = {}) {
       camera.position.fromArray(inspectionView.position);
       camera.lookAt(new THREE.Vector3().fromArray(inspectionView.target));
     }
+    stepStationStrike(dt);
     renderer.render(scene, camera);
   }
   ballToRest();

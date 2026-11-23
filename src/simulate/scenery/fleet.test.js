@@ -1,5 +1,12 @@
+import { PerspectiveCamera } from "three";
 import {
   FLEET_FAR,
+  STRIKE_COVERED,
+  STRIKE_SECONDS,
+  newStrike,
+  stationInSight,
+  stepStrike,
+  strikeAt,
   PATROLS,
   SHIPS,
   STATION,
@@ -74,5 +81,72 @@ describe("the hidden fleet", () => {
     expect(Math.hypot(x, y, z) + radius).toBeLessThan(FLEET_FAR);
     const elevation = Math.atan2(y, Math.hypot(x, z));
     expect(elevation).toBeGreaterThan(0.6);
+  });
+});
+
+describe("the station's strike", () => {
+  const cameraLookingAt = (x, y, z) => {
+    const camera = new PerspectiveCamera(48, 4 / 3, 0.5, FLEET_FAR);
+    camera.position.set(0, 2.1, -6);
+    camera.lookAt(x, y, z);
+    camera.updateMatrixWorld();
+    return camera;
+  };
+
+  test("the station is in sight only when the camera is turned up to it", () => {
+    expect(stationInSight(cameraLookingAt(0, 1, 100))).toBe(false);
+    expect(
+      stationInSight(cameraLookingAt(STATION.x, STATION.y, STATION.z)),
+    ).toBe(true);
+    // straight away from it: behind the camera, not in the picture
+    expect(
+      stationInSight(cameraLookingAt(-STATION.x, -STATION.y, -STATION.z)),
+    ).toBe(false);
+  });
+
+  test("charges, fires, then blasts over the view inside half a second", () => {
+    expect(strikeAt(0.9)).toMatchObject({ beam: false, blast: 0 });
+    expect(strikeAt(0.9).charge).toBeCloseTo(0.5);
+    const firing = strikeAt(STRIKE_COVERED - 0.6);
+    expect(firing).toMatchObject({ charge: 1, beam: true, blast: 0 });
+    expect(strikeAt(STRIKE_COVERED - 0.5).blast).toBeCloseTo(0);
+    const covered = strikeAt(STRIKE_COVERED + 0.01);
+    expect(covered).toMatchObject({ blast: 1, beam: false, charge: 0 });
+    expect(covered.cover).toBeGreaterThan(0.95);
+    expect(strikeAt(STRIKE_SECONDS).cover).toBeCloseTo(0);
+  });
+
+  test("a look sets off one strike, which restarts the game once", () => {
+    const strike = newStrike();
+    let restarts = 0;
+    const run = (seconds, inSight) => {
+      for (let t = 0; t < seconds; t += 1 / 60) {
+        if (stepStrike(strike, 1 / 60, inSight)) restarts += 1;
+      }
+    };
+    // a glance is not enough
+    run(0.2, true);
+    run(0.2, false);
+    expect(strike.seconds).toBeNull();
+    run(0.5, true);
+    expect(strike.seconds).not.toBeNull();
+    // it runs to the end even if the view moves off it
+    run(STRIKE_COVERED, false);
+    expect(restarts).toBe(1);
+    run(2, false);
+    expect(strike.seconds).toBeNull();
+    // still looking at it afterwards does not fire again; looking away and
+    // back does
+    const again = newStrike();
+    let fired = 0;
+    for (let t = 0; t < 20; t += 1 / 60) {
+      if (stepStrike(again, 1 / 60, true)) fired += 1;
+    }
+    expect(fired).toBe(1);
+    stepStrike(again, 1 / 60, false);
+    for (let t = 0; t < 5; t += 1 / 60) {
+      if (stepStrike(again, 1 / 60, true)) fired += 1;
+    }
+    expect(fired).toBe(2);
   });
 });

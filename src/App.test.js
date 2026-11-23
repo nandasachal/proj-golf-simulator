@@ -1616,6 +1616,16 @@ describe("game mode", () => {
     expect(game()).toHaveTextContent("Target 1 of 5");
     expect(game()).toHaveTextContent("0 hit / 3 to win");
   });
+
+  test("the battle station's strike begins the game again too", () => {
+    renderApp();
+    play(HIT);
+    const before = lastTarget();
+    act(() => callbacks.onStrike());
+    expect(lastTarget()).not.toBe(before);
+    expect(game()).toHaveTextContent("Target 1 of 5");
+    expect(game()).toHaveTextContent("0 hit / 3 to win");
+  });
 });
 
 describe("club selection", () => {

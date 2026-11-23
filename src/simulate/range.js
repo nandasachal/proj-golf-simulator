@@ -43,6 +43,8 @@ export function buildRange({ anisotropy = 1 } = {}) {
     }
     if (fleet) fleet.object.visible = on;
   };
+  // The station's strike, `seconds` in, or null to put it away.
+  range.userData.showStrike = (seconds) => fleet?.showStrike(seconds);
   range.userData.update = (seconds, camera) => {
     for (const part of parts) part.update(seconds, camera);
     if (fleet?.object.visible) fleet.update(seconds, camera);

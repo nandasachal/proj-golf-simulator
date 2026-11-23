@@ -327,6 +327,8 @@ function App() {
   // Set when a shot has been scored, so the next target appears once the
   // camera is back.
   const targetDone = useRef(false);
+  // The scene's callbacks are made once; this is always the latest startGame.
+  const restart = useRef(() => {});
 
   useEffect(() => {
     const sim = guardScene(() =>
@@ -350,6 +352,8 @@ function App() {
           );
         },
         onOrbit: setOrbiting,
+        // Star Wars Mode: the battle station has blown up the range.
+        onStrike: () => restart.current(),
         onOverhead: setOverheadMarks,
         onProgress: setLive,
         onResult: (shotResult) => {
@@ -558,6 +562,7 @@ function App() {
     setTarget((previous) => (goal ? easy || nextTarget(previous) : null));
   };
   game.current.goal = goal;
+  restart.current = startGame;
   game.current.next = nextTarget;
   game.current.target = target;
   game.current.mode = mode;

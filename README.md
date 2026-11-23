@@ -260,6 +260,15 @@ React UI (App.js, components/)          src/simulate/ (no React)
     out while they are on. The fleet is built the first time the switch is
     turned on and then only shown or hidden, so it changes live with no reload
     (`range.userData.setFleet`, `simulator.setFleet`).
+    Looking at the station sets it off: once it has been in the picture for
+    0.4 s (`stationInSight`, checked every frame in `main.js`) its dish charges
+    for 1.8 s, a green beam comes down on the 300 yard marker, and a blast
+    spreads from there over the whole view inside half a second. When the view
+    is covered the camera goes back to the address view and `onStrike` tells
+    App to start the game again (the same `startGame` as Restart); the blast
+    then clears. The timeline (`strikeAt`) and the one-strike-per-look rule
+    (`stepStrike`) are pure and tested; the station has to leave the picture
+    before it will fire again.
   - `shared.js` — the contract the parts agree on: the sun direction and colour,
     the horizon/fog colour, `terrainHeight(x, z)` and the `FLAT` rectangle where
     the ground must stay at y = 0 because the ball physics assumes level ground.

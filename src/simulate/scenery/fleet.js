@@ -39,6 +39,84 @@ export function shipPlace(start, seconds) {
   return { x, opacity: Math.min(1, (SPAN - Math.abs(x)) / FADE) };
 }
 
+// --- the station's strike ---
+// Look at the station and it answers: the dish charges, a beam comes down on
+// the 300 yard marker, and the blast swallows the view inside half a second.
+// The game starts again behind the blast, which then clears.
+
+export const STRIKE_TARGET = { x: 0, y: 0, z: 300 };
+const DWELL = 0.4; // seconds in view before it starts charging
+const CHARGE = 1.8;
+const BEAM = 0.4;
+const BLAST = 0.5;
+const CLEAR = 0.9;
+// Seconds into a strike at which the view is covered and the game restarts.
+export const STRIKE_COVERED = CHARGE + BEAM + BLAST;
+export const STRIKE_SECONDS = STRIKE_COVERED + CLEAR;
+// The blast reaches this far, in yards: well past the tee from the marker.
+const BLAST_RADIUS = 420;
+
+const unit = (value) => Math.min(1, Math.max(0, value));
+
+// What is showing `seconds` into a strike: how charged the dish is, whether
+// the beam is on, how far the blast has spread (0 to 1) and how solid it is.
+export function strikeAt(seconds) {
+  const blasting = seconds - CHARGE - BEAM;
+  return {
+    charge: blasting < BLAST ? unit(seconds / CHARGE) : 0,
+    beam: seconds >= CHARGE && blasting < BLAST,
+    blast: unit(blasting / BLAST),
+    cover: blasting < BLAST ? 1 : unit(1 - (blasting - BLAST) / CLEAR),
+  };
+}
+
+const sight = new THREE.Vector3();
+// Whether the station is in the picture: in front of the camera and inside
+// the frame, clear of its edges.
+export function stationInSight(camera) {
+  sight
+    .set(STATION.x, STATION.y, STATION.z)
+    .applyMatrix4(camera.matrixWorldInverse);
+  if (sight.z >= 0) return false;
+  sight.applyMatrix4(camera.projectionMatrix);
+  return Math.abs(sight.x) < 0.8 && Math.abs(sight.y) < 0.8;
+}
+
+// `seconds` is how far into a strike it is, or null when there is none. One
+// look sets off one strike: it has to leave the picture before it fires again.
+export const newStrike = () => ({
+  seconds: null,
+  seen: 0,
+  armed: true,
+  covered: false,
+});
+
+// Move a strike on by `dt`. True on the one step the blast covers the view,
+// which is when the game is to restart.
+export function stepStrike(strike, dt, inSight) {
+  if (strike.seconds === null) {
+    if (!inSight) {
+      strike.seen = 0;
+      strike.armed = true;
+      return false;
+    }
+    if (!strike.armed) return false;
+    strike.seen += dt;
+    if (strike.seen >= DWELL) {
+      strike.seconds = 0;
+      strike.seen = 0;
+      strike.armed = false;
+      strike.covered = false;
+    }
+    return false;
+  }
+  strike.seconds += dt;
+  const covers = !strike.covered && strike.seconds >= STRIKE_COVERED;
+  if (covers) strike.covered = true;
+  if (strike.seconds >= STRIKE_SECONDS) strike.seconds = null;
+  return covers;
+}
+
 // Hull plating: panels a shade lighter or darker than the hull, and seams.
 function platingTexture() {
   const random = seededRandom(77);
@@ -226,7 +304,85 @@ function buildStation() {
   station.add(sphere);
   station.position.set(STATION.x, STATION.y, STATION.z);
   station.lookAt(700, 0, -900);
-  return station;
+  station.updateMatrixWorld(true);
+  // The middle of the dish, where the beam leaves: 29 degrees north on +x.
+  const dish = sphere.localToWorld(
+    new THREE.Vector3(Math.cos(0.5), Math.sin(0.5), 0).multiplyScalar(
+      STATION.radius,
+    ),
+  );
+  return { station, dish };
+}
+
+// The strike's light: a glow on the dish, the beam, and the blast at the
+// marker. `show(seconds)` draws it that far in; `show(null)` puts it away.
+function buildStrike(dish) {
+  const light = (color, opacity) =>
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      fog: false,
+    });
+  const object = new THREE.Group();
+  object.visible = false;
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 24, 16),
+    light(0x8dff70, 0.9),
+  );
+  glow.position.copy(dish);
+  const target = new THREE.Vector3(
+    STRIKE_TARGET.x,
+    STRIKE_TARGET.y,
+    STRIKE_TARGET.z,
+  );
+  const beam = new THREE.Group();
+  const shaft = new THREE.CylinderGeometry(1, 1, 1, 16, 1, true);
+  const core = new THREE.Mesh(shaft, light(0xeaffe0, 1));
+  core.scale.set(4, dish.distanceTo(target), 4);
+  const sheath = new THREE.Mesh(shaft, light(0x55ff3a, 0.45));
+  sheath.scale.set(13, dish.distanceTo(target), 13);
+  beam.add(core, sheath);
+  beam.position.copy(dish).lerp(target, 0.5);
+  beam.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    target.clone().sub(dish).normalize(),
+  );
+  // Drawn over everything, from inside as well as out, so that once it has
+  // passed the camera it is all there is to see.
+  const blast = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 32, 20),
+    new THREE.MeshBasicMaterial({
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      fog: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  blast.position.copy(target);
+  blast.renderOrder = 1000;
+  object.add(glow, beam, blast);
+
+  const white = new THREE.Color(0xfffbe6);
+  const fire = new THREE.Color(0xff8a2a);
+  function show(seconds) {
+    object.visible = seconds !== null;
+    if (seconds === null) return;
+    const at = strikeAt(seconds);
+    glow.visible = at.charge > 0;
+    glow.scale.setScalar(
+      (12 + 55 * at.charge) * (1 + 0.08 * Math.sin(seconds * 40)),
+    );
+    beam.visible = at.beam;
+    blast.visible = at.blast > 0;
+    blast.scale.setScalar(Math.max(1, at.blast * BLAST_RADIUS));
+    blast.material.color.copy(white).lerp(fire, at.blast * 0.8);
+    blast.material.opacity = at.cover;
+  }
+  return { object, show };
 }
 
 // --- fighters ---
@@ -400,7 +556,9 @@ export function buildFleet() {
     return { spec, ship, escorts, x: 0 };
   });
   const patrols = fighterSwarm(fighter, PATROLS.length * FLIGHT.length, 0.12);
-  object.add(patrols, buildStation());
+  const { station, dish } = buildStation();
+  const strike = buildStrike(dish);
+  object.add(patrols, station, strike.object);
 
   function update(seconds) {
     for (const entry of ships) {
@@ -437,5 +595,5 @@ export function buildFleet() {
     );
   }
   update(0);
-  return { object, update };
+  return { object, update, showStrike: strike.show };
 }
