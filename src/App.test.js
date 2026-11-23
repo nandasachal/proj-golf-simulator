@@ -1623,8 +1623,22 @@ describe("game mode", () => {
     const before = lastTarget();
     act(() => callbacks.onStrike());
     expect(lastTarget()).not.toBe(before);
+    fireEvent.click(screen.getByRole("button", { name: "Exit" }));
     expect(game()).toHaveTextContent("Target 1 of 5");
     expect(game()).toHaveTextContent("0 hit / 3 to win");
+  });
+
+  test("after the strike the Empire's screen stays up until Exit", () => {
+    renderApp();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    act(() => callbacks.onStrike());
+    const empire = screen.getByRole("dialog");
+    expect(empire).toHaveTextContent(
+      "You made Darth Vader angry.Stop snooping on the Empire and focus on your golf game.",
+    );
+    within(empire).getByRole("img", { name: "The mark of the Empire" });
+    fireEvent.click(within(empire).getByRole("button", { name: "Exit" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
 

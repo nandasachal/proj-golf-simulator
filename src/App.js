@@ -8,6 +8,7 @@ import SettingsModal from "./components/simulator/settings-modal";
 import GameCard, { GameRow } from "./components/simulator/game-card";
 import OverheadTags from "./components/simulator/overhead-tags";
 import LeaderboardModal from "./components/simulator/leaderboard-modal";
+import EmpireScreen from "./components/simulator/empire-screen";
 import { getLeaderboard } from "./players/api";
 import { clearProfile, loadProfile } from "./players/profile";
 import { flush, newGameId, recordShot } from "./players/queue";
@@ -329,6 +330,7 @@ function App() {
   const targetDone = useRef(false);
   // The scene's callbacks are made once; this is always the latest startGame.
   const restart = useRef(() => {});
+  const [struck, setStruck] = useState(false);
 
   useEffect(() => {
     const sim = guardScene(() =>
@@ -352,8 +354,12 @@ function App() {
           );
         },
         onOrbit: setOrbiting,
-        // Star Wars Mode: the battle station has blown up the range.
-        onStrike: () => restart.current(),
+        // Star Wars Mode: the battle station has blown up the range. The game
+        // starts again behind the Empire's screen.
+        onStrike: () => {
+          restart.current();
+          setStruck(true);
+        },
         onOverhead: setOverheadMarks,
         onProgress: setLive,
         onResult: (shotResult) => {
@@ -925,6 +931,7 @@ function App() {
             onPlayer={savePlayer}
             onLogOut={logOut}
           />
+          <EmpireScreen open={struck} onExit={() => setStruck(false)} />
           {/* Bird's-eye: the camera straight down, and back. */}
           <button
             type="button"

@@ -2,7 +2,10 @@ import { PerspectiveCamera } from "three";
 import {
   FLEET_FAR,
   STRIKE_COVERED,
+  STRIKE_RESTART,
   STRIKE_SECONDS,
+  TRIBUTARIES,
+  tributaryReach,
   newStrike,
   stationInSight,
   stepStrike,
@@ -105,15 +108,38 @@ describe("the station's strike", () => {
   });
 
   test("charges, fires, then blasts over the view inside half a second", () => {
-    expect(strikeAt(0.9)).toMatchObject({ beam: false, blast: 0 });
-    expect(strikeAt(0.9).charge).toBeCloseTo(0.5);
+    expect(strikeAt(1.2)).toMatchObject({ beam: false, blast: 0 });
+    expect(strikeAt(1.2).charge).toBeCloseTo(0.5);
     const firing = strikeAt(STRIKE_COVERED - 0.6);
     expect(firing).toMatchObject({ charge: 1, beam: true, blast: 0 });
     expect(strikeAt(STRIKE_COVERED - 0.5).blast).toBeCloseTo(0);
     const covered = strikeAt(STRIKE_COVERED + 0.01);
-    expect(covered).toMatchObject({ blast: 1, beam: false, charge: 0 });
-    expect(covered.cover).toBeGreaterThan(0.95);
+    expect(covered).toMatchObject({
+      blast: 1,
+      beam: false,
+      charge: 0,
+      cover: 1,
+    });
+    // it burns, fully covering the view, until the game restarts; then clears
+    expect(strikeAt(STRIKE_RESTART - 0.01).cover).toBe(1);
+    expect(strikeAt(STRIKE_RESTART + 0.3).cover).toBeLessThan(1);
     expect(strikeAt(STRIKE_SECONDS).cover).toBeCloseTo(0);
+    // and cools all the way through
+    expect(strikeAt(STRIKE_COVERED - 0.5).heat).toBeCloseTo(1);
+    expect(strikeAt(STRIKE_RESTART).heat).toBeLessThan(
+      strikeAt(STRIKE_COVERED).heat,
+    );
+  });
+
+  test("the dish's beams light one after another, all in before it fires", () => {
+    for (let i = 1; i < TRIBUTARIES; i++) {
+      expect(tributaryReach(0.3, i)).toBeLessThanOrEqual(
+        tributaryReach(0.3, i - 1),
+      );
+    }
+    expect(tributaryReach(0.05, 0)).toBeGreaterThan(0);
+    expect(tributaryReach(0.05, TRIBUTARIES - 1)).toBe(0);
+    expect(tributaryReach(0.7, TRIBUTARIES - 1)).toBe(1);
   });
 
   test("a look sets off one strike, which restarts the game once", () => {
@@ -131,7 +157,7 @@ describe("the station's strike", () => {
     run(0.5, true);
     expect(strike.seconds).not.toBeNull();
     // it runs to the end even if the view moves off it
-    run(STRIKE_COVERED, false);
+    run(STRIKE_RESTART, false);
     expect(restarts).toBe(1);
     run(2, false);
     expect(strike.seconds).toBeNull();

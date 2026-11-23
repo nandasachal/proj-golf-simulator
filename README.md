@@ -261,14 +261,19 @@ React UI (App.js, components/)          src/simulate/ (no React)
     turned on and then only shown or hidden, so it changes live with no reload
     (`range.userData.setFleet`, `simulator.setFleet`).
     Looking at the station sets it off: once it has been in the picture for
-    0.4 s (`stationInSight`, checked every frame in `main.js`) its dish charges
-    for 1.8 s, a green beam comes down on the 300 yard marker, and a blast
-    spreads from there over the whole view inside half a second. When the view
-    is covered the camera goes back to the address view and `onStrike` tells
-    App to start the game again (the same `startGame` as Restart); the blast
-    then clears. The timeline (`strikeAt`) and the one-strike-per-look rule
-    (`stepStrike`) are pure and tested; the station has to leave the picture
-    before it will fire again.
+    0.4 s (`stationInSight`, checked every frame in `main.js`) eight beams
+    leave the rim of its dish one after another and meet in front of it
+    (`tributaryReach`), where a glow swells for the rest of the 2.4 s charge.
+    The joined beam then comes down on the 300 yard marker and a fireball (a
+    noise shader on a sphere drawn over everything, from inside too) spreads
+    from there over the whole view inside half a second and burns for 0.7 s.
+    Then the camera goes back to the address view and `onStrike` tells App to
+    start the game again (the same `startGame` as Restart) and put up
+    `components/simulator/empire-screen.jsx`: the Empire's mark, "You made
+    Darth Vader angry. Stop snooping on the Empire and focus on your golf
+    game." and an Exit button back to the game. The timeline (`strikeAt`) and
+    the one-strike-per-look rule (`stepStrike`) are pure and tested; the
+    station has to leave the picture before it will fire again.
   - `shared.js` — the contract the parts agree on: the sun direction and colour,
     the horizon/fog colour, `terrainHeight(x, z)` and the `FLAT` rectangle where
     the ground must stay at y = 0 because the ball physics assumes level ground.

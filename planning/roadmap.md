@@ -119,7 +119,9 @@
   battle station high up.
 - [done] Battle station strike (2026-11-22) — look at the station and it
   charges, fires on the 300 yard marker, the blast covers the view and the game
-  restarts.
+  restarts. Later the same day: beams converge off the dish rim first, the
+  blast is a fire shader, and a "You made Darth Vader angry" screen with the
+  Empire's mark and an Exit button follows.
 - **Golfer follow-ups**: polo collar and golf glove; closer facial likeness
   (needs a decision on a scanned head in a public repo); shorter swing for wedges (every club makes a full
   driver-length swing today); waggle; face-on comparison against real frames.

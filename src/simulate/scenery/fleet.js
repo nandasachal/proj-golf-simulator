@@ -40,34 +40,51 @@ export function shipPlace(start, seconds) {
 }
 
 // --- the station's strike ---
-// Look at the station and it answers: the dish charges, a beam comes down on
-// the 300 yard marker, and the blast swallows the view inside half a second.
-// The game starts again behind the blast, which then clears.
+// Look at the station and it answers: beams leave the rim of the dish one by
+// one and meet in front of it, the joined beam comes down on the 300 yard
+// marker, and a fireball swallows the view inside half a second. The game
+// starts again behind the fire, which then clears.
 
 export const STRIKE_TARGET = { x: 0, y: 0, z: 300 };
 const DWELL = 0.4; // seconds in view before it starts charging
-const CHARGE = 1.8;
+const CHARGE = 2.4;
 const BEAM = 0.4;
 const BLAST = 0.5;
+const BURN = 0.7;
 const CLEAR = 0.9;
-// Seconds into a strike at which the view is covered and the game restarts.
+// Seconds into a strike at which the blast has covered the view.
 export const STRIKE_COVERED = CHARGE + BEAM + BLAST;
-export const STRIKE_SECONDS = STRIKE_COVERED + CLEAR;
+// The view burns for a moment, then the game restarts behind the fire.
+export const STRIKE_RESTART = STRIKE_COVERED + BURN;
+export const STRIKE_SECONDS = STRIKE_RESTART + CLEAR;
 // The blast reaches this far, in yards: well past the tee from the marker.
 const BLAST_RADIUS = 420;
+// The beams that leave the rim of the dish and meet in front of it.
+export const TRIBUTARIES = 8;
 
 const unit = (value) => Math.min(1, Math.max(0, value));
 
 // What is showing `seconds` into a strike: how charged the dish is, whether
-// the beam is on, how far the blast has spread (0 to 1) and how solid it is.
+// the main beam is on, how far the blast has spread (0 to 1), how hot the
+// fire is and how solid.
 export function strikeAt(seconds) {
   const blasting = seconds - CHARGE - BEAM;
+  const burning = seconds - STRIKE_RESTART;
   return {
     charge: blasting < BLAST ? unit(seconds / CHARGE) : 0,
     beam: seconds >= CHARGE && blasting < BLAST,
     blast: unit(blasting / BLAST),
-    cover: blasting < BLAST ? 1 : unit(1 - (blasting - BLAST) / CLEAR),
+    heat: 1 - 0.75 * unit(blasting / (BLAST + BURN + CLEAR)),
+    cover: burning < 0 ? 1 : unit(1 - burning / CLEAR),
   };
+}
+
+// How far tributary `index` has reached toward the meeting point, 0 to 1, at
+// a given charge: they light one after another round the dish over the first
+// two thirds of the charge, and the last third is all of them feeding the
+// glow where they meet.
+export function tributaryReach(charge, index) {
+  return unit((charge - (index / TRIBUTARIES) * 0.45) / 0.2);
 }
 
 const sight = new THREE.Vector3();
@@ -91,8 +108,8 @@ export const newStrike = () => ({
   covered: false,
 });
 
-// Move a strike on by `dt`. True on the one step the blast covers the view,
-// which is when the game is to restart.
+// Move a strike on by `dt`. True on the one step the game is to restart,
+// with the view full of fire.
 export function stepStrike(strike, dt, inSight) {
   if (strike.seconds === null) {
     if (!inSight) {
@@ -111,7 +128,7 @@ export function stepStrike(strike, dt, inSight) {
     return false;
   }
   strike.seconds += dt;
-  const covers = !strike.covered && strike.seconds >= STRIKE_COVERED;
+  const covers = !strike.covered && strike.seconds >= STRIKE_RESTART;
   if (covers) strike.covered = true;
   if (strike.seconds >= STRIKE_SECONDS) strike.seconds = null;
   return covers;
@@ -305,18 +322,86 @@ function buildStation() {
   station.position.set(STATION.x, STATION.y, STATION.z);
   station.lookAt(700, 0, -900);
   station.updateMatrixWorld(true);
-  // The middle of the dish, where the beam leaves: 29 degrees north on +x.
-  const dish = sphere.localToWorld(
-    new THREE.Vector3(Math.cos(0.5), Math.sin(0.5), 0).multiplyScalar(
-      STATION.radius,
-    ),
-  );
-  return { station, dish };
+  // The dish is 29 degrees north on the sphere's +x side. The beams leave
+  // its rim and meet out in front of its middle.
+  const middle = new THREE.Vector3(Math.cos(0.5), Math.sin(0.5), 0);
+  const across = new THREE.Vector3(0, 0, 1);
+  const up = new THREE.Vector3(-Math.sin(0.5), Math.cos(0.5), 0);
+  const world = (point) =>
+    sphere.localToWorld(point.multiplyScalar(STATION.radius));
+  const rim = Array.from({ length: TRIBUTARIES }, (_, i) => {
+    const turn = (i / TRIBUTARIES) * Math.PI * 2;
+    return world(
+      middle
+        .clone()
+        .multiplyScalar(Math.cos(0.33))
+        .addScaledVector(across, Math.sin(0.33) * Math.cos(turn))
+        .addScaledVector(up, Math.sin(0.33) * Math.sin(turn)),
+    );
+  });
+  const focus = world(middle.clone().multiplyScalar(1.5));
+  return { station, rim, focus };
 }
 
-// The strike's light: a glow on the dish, the beam, and the blast at the
-// marker. `show(seconds)` draws it that far in; `show(null)` puts it away.
-function buildStrike(dish) {
+const FIRE_VERTEX = /* glsl */ `
+  varying vec3 vDirection;
+  void main() {
+    vDirection = normalize(position);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }`;
+
+// Rolling fire over the blast: two layers of noise, the second dragged about
+// by the first, read through a ramp from soot to white heat.
+const FIRE_FRAGMENT = /* glsl */ `
+  uniform float uTime;
+  uniform float uHeat;
+  uniform float uOpacity;
+  varying vec3 vDirection;
+
+  float hash(vec3 p) {
+    p = fract(p * 0.3183099 + 0.1);
+    p *= 17.0;
+    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+  }
+  float noise(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x),
+          mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
+      mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x),
+          mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y),
+      f.z);
+  }
+  float fbm(vec3 p) {
+    float sum = 0.0;
+    float size = 0.5;
+    for (int i = 0; i < 5; i++) {
+      sum += size * noise(p);
+      p *= 2.03;
+      size *= 0.5;
+    }
+    return sum;
+  }
+
+  void main() {
+    vec3 p = vDirection * 4.0;
+    float billow = fbm(p + vec3(0.0, -uTime * 2.2, uTime * 0.9));
+    float flame = fbm(p * 2.6 + billow * 2.4 - vec3(uTime * 1.6, uTime * 3.0, 0.0));
+    float heat = clamp((billow * 0.9 + flame * 1.1 - 0.75) * 2.2 + uHeat * 0.5 - 0.1, 0.0, 1.0);
+    vec3 color = mix(vec3(0.05, 0.02, 0.015), vec3(0.55, 0.05, 0.01), smoothstep(0.0, 0.3, heat));
+    color = mix(color, vec3(1.0, 0.36, 0.03), smoothstep(0.25, 0.55, heat));
+    color = mix(color, vec3(1.0, 0.8, 0.25), smoothstep(0.5, 0.8, heat));
+    color = mix(color, vec3(1.0, 0.97, 0.85), smoothstep(0.82, 1.0, heat));
+    gl_FragColor = vec4(color, uOpacity);
+    #include <colorspace_fragment>
+  }`;
+
+// The strike's light: the beams off the rim of the dish, the glow where they
+// meet, the joined beam, and the fireball at the marker. `show(seconds)`
+// draws it that far in; `show(null)` puts it away.
+function buildStrike({ rim, focus }) {
   const light = (color, opacity) =>
     new THREE.MeshBasicMaterial({
       color,
@@ -328,33 +413,67 @@ function buildStrike(dish) {
     });
   const object = new THREE.Group();
   object.visible = false;
+  const shaft = new THREE.CylinderGeometry(1, 1, 1, 12, 1, true);
+  const upright = new THREE.Vector3(0, 1, 0);
+  // A beam from one point to another that can be drawn part of the way.
+  const beamBetween = (from, to, layers) => {
+    const beam = new THREE.Group();
+    const length = from.distanceTo(to);
+    const heading = to.clone().sub(from).normalize();
+    beam.quaternion.setFromUnitVectors(upright, heading);
+    for (const [radius, material] of layers) {
+      const mesh = new THREE.Mesh(shaft, material);
+      mesh.scale.set(radius, 1, radius);
+      beam.add(mesh);
+    }
+    beam.userData.reach = (fraction) => {
+      beam.visible = fraction > 0;
+      beam.scale.y = Math.max(1e-3, length * fraction);
+      beam.position
+        .copy(from)
+        .addScaledVector(heading, (length * fraction) / 2);
+    };
+    object.add(beam);
+    return beam;
+  };
+  const core = light(0xeaffe0, 1);
+  const sheath = light(0x55ff3a, 0.45);
+  const tributaries = rim.map((from) =>
+    beamBetween(from, focus, [
+      [3, light(0x9dff7a, 1)],
+      [8, sheath],
+    ]),
+  );
   const glow = new THREE.Mesh(
     new THREE.SphereGeometry(1, 24, 16),
     light(0x8dff70, 0.9),
   );
-  glow.position.copy(dish);
+  glow.position.copy(focus);
+  const hot = new THREE.Mesh(glow.geometry, light(0xf4ffea, 1));
+  hot.position.copy(focus);
   const target = new THREE.Vector3(
     STRIKE_TARGET.x,
     STRIKE_TARGET.y,
     STRIKE_TARGET.z,
   );
-  const beam = new THREE.Group();
-  const shaft = new THREE.CylinderGeometry(1, 1, 1, 16, 1, true);
-  const core = new THREE.Mesh(shaft, light(0xeaffe0, 1));
-  core.scale.set(4, dish.distanceTo(target), 4);
-  const sheath = new THREE.Mesh(shaft, light(0x55ff3a, 0.45));
-  sheath.scale.set(13, dish.distanceTo(target), 13);
-  beam.add(core, sheath);
-  beam.position.copy(dish).lerp(target, 0.5);
-  beam.quaternion.setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    target.clone().sub(dish).normalize(),
-  );
+  const beam = beamBetween(focus, target, [
+    [5, core],
+    [15, sheath],
+  ]);
   // Drawn over everything, from inside as well as out, so that once it has
   // passed the camera it is all there is to see.
+  const fire = {
+    uTime: { value: 0 },
+    uHeat: { value: 1 },
+    uOpacity: { value: 1 },
+  };
   const blast = new THREE.Mesh(
-    new THREE.SphereGeometry(1, 32, 20),
-    new THREE.MeshBasicMaterial({
+    new THREE.SphereGeometry(1, 48, 32),
+    new THREE.ShaderMaterial({
+      name: "blast",
+      uniforms: fire,
+      vertexShader: FIRE_VERTEX,
+      fragmentShader: FIRE_FRAGMENT,
       transparent: true,
       depthTest: false,
       depthWrite: false,
@@ -364,23 +483,28 @@ function buildStrike(dish) {
   );
   blast.position.copy(target);
   blast.renderOrder = 1000;
-  object.add(glow, beam, blast);
+  object.add(glow, hot, blast);
 
-  const white = new THREE.Color(0xfffbe6);
-  const fire = new THREE.Color(0xff8a2a);
   function show(seconds) {
     object.visible = seconds !== null;
     if (seconds === null) return;
     const at = strikeAt(seconds);
-    glow.visible = at.charge > 0;
-    glow.scale.setScalar(
-      (12 + 55 * at.charge) * (1 + 0.08 * Math.sin(seconds * 40)),
+    tributaries.forEach((tributary, i) =>
+      tributary.userData.reach(tributaryReach(at.charge, i)),
     );
-    beam.visible = at.beam;
+    // The glow starts when the first beam arrives and swells as the rest
+    // join it, flickering.
+    const fed = Math.min(1, Math.max(0, (at.charge - 0.2) / 0.8));
+    const flicker = 1 + 0.1 * Math.sin(seconds * 46);
+    glow.visible = hot.visible = fed > 0;
+    glow.scale.setScalar((10 + 60 * fed) * flicker);
+    hot.scale.setScalar((4 + 22 * fed) * flicker);
+    beam.userData.reach(at.beam ? 1 : 0);
     blast.visible = at.blast > 0;
     blast.scale.setScalar(Math.max(1, at.blast * BLAST_RADIUS));
-    blast.material.color.copy(white).lerp(fire, at.blast * 0.8);
-    blast.material.opacity = at.cover;
+    fire.uTime.value = seconds;
+    fire.uHeat.value = at.heat;
+    fire.uOpacity.value = at.cover;
   }
   return { object, show };
 }
@@ -556,8 +680,8 @@ export function buildFleet() {
     return { spec, ship, escorts, x: 0 };
   });
   const patrols = fighterSwarm(fighter, PATROLS.length * FLIGHT.length, 0.12);
-  const { station, dish } = buildStation();
-  const strike = buildStrike(dish);
+  const { station, rim, focus } = buildStation();
+  const strike = buildStrike({ rim, focus });
   object.add(patrols, station, strike.object);
 
   function update(seconds) {
