@@ -91,3 +91,5 @@ before hitting, and don't chase it as an app bug.
 2026-11-21 — note — with the browser pane hidden, the 3D scene doesn't animate and a Hit never lands. Check landing and scoring with the scene's own physics in Jest (see "easyTarget against the scene's own shot").
 2026-11-22 — note — Another session committing in the same checkout swept half of an in-flight change into its own commits; check git log before assuming the tree is still yours.
 2026-11-22 — preference — Accounts are built into the leaderboard API (password or Sign in with Google), not Keycloak.
+2026-11-22 — note — With the browser pane hidden, a reload can leave the app blank: index.js waits on an animation frame that never comes while the page still reports itself visible. Re-running the bundle with requestAnimationFrame swapped for a timer gets it going, and lets a Hit land.
+2026-11-22 — mistake — Auto club's first Advanced rule picked the club whose stock flight passed nearest the sphere; air targets sit on harder-than-stock swings, so it often picked a club that could not get there. Caught by driving it in the browser, not by tests. Judge a club by whether any swing in its range gets through.
