@@ -1095,7 +1095,11 @@ describe("club pads", () => {
       "club path": ["above", ["aim", "path"], "Club path · from above"],
       strike: ["above", ["faceLine"], "Strike · from above"],
       aim: ["above", ["centre", "aim"], "Aim · from above"],
-      "attack angle": ["toe", ["attack"], "Attack angle · from the toe"],
+      "attack angle": [
+        "toe",
+        ["attackBand", "level"],
+        "Attack angle · from the toe",
+      ],
       loft: ["toe", ["lever"], "Loft · from the toe"],
     };
     for (const [box, [from, show, caption]] of Object.entries(expected)) {

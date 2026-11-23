@@ -27,7 +27,7 @@ selected (the highlighted box in the strip, or the arrow keys) decides:
 | Club path | From above | The path the head travels, against the aim line | Tail of the path line, behind the ball |
 | Aim | From above | The aim line, against the range's centre line | End of the aim line |
 | Strike | From above, closer in | The face line and the ball's place on it | The head itself, slid heel to toe |
-| Attack angle | From the toe | The arriving arrow, against level | Tail of the arriving arrow |
+| Attack angle | From the toe | A strip of arrows through the ball along the head's travel, against a level line | Tail of the strip |
 | Loft | From the toe, closer in | The line up the face | Top of the line up the face |
 | Swing speed | From above | Everything, for reference | None (speed has no shape to draw) |
 
@@ -44,6 +44,10 @@ Rules:
 - **The club stays honest.** The head is posed with every setting at once
   (a closed face stays closed while you look at path); only the guides are
   filtered.
+- **Arrows point where the ball goes, and move that way.** The strips for
+  swing path, attack angle and the ball's start line slide their marks toward
+  the target (not when the device asks for reduced motion). The face's line
+  does not move: it shows where the face points, not something travelling.
 - The caption names the setting and the side it is seen from ("Club face ·
   from above"). The toe view keeps its launch and spin read-out.
 - Phones keep today's layout (no club picture): the boxes are the controls

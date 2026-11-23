@@ -194,7 +194,9 @@ const cssColor = (color) => `#${new THREE.Color(color).getHexString()}`;
 // A flat strip on the turf running along +z from `from` to `to` (measured
 // from the ball), fading in from its tail and ending in an arrowhead. With
 // `chevrons` it carries direction marks along its length, like a swing-path
-// strip. Rotate it about y to point it.
+// strip, and `userData.flow(phase)` (phase 0 to 1) slides them toward the
+// arrow so the strip can be seen to move that way. Rotate it about y to
+// point it.
 function ribbon({ color, width, from, to, opacity, height, chevrons }) {
   const canvas = document.createElement("canvas");
   canvas.width = 64;
@@ -204,40 +206,51 @@ function ribbon({ color, width, from, to, opacity, height, chevrons }) {
   const h = canvas.height;
   // The top of the canvas is the far (arrow) end of the strip.
   const headLength = Math.min(h * 0.22, ((width * 1.5) / (to - from)) * h);
-
   const fade = ctx.createLinearGradient(0, h, 0, 0);
   fade.addColorStop(0, "rgba(255,255,255,0)");
   fade.addColorStop(0.25, "rgba(255,255,255,0.75)");
   fade.addColorStop(1, "rgba(255,255,255,1)");
-  ctx.fillStyle = fade;
-  // shaft
-  ctx.fillRect(w * 0.22, headLength, w * 0.56, h - headLength);
-  // arrowhead
-  ctx.beginPath();
-  ctx.moveTo(w / 2, 0);
-  ctx.lineTo(w, headLength);
-  ctx.lineTo(0, headLength);
-  ctx.closePath();
-  ctx.fill();
 
-  // Tint it; what is drawn so far only sets the shape.
-  ctx.globalCompositeOperation = "source-in";
-  ctx.fillStyle = cssColor(color);
-  ctx.fillRect(0, 0, w, h);
+  // `phase` is how far the direction marks have slid toward the arrow, as a
+  // share of the gap between two of them.
+  const paint = (phase) => {
+    ctx.globalCompositeOperation = "source-over";
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = fade;
+    // shaft
+    ctx.fillRect(w * 0.22, headLength, w * 0.56, h - headLength);
+    // arrowhead
+    ctx.beginPath();
+    ctx.moveTo(w / 2, 0);
+    ctx.lineTo(w, headLength);
+    ctx.lineTo(0, headLength);
+    ctx.closePath();
+    ctx.fill();
 
-  if (chevrons) {
-    ctx.globalCompositeOperation = "source-atop";
-    ctx.strokeStyle = "rgba(255,255,255,0.55)";
-    ctx.lineWidth = 3;
-    const spacing = h / 9;
-    for (let y = headLength + spacing; y < h; y += spacing) {
-      ctx.beginPath();
-      ctx.moveTo(w * 0.26, y + 9);
-      ctx.lineTo(w / 2, y - 9);
-      ctx.lineTo(w * 0.74, y + 9);
-      ctx.stroke();
+    // Tint it; what is drawn so far only sets the shape.
+    ctx.globalCompositeOperation = "source-in";
+    ctx.fillStyle = cssColor(color);
+    ctx.fillRect(0, 0, w, h);
+
+    if (chevrons) {
+      ctx.globalCompositeOperation = "source-atop";
+      ctx.strokeStyle = "rgba(255,255,255,0.55)";
+      ctx.lineWidth = 3;
+      const spacing = h / 9;
+      for (
+        let y = headLength + spacing * (1 - phase);
+        y < h + spacing;
+        y += spacing
+      ) {
+        ctx.beginPath();
+        ctx.moveTo(w * 0.26, y + 9);
+        ctx.lineTo(w / 2, y - 9);
+        ctx.lineTo(w * 0.74, y + 9);
+        ctx.stroke();
+      }
     }
-  }
+  };
+  paint(0);
 
   const map = new THREE.CanvasTexture(canvas);
   map.colorSpace = THREE.SRGBColorSpace;
@@ -254,14 +267,33 @@ function ribbon({ color, width, from, to, opacity, height, chevrons }) {
       toneMapped: false,
     }),
   );
-  // Lie it flat with the top of the texture toward +z.
+  // Lie it flat with the top of the texture, the arrow end, toward +z: the
+  // way the ball is going. (It was turned round until 2026-11-22, so every
+  // arrow pointed back at the golfer.)
   mesh.rotation.x = Math.PI / 2;
-  mesh.rotation.z = Math.PI;
   mesh.position.z = (from + to) / 2;
   const holder = new THREE.Group();
   holder.add(mesh);
   holder.position.y = height;
   mesh.renderOrder = Math.round(height * 100);
+  if (chevrons) {
+    holder.userData.flow = (phase) => {
+      paint(phase);
+      map.needsUpdate = true;
+    };
+  }
+  return holder;
+}
+
+// The same strip stood on its edge in the upright plane through the ball and
+// the target, for the view from the toe. Tip it about x to point it up or
+// down.
+function uprightRibbon(options) {
+  const flat = ribbon({ ...options, height: 0 });
+  flat.rotation.z = Math.PI / 2;
+  const holder = new THREE.Group();
+  holder.add(flat);
+  holder.userData.flow = flat.userData.flow;
   return holder;
 }
 
@@ -474,8 +506,10 @@ export function createClubScene(container, options = {}) {
   const pathRibbon = ribbon({
     color: PATH_COLOR,
     width: 5.2,
-    from: -62,
-    to: 40,
+    // from behind the path handle to just past the ball, so its arrowhead
+    // is in the picture
+    from: -40,
+    to: 15,
     opacity: 0.62,
     height: 0.1,
     chevrons: true,
@@ -484,15 +518,16 @@ export function createClubScene(container, options = {}) {
     color: START_COLOR,
     width: 1.5,
     from: 3,
-    to: 62,
+    to: 28,
     opacity: 0.6,
     height: 0.14,
+    chevrons: true,
   });
   const faceRibbon = ribbon({
     color: FACE_COLOR,
     width: 1.1,
     from: 3,
-    to: 44,
+    to: 34,
     opacity: 0.8,
     height: 0.18,
   });
@@ -527,6 +562,28 @@ export function createClubScene(container, options = {}) {
     radius: 0.24,
   });
   scene.add(attackRod, launchRod);
+  // From the toe: the way the head travels through the ball, as a strip like
+  // the swing path's, against a level line.
+  const attackBand = uprightRibbon({
+    color: ATTACK_COLOR,
+    width: 2.4,
+    from: -32,
+    to: 14,
+    opacity: 0.7,
+    chevrons: true,
+  });
+  const levelLine = uprightRibbon({
+    color: 0xffffff,
+    width: 0.25,
+    from: -40,
+    to: 22,
+    opacity: 0.35,
+  });
+  attackBand.position.set(0, ballHeight, 0);
+  levelLine.position.set(0, ballHeight, 0);
+  attackBand.visible = false;
+  levelLine.visible = false;
+  scene.add(attackBand, levelLine);
 
   // The club. `club` sits where the face touches the ball and turns with the
   // face; `tilt` tips it about that point for the loft delivered; the head
@@ -604,9 +661,28 @@ export function createClubScene(container, options = {}) {
     face: faceRibbon,
     faceLine,
     attack: attackRod,
+    attackBand,
+    level: levelLine,
     launch: launchRod,
     lever,
   };
+  // The strips that show something moving slide their marks that way, a
+  // little under once a second, unless the device asks for less motion.
+  const flowing = [pathRibbon, startRibbon, attackBand];
+  let flowFrame = null;
+  let flowedAt = 0;
+  function flow(now) {
+    flowFrame = requestAnimationFrame(flow);
+    if (now - flowedAt < 40) return;
+    flowedAt = now;
+    const moving = flowing.filter((guide) => guide.visible);
+    if (!moving.length) return;
+    for (const guide of moving) guide.userData.flow((now / 900) % 1);
+    render();
+  }
+  if (!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    flowFrame = requestAnimationFrame(flow);
+  }
   let view = "behind";
   let tween = null;
   let frameId = null;
@@ -746,6 +822,7 @@ export function createClubScene(container, options = {}) {
       head.position.addScaledVector(upFace, slide);
     }
 
+    attackBand.rotation.x = -setup.attackDegrees * RADIANS;
     const arriving = risingDirection(setup.pathDegrees, setup.attackDegrees);
     pointAlong(attackRod, arriving);
     attackRod.position
@@ -829,6 +906,7 @@ export function createClubScene(container, options = {}) {
 
   function dispose() {
     if (frameId !== null) cancelAnimationFrame(frameId);
+    if (flowFrame !== null) cancelAnimationFrame(flowFrame);
     resizeObserver.disconnect();
     controls.dispose();
     scene.traverse((object) => {

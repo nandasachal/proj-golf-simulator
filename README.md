@@ -262,7 +262,13 @@ React UI (App.js, components/)          src/simulate/ (no React)
     loft (`FOCUS` in `club-pads.jsx`, `setFocus` in the scene). Only that
     control's guide lines and its one handle are drawn, the caption names the
     control and the side it is seen from, and swing speed, which has no shape
-    to draw, shows the whole club with no handle. Spec:
+    to draw, shows the whole club with no handle. Attack angle is drawn as a
+    strip of arrows through the ball along the way the head travels, against
+    a level line. The strips that show movement (swing path, attack, the
+    ball's start line) slide their marks toward the target (`flow` in
+    `club-scene.js`, about 25 frames a second, off when the device asks for
+    reduced motion). Every guide's arrow points the way the ball goes; they
+    were laid down backwards until 2026-11-22. Spec:
     `planning/product-specs/club-setup-view.md`. Phones get no view (it is not built there) and show one control at a
     time: the bag as a scrolling row of chips, a tab per control with its
     value, then the selected control's big number and word, a tall ruler, and

@@ -946,7 +946,12 @@ const FOCUS = {
   },
   aim: { view: "above", centre: [0, 10], width: 54, show: ["centre", "aim"] },
   strike: { view: "above", centre: [0, -4], width: 26, show: ["faceLine"] },
-  attackAngle: { view: "toe", centre: [8, -9], width: 46, show: ["attack"] },
+  attackAngle: {
+    view: "toe",
+    centre: [8, -9],
+    width: 46,
+    show: ["attackBand", "level"],
+  },
   loftChange: { view: "toe", centre: [12, -6], width: 32, show: ["lever"] },
   // Speed has no shape to draw: the whole horizontal story, for reference.
   swingSpeed: {
