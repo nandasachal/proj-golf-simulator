@@ -10,11 +10,20 @@ const side = (yards) => {
 // The overhead view's numbers, pinned where they happened: carry at the
 // landing spot, the run at the stop, the apex over the line, the target on
 // its ring. `marks` are screen points from the scene, null when the camera is
-// not overhead (or still moving).
-const OverheadTags = ({ marks, result, target }) => {
+// not overhead (or still moving). With both a last shot and a target to
+// show, a small switch picks which one's numbers are up (`chosen`, "shot" or
+// "target").
+const VIEWS = [
+  ["shot", "Last shot"],
+  ["target", "Target"],
+];
+
+const OverheadTags = ({ marks, result, target, chosen, onChoose }) => {
   if (!marks) return null;
+  const both = Boolean(result && marks.landing && target && marks.target);
+  const showing = both ? chosen : result ? "shot" : "target";
   const tags = [];
-  if (result && marks.landing) {
+  if (showing === "shot" && result && marks.landing) {
     tags.push({
       id: "carry",
       at: marks.landing,
@@ -42,7 +51,7 @@ const OverheadTags = ({ marks, result, target }) => {
         quiet: true,
       });
   }
-  if (target && marks.target)
+  if (showing === "target" && target && marks.target)
     tags.push({
       id: "target",
       at: marks.target,
@@ -64,6 +73,29 @@ const OverheadTags = ({ marks, result, target }) => {
       aria-label="Overhead view"
       role="group"
     >
+      {both && (
+        <div
+          role="group"
+          aria-label="Bird's-eye shows"
+          className="pointer-events-auto absolute left-1/2 top-14 flex -translate-x-1/2 gap-0.5 rounded-lg border border-white/15 bg-slate-950/85 p-0.5 text-[11px] font-semibold shadow-lg md:top-4"
+        >
+          {VIEWS.map(([id, name]) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={showing === id}
+              className={`rounded-md px-2 py-0.5 transition-colors ${
+                showing === id
+                  ? "bg-white/15 text-white"
+                  : "text-white/55 hover:text-white"
+              }`}
+              onClick={() => onChoose(id)}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
       {tags.map((tag) => (
         <p
           key={tag.id}

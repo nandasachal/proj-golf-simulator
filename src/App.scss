@@ -90,7 +90,8 @@ div.club-handle:focus-visible {
   animation: hit-beckon 1.6s ease-out infinite;
 }
 
-// The bar under a shot's stats that runs down until they are put away.
+// The line along the foot of a shot's stats that runs down until they are
+// put away. The stats bar clips it to its own rounded corners.
 .shot-countdown {
   transform-origin: left;
   animation: shot-countdown linear forwards;

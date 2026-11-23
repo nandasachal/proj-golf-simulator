@@ -23,38 +23,21 @@ const Stat = ({ label, value }) => (
 const liveLabel = (live) => (live.onGround ? "On the ground" : "In the air");
 
 // Live distance while the ball is moving, then the full result once it stops.
-// A result can be closed; `leaving` is how many ms until it closes itself,
-// shown as a bar along the bottom that runs down.
+// With `onClose` (given once the view is back behind the golfer) a small x
+// at the end of the bar puts the result away; `leaving` is how many ms until
+// it goes by itself, shown as a thin line along the foot of the bar that
+// runs down.
 const ShotReadout = ({ live, result, leaving = null, onClose }) => {
   if (!live && !result) return null;
   const distance = result ? result.totalYards : live.distanceYards;
 
   return (
-    <div className="relative flex max-w-full">
-      {result && onClose && (
-        <button
-          type="button"
-          aria-label="Close shot result"
-          title="Close"
-          className="absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-white/20 bg-slate-900 text-white/70 transition-colors hover:bg-slate-700 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
-          onClick={onClose}
-        >
-          <X size={14} aria-hidden="true" />
-        </button>
-      )}
-      {result && leaving != null && (
-        <span
-          aria-hidden="true"
-          data-shot-countdown
-          className="shot-countdown pointer-events-none absolute inset-x-3 bottom-[3px] z-10 h-[3px] rounded-full bg-lime-300"
-          style={{ animationDuration: `${leaving}ms` }}
-        />
-      )}
-      <div
-        className="hud-panel flex max-w-full items-center gap-2.5 overflow-x-auto px-3 py-2 md:gap-4 md:px-4"
-        role="status"
-        aria-label="Shot result"
-      >
+    <div
+      className="hud-panel relative flex max-w-full overflow-hidden"
+      role="status"
+      aria-label="Shot result"
+    >
+      <div className="flex min-w-0 items-center gap-2.5 overflow-x-auto px-3 py-2 md:gap-4 md:px-4">
         <div className="shrink-0">
           <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-lime-300 md:text-[11px]">
             {result ? result.shape : liveLabel(live)}
@@ -86,6 +69,25 @@ const ShotReadout = ({ live, result, leaving = null, onClose }) => {
           </dl>
         )}
       </div>
+      {result && onClose && (
+        <button
+          type="button"
+          aria-label="Close shot result"
+          title="Close"
+          className="mr-1 mt-1 flex h-5 w-5 shrink-0 items-center justify-center self-start rounded-full text-white/35 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
+          onClick={onClose}
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      )}
+      {result && leaving != null && (
+        <span
+          aria-hidden="true"
+          data-shot-countdown
+          className="shot-countdown pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-lime-300/60"
+          style={{ animationDuration: `${leaving}ms` }}
+        />
+      )}
     </div>
   );
 };

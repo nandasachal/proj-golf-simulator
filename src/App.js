@@ -77,7 +77,7 @@ const guardScene = (create) => {
   }
 };
 // How long the last shot's stats and line stay once the next target is up.
-const SHOT_LINGER_MS = 5000;
+const SHOT_LINGER_MS = 10000;
 
 // The box the keyboard is on when the page opens and for each new shot.
 const START_CONTROL = "aim";
@@ -314,6 +314,11 @@ function App() {
   // scene says the tagged points fall on screen once it has settled.
   const [overhead, setOverhead] = useState(false);
   const [overheadMarks, setOverheadMarks] = useState(null);
+  // The last shot, kept for the bird's-eye view after its stats have been
+  // put away, until the next one is hit; and which the bird's-eye view is
+  // showing the numbers of, that shot or the target.
+  const [lastShot, setLastShot] = useState(null);
+  const [overheadShows, setOverheadShows] = useState("target");
   // True once the view has been dragged round, until it is reset.
   const [orbiting, setOrbiting] = useState(false);
   const [target, setTarget] = useState(null);
@@ -385,6 +390,8 @@ function App() {
         onProgress: setLive,
         onResult: (shotResult) => {
           setResult(shotResult);
+          setLastShot(shotResult);
+          setOverheadShows("shot");
           setLive(null);
           // A shot only counts against the target it was hit at: starting a
           // new game mid-flight puts up a new one.
@@ -476,6 +483,7 @@ function App() {
         onState: (state) => {
           // Every new shot starts with the keyboard on Aim.
           if (state === "address") setSelected(game.current.startControl);
+          if (state === "address") setBehind(true);
           if (state === "address" && targetDone.current) {
             targetDone.current = false;
             const { shots, goal, next } = game.current;
@@ -623,8 +631,10 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
-  // The last shot's stats and line are put away a few seconds after the
-  // next target goes up, or at once from the bar's own close button.
+  // The last shot's stats and line can be put away once the view is back
+  // behind the golfer, from the bar's own x; with a next target up they also
+  // go by themselves a few seconds later.
+  const [behind, setBehind] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const clearShot = () => {
     setLeaving(false);
@@ -632,9 +642,9 @@ function App() {
     simulator.current?.showShot(false);
   };
   useEffect(() => {
-    if (target && result) setLeaving(true);
+    if (behind && target && result) setLeaving(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target]);
+  }, [behind, target]);
   useEffect(() => {
     if (!leaving) return undefined;
     const timer = setTimeout(clearShot, SHOT_LINGER_MS);
@@ -642,7 +652,14 @@ function App() {
   }, [leaving]);
   useEffect(() => {
     simulator.current.setTarget(target);
+    setOverheadShows("target");
   }, [target]);
+  // Once the stats are put away the shot's line goes too, but the bird's-eye
+  // view brings it back while it is showing that shot.
+  useEffect(() => {
+    if (result || !lastShot) return;
+    simulator.current.showShot(overhead && overheadShows === "shot");
+  }, [overhead, overheadShows, result, lastShot]);
 
   // Auto club: a new target, or switching it on, puts the club for the
   // target in hand. A club picked by hand stays until the next target.
@@ -808,7 +825,9 @@ function App() {
       setBeckon(false);
     }
     setResult(null);
+    setLastShot(null);
     setLeaving(false);
+    setBehind(false);
     setLive(null);
     staleShot.current = false;
     linkedSetup.current = false;
@@ -937,7 +956,13 @@ function App() {
           covers the golfer or the ball. */}
       <div className="relative h-[50dvh] md:h-[calc(100dvh-var(--strip,0px))]">
         <div id="display-container" ref={stage} className="absolute inset-0" />
-        <OverheadTags marks={overheadMarks} result={result} target={target} />
+        <OverheadTags
+          marks={overheadMarks}
+          result={lastShot}
+          target={target}
+          chosen={overheadShows}
+          onChoose={setOverheadShows}
+        />
 
         <div className="pointer-events-none absolute inset-0 flex items-start justify-between gap-3 p-3 md:p-4">
           {/* Above the shot readout: on a phone the finished card, with its
@@ -980,7 +1005,7 @@ function App() {
               live={live}
               result={result}
               leaving={leaving ? SHOT_LINGER_MS : null}
-              onClose={clearShot}
+              onClose={behind ? clearShot : null}
             />
           </div>
         </div>

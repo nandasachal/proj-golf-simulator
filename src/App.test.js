@@ -1344,28 +1344,39 @@ describe("shot result bar", () => {
     renderApp("/?mode=practice");
     hit();
     act(() => callbacks.onResult(landed));
+    // no x while the camera is still out with the ball
+    expect(
+      screen.queryByRole("button", { name: "Close shot result" }),
+    ).toBeNull();
+    act(() => callbacks.onState("address"));
+    // practice has no next target, so nothing runs down
     expect(document.querySelector("[data-shot-countdown]")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Close shot result" }));
+    const close = screen.getByRole("button", { name: "Close shot result" });
+    // inside the bar, not hung off its corner
+    expect(result()).toContainElement(close);
+    fireEvent.click(close);
     gone();
     expect(simulator.showShot).toHaveBeenLastCalledWith(false);
   });
 
-  test("the stats and the line go 5 seconds after the next target is up, a bar running down meanwhile", () => {
+  test("the stats and the line go 10 seconds after the view is back for the next target, a line running down meanwhile", () => {
     jest.useFakeTimers();
     try {
       renderApp();
       hit();
       act(() => callbacks.onResult(landed));
       act(() => jest.advanceTimersByTime(20000));
-      // nothing runs down until the next target is set
+      // nothing runs down until the view is back behind the golfer
       expect(result()).toHaveTextContent("220yd total");
       expect(document.querySelector("[data-shot-countdown]")).toBeNull();
 
       act(() => callbacks.onState("address"));
-      expect(document.querySelector("[data-shot-countdown]")).toHaveStyle({
-        animationDuration: "5000ms",
-      });
-      act(() => jest.advanceTimersByTime(4900));
+      const line = document.querySelector("[data-shot-countdown]");
+      expect(line).toHaveStyle({ animationDuration: "10000ms" });
+      // the bar clips it to its rounded corners
+      expect(result()).toContainElement(line);
+      expect(result()).toHaveClass("overflow-hidden");
+      act(() => jest.advanceTimersByTime(9900));
       expect(result()).toBeInTheDocument();
       expect(simulator.showShot).not.toHaveBeenCalled();
       act(() => jest.advanceTimersByTime(200));
@@ -1376,7 +1387,7 @@ describe("shot result bar", () => {
     }
   });
 
-  test("hitting again before the 5 seconds are up stops the countdown", () => {
+  test("hitting again before the 10 seconds are up stops the countdown", () => {
     jest.useFakeTimers();
     try {
       renderApp();
@@ -1385,8 +1396,9 @@ describe("shot result bar", () => {
       act(() => callbacks.onState("address"));
       hit();
       act(() => callbacks.onResult({ ...landed, totalYards: 180 }));
-      act(() => jest.advanceTimersByTime(6000));
+      act(() => jest.advanceTimersByTime(11000));
       expect(result()).toHaveTextContent("180yd total");
+      expect(document.querySelector("[data-shot-countdown]")).toBeNull();
     } finally {
       jest.useRealTimers();
     }
@@ -2018,10 +2030,33 @@ describe("bird's-eye view", () => {
     expect(tag("carry")).toHaveStyle({ left: "200px", top: "120px" });
     expect(tag("run")).toHaveTextContent("+20 run → 220 yd");
     expect(tag("apex")).toHaveTextContent("apex 25 yd");
+    // a small switch goes between the last shot's numbers and the target's
+    expect(tag("target")).toBeNull();
+    const shows = within(
+      screen.getByRole("group", { name: "Bird's-eye shows" }),
+    );
+    expect(shows.getByRole("button", { name: "Last shot" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    fireEvent.click(shows.getByRole("button", { name: "Target" }));
     const aimedAt = simulator.setTarget.mock.calls.at(-1)[0];
     expect(tag("target")).toHaveTextContent(
       `Target ${aimedAt.distanceYards} yd`,
     );
+    expect(tag("carry")).toBeNull();
+    fireEvent.click(shows.getByRole("button", { name: "Last shot" }));
+    expect(tag("carry")).toBeInTheDocument();
+
+    // the shot stays for this view after its stats have been put away, and
+    // its line comes back while the view is showing it
+    act(() => callbacks.onState("address"));
+    fireEvent.click(screen.getByRole("button", { name: "Close shot result" }));
+    expect(simulator.showShot).toHaveBeenLastCalledWith(true);
+    expect(tag("carry")).toBeInTheDocument();
+    fireEvent.click(shows.getByRole("button", { name: "Target" }));
+    expect(simulator.showShot).toHaveBeenLastCalledWith(false);
+    expect(tag("target")).toBeInTheDocument();
     // the scene says when it is no longer overhead
     act(() => callbacks.onOverhead(null));
     expect(tag("carry")).toBeNull();

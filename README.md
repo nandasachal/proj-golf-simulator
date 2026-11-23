@@ -146,7 +146,7 @@ than abstract.
     40–140 mph (95 default; 80 and up is a full swing, below it a part swing
     for a punch or a chip, `FULL_MIN` in `swingSpeedRange`; stock distances
     in Settings and auto club stay within full swings) scaled by the tour's speed for that club, so a 7 iron
-    is 64–112 mph, 76 by default.
+    is 32–112 mph, 76 by default.
   - Face-to-path curves the ball less the more spin loft a club has, the ball
     starts 85% toward the face with woods and 75% with irons, and off-centre
     strikes matter far more with woods (bulge and gear effect) than irons. The
@@ -222,10 +222,13 @@ React UI (App.js, components/)          src/simulate/ (no React)
   viewport with a HUD over it (stacked under the scene on phones).
   - **The last shot is put away** (`components/simulator/shot-readout.jsx`,
     `clearShot` in `App.js`). The result bar, the shot line and the landing
-    marker stay until the next hit, or, in a game, until 5 seconds after the
-    next target is up (`SHOT_LINGER_MS`); a bar along the bottom of the result
-    runs down over those seconds. The x on the bar's corner puts them away at
-    once. The scene hides the line and marker through `showShot(false)`.
+    marker stay until the next hit, or, in a game, until 10 seconds after the
+    view is back behind the golfer with the next target up (`SHOT_LINGER_MS`,
+    `behind` in `App.js`); a thin line along the foot of the result bar,
+    clipped to its rounded corners, runs down over those seconds. A small x
+    inside the bar, at its right end, puts them away at once; it too only
+    appears once the view is back behind the golfer. The scene hides the line
+    and marker through `showShot(false)`.
   - **Who is signed in** shows as a circle of two initials on the top right
     corner of the game card (`initialsOf` in `players/profile.js`). A Google
     sign-in gives the first and last name's initials (`googleInitials` reads
@@ -389,7 +392,8 @@ React UI (App.js, components/)          src/simulate/ (no React)
   to it, 1.15 s in) → `flight` (ball follows the precomputed trajectory in real
   time, then its bounces and roll, tracer drawing behind it) → `landed` (camera
   settles on the ball for 3.5 s)
-  → back to `address`.
+  → back to `address`, where the camera cuts straight to the view behind the
+  golfer (`director.reset` in `toAddress`; it used to fly back).
 - **Golfer** is built from primitives and animated by hand-written keyframes
   rather than an imported rigged model: nothing to license or download, and the
   contact frame is exact by construction.
@@ -447,7 +451,12 @@ result bar, and on phones the corner buttons and the game row), and once the
 camera has settled reports where the landing spot, the stop, the apex and the
 target fall on screen (`onOverhead`). `components/simulator/overhead-tags.jsx`
 pins the numbers there: carry and line at the landing spot, the run at the
-stop, the apex beside the line, the target on its ring. Dragging the view is
+stop, the apex beside the line, the target on its ring. With both a last shot
+and a target, a small switch at the top of the picture (Last shot | Target)
+picks whose numbers are up: the shot's when one lands, the target's when a new
+one appears. The last shot is kept for this view until the next hit
+(`lastShot` in `App.js`), after its stats bar has gone, and its line is
+brought back while the switch is on it. Dragging the view is
 off while overhead. (Before 2026-11-22 this was a 2D card with Previous /
 Current shot views; it was removed.)
 

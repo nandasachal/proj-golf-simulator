@@ -437,7 +437,10 @@ export function createSimulator(container, callbacks = {}) {
     ballShadow.visible = false;
   }
 
+  // Back to the tee for the next shot. The camera cuts to the view behind the
+  // golfer; it does not fly back from where the ball stopped.
   function toAddress() {
+    director.reset(side);
     ballToRest();
     swingSeconds = 0;
     golfer.setTime(0);
