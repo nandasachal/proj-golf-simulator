@@ -547,10 +547,11 @@ export function createClubScene(container, options = {}) {
   );
   const solePoints = head.userData.solePoints || [];
 
+  let lever = null;
   if (loftLever) {
     // Rises from the middle of the face along the face's own plane, so it
     // leans exactly as far as the loft.
-    const lever = rod({
+    lever = rod({
       color: LOFT_COLOR,
       length: LOFT_LEVER_LENGTH,
       radius: 0.16,
@@ -594,6 +595,18 @@ export function createClubScene(container, options = {}) {
   }
 
   let mirror = 1;
+  // What the view is concentrating on, if anything: see setFocus.
+  let focus = null;
+  const guides = {
+    aim: aimLine,
+    path: pathRibbon,
+    start: startRibbon,
+    face: faceRibbon,
+    faceLine,
+    attack: attackRod,
+    launch: launchRod,
+    lever,
+  };
   let view = "behind";
   let tween = null;
   let frameId = null;
@@ -644,6 +657,46 @@ export function createClubScene(container, options = {}) {
     else tween = null;
   }
 
+  // Put the camera where the focus asks: straight above with the target
+  // along the picture and the golfer's side at the bottom, or level with the
+  // ball from the toe side. `width` is how many centimetres of the scene the
+  // picture is wide, so the framing holds whatever shape the view is.
+  function frame() {
+    if (!focus) return;
+    const [a, b] = focus.centre;
+    const tall = focus.width / camera.aspect;
+    const distance = tall / (2 * Math.tan((camera.fov * RADIANS) / 2));
+    if (focus.view === "toe") {
+      controls.target.set(0, a, b);
+      camera.up.set(0, 1, 0);
+      camera.position.set(-mirror * distance, a, b);
+    } else {
+      controls.target.set(a, 0, b);
+      camera.up.set(-mirror, 0, 0);
+      camera.position.set(a, distance, b);
+    }
+    controls.update();
+  }
+
+  // Concentrate the view on one setting:
+  //   view    "above" or "toe"
+  //   centre  the middle of the picture: [x, z] on the turf from above,
+  //           [y, z] on the upright plane through the ball from the toe
+  //   width   centimetres of the scene across the picture
+  //   show    the guides to draw, by name (see `guides`, and "centre" for
+  //           the range's centre line); the rest are hidden
+  function setFocus(next) {
+    focus = next;
+    tween = null;
+    for (const [name, guide] of Object.entries(guides)) {
+      if (guide) guide.visible = focus.show.includes(name);
+    }
+    centreLine.visible =
+      focus.show.includes("centre") && aimLine.rotation.y !== 0;
+    frame();
+    render();
+  }
+
   // Pose the club and guide lines for a clubSetup() result.
   function update(setup) {
     const flipped = setup.mirror !== mirror;
@@ -654,7 +707,9 @@ export function createClubScene(container, options = {}) {
     pathRibbon.rotation.y = turn(setup.pathDegrees);
     faceRibbon.rotation.y = turn(setup.faceDegrees);
     startRibbon.rotation.y = turn(setup.startDegrees);
-    centreLine.visible = groundGuides && setup.aimDegrees !== 0;
+    centreLine.visible =
+      (focus ? focus.show.includes("centre") : groundGuides) &&
+      setup.aimDegrees !== 0;
 
     // The face leans back by the loft delivered and touches the ball where
     // its plane is tangent: low on the back of the ball, lower with more
@@ -740,7 +795,10 @@ export function createClubScene(container, options = {}) {
       .setY(ballHeight + 3.2);
 
     // Keep the same named angle when the golfer switches sides.
-    if (flipped) setView(view, { instant: true });
+    if (flipped && focus) {
+      frame();
+      render();
+    } else if (flipped) setView(view, { instant: true });
     else render();
   }
 
@@ -751,6 +809,7 @@ export function createClubScene(container, options = {}) {
     renderer.setSize(width, height);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    frame();
     // At distance 1 the view is 2 * tan(fov / 2) units tall.
     const unitsPerPixel = (2 * Math.tan((camera.fov * RADIANS) / 2)) / height;
     // Smaller tags in the small view so five of them still fit.
@@ -831,6 +890,7 @@ export function createClubScene(container, options = {}) {
 
   const api = {
     update,
+    setFocus,
     setView,
     dispose,
     render,

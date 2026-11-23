@@ -47,6 +47,16 @@
 
 ## Should Have
 
+- **Club view and more settings** (asked 2026-11-22) — see
+  [product-specs/club-setup-view.md](product-specs/club-setup-view.md).
+  - [done] Phase 1: one club view at true size, framed on the selected
+    control with only its guides and handle; Above ×5 and Toe ×4 removed
+    (2026-11-22).
+  - Phase 2: new settings from the spec's inventory (tee height, tee angle,
+    ball position, strike height, wind and more). First one to be chosen;
+    proposed strike height with tee height.
+  - Phase 3: the focused view on phones.
+
 - [done] Regression tests for `src/simulate/shot.js` — shipped with Phase 0 of the
   driving range redesign, then extended with tour launch-monitor benchmarks.
 - [done] **Scenery upgrade** (2026-11-15) — procedural sky and clouds, mountains,

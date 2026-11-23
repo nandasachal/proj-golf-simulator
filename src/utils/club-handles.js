@@ -3,21 +3,24 @@
 // centimetres, ball on its tee above the origin, target down +z, -x is the
 // right-hand side, +y up.
 //
-// The pads draw small angles several times their real size so a one-degree
-// change is a visible, grabbable movement. `mirror` is 1 for a right-hander
-// and -1 for a left-hander, whose open face and in-to-out path point left.
+// Everything is drawn at its real size: the view is framed close on the one
+// setting being changed, and its handle sits far from the pivot, so a degree
+// is still a movement that can be seen and grabbed. `mirror` is 1 for a
+// right-hander and -1 for a left-hander, whose open face and in-to-out path
+// point left.
 
 const DEGREES = Math.PI / 180;
 const CM_PER_INCH = 2.54;
 
-// How many times bigger than life each control is drawn.
+// How many times bigger than life each control is drawn: not at all. (They
+// were drawn 2 to 5 times too big until 2026-11-22.)
 export const GAIN = {
-  face: 5,
-  path: 5,
-  aim: 2.5,
-  attack: 4,
-  loft: 4,
-  strike: 2,
+  face: 1,
+  path: 1,
+  aim: 1,
+  attack: 1,
+  loft: 1,
+  strike: 1,
 };
 
 // `height` is the centre of a ball on a tee; off the turf it is the radius.
@@ -43,9 +46,9 @@ const DRIVER_GEOMETRY = clubGeometry(null);
 
 // How far from the ball each handle sits.
 export const REACH = {
-  aim: 19,
-  face: 12.5,
-  path: 19,
+  aim: 31,
+  face: 31,
+  path: 31,
   attack: 26,
   loft: 20,
 };

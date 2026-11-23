@@ -28,24 +28,26 @@ jest.mock("./analytics", () => ({
 
 let simulator;
 let callbacks;
-// The two 3D club views, faked: a flat camera straight above the ball and
-// one straight side-on, so a screen position maps to the scene by simple
-// scaling and drags can be tested without WebGL.
+// The 3D club view, faked: a flat camera straight above the ball, or one
+// straight side-on when the view is framed from the toe, so a screen
+// position maps to the scene by simple scaling and drags can be tested
+// without WebGL.
 let clubScenes;
 const ABOVE = { x: 154, y: 110, pixelsPerCm: 4 };
 const TOE = { x: 150, y: 100, pixelsPerCm: 3 };
 const fakeClubScene = (options) => {
-  const fromToe = Boolean(options.loftLever);
   const scene = {
     options,
     update: jest.fn(),
+    setFocus: jest.fn(),
     dispose: jest.fn(),
-    size: () => ({ width: 308, height: fromToe ? 124 : 206 }),
+    fromToe: () => scene.setFocus.mock.calls.at(-1)?.[0].view === "toe",
+    size: () => ({ width: 308, height: 260 }),
     // A left-hander is watched from the other side, so the target is on the
     // other side of the picture.
     facing: () => scene.update.mock.calls.at(-1)?.[0].mirror ?? 1,
     project: (point) =>
-      fromToe
+      scene.fromToe()
         ? {
             x: TOE.x + scene.facing() * point.z * TOE.pixelsPerCm,
             y: TOE.y - point.y * TOE.pixelsPerCm,
@@ -55,7 +57,7 @@ const fakeClubScene = (options) => {
             y: ABOVE.y - point.z * ABOVE.pixelsPerCm,
           },
     pick: (clientX, clientY, { height = 0 } = {}) =>
-      fromToe
+      scene.fromToe()
         ? {
             x: 0,
             y: (TOE.y - clientY) / TOE.pixelsPerCm,
@@ -67,7 +69,9 @@ const fakeClubScene = (options) => {
             z: (ABOVE.y - clientY) / ABOVE.pixelsPerCm,
           },
   };
-  clubScenes[fromToe ? "toe" : "above"] = scene;
+  // One view now; the tests still ask for it by the side it is seen from.
+  clubScenes.above = scene;
+  clubScenes.toe = scene;
   return scene;
 };
 
@@ -162,9 +166,8 @@ const openSettings = () => {
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   return within(screen.getByRole("dialog"));
 };
-// Each shot control is a slider handle on a club pad and a value you can
-// click to type over.
-// Swing speed has no handle: its value is read off its box.
+// Each shot control is a box with a value you can click to type over and a
+// ruler; the one that is selected also has a handle on the club view.
 const boxText = (name) =>
   screen
     .getByRole("button", {
@@ -175,17 +178,20 @@ const boxText = (name) =>
     .getAttribute("aria-label")
     .replace(/^Edit [^:]+: /, "");
 const valueOf = (name) =>
-  name === "Swing speed"
-    ? Number.parseFloat(boxText(name))
-    : Number(
-        screen
-          .getByRole("slider", { name, hidden: true })
-          .getAttribute("aria-valuenow"),
-      );
+  Number(
+    screen
+      .getByRole("button", {
+        name: new RegExp(`^Edit ${name}:`, "i"),
+        hidden: true,
+      })
+      .closest("[data-chip]").dataset.value,
+  );
 const textOf = (name) =>
   name === "Swing speed"
     ? boxText(name)
-    : screen.getByRole("slider", { name }).getAttribute("aria-valuetext");
+    : screen
+        .getByRole("slider", { name: `${name} ruler` })
+        .getAttribute("aria-valuetext");
 const startTyping = (name) => {
   fireEvent.click(
     screen.getByRole("button", { name: new RegExp(`^Edit ${name}:`, "i") }),
@@ -235,7 +241,7 @@ describe("shot controls", () => {
     expect(valueOf("Aim")).toBe(5);
     expect(valueOf("Strike")).toBe(0.5);
     expect(
-      screen.getByRole("group", { name: "Club from the side" }),
+      screen.getByRole("group", { name: "Club view" }),
     ).toBeInTheDocument();
     expect(selectedBox()).toBe("aim");
     hit();
@@ -698,8 +704,13 @@ describe("keyboard", () => {
     expect(selectedBox()).toBe("aim");
     command("ArrowRight");
     expect(valueOf("Aim")).toBe(1);
-    fireEvent.focus(screen.getByRole("slider", { name: "Strike" }));
+    // the club view has the handle of the box the keyboard is on, and no other
+    expect(screen.getByRole("slider", { name: "Aim" })).toBeInTheDocument();
+    expect(screen.queryByRole("slider", { name: "Strike" })).toBeNull();
+    selectBox("strike");
     expect(selectedBox()).toBe("strike");
+    expect(screen.getByRole("slider", { name: "Strike" })).toBeInTheDocument();
+    expect(screen.queryByRole("slider", { name: "Aim" })).toBeNull();
   });
 
   test("key presses that arrive before the screen redraws all count", () => {
@@ -817,7 +828,11 @@ describe("keyboard", () => {
 });
 
 describe("club pads", () => {
-  const handle = (name) => screen.getByRole("slider", { name });
+  // The club view shows the handle of the box the keyboard is on.
+  const handle = (name) => {
+    if (!screen.queryByRole("slider", { name })) selectBox(name);
+    return screen.getByRole("slider", { name });
+  };
 
   const pointer = (type, target, x, y) =>
     fireEvent(
@@ -844,29 +859,20 @@ describe("club pads", () => {
     expect(valueOf("Club face")).toBe(6);
   });
 
-  test("a press between two handles goes to the nearer one, not the one drawn on top", () => {
+  test("swing speed has no handle: the view shows the whole club for reference", () => {
     renderPanel();
-    const [fx, fy] = centreOf("Club face");
-    const [, ay] = centreOf("Aim");
-    // inside the Aim handle's grab area, but closer to the face handle
-    const y = fy + (ay - fy) * 0.3;
-    pointer("pointerdown", handle("Aim"), fx, y);
-    pointer("pointermove", window, fx + 14, y);
-    expect(valueOf("Club face")).toBeGreaterThan(0);
-    expect(valueOf("Aim")).toBe(0);
-    pointer("pointerup", window, fx + 14, y);
-
-    // and the other way: nearer Aim, pressed on the face handle
-    const [fx2, fy2] = centreOf("Club face");
-    const [ax2, ay2] = centreOf("Aim");
-    pointer(
-      "pointerdown",
-      handle("Club face"),
-      fx2 + (ax2 - fx2) * 0.8,
-      fy2 + (ay2 - fy2) * 0.8,
+    selectBox("swing speed");
+    expect(
+      within(screen.getByRole("group", { name: "Club view" })).queryByRole(
+        "slider",
+      ),
+    ).toBeNull();
+    expect(clubScenes.above.setFocus).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        view: "above",
+        show: expect.arrayContaining(["aim", "path", "face", "start"]),
+      }),
     );
-    pointer("pointermove", window, ax2 + 30, ay2);
-    expect(valueOf("Aim")).toBeGreaterThan(0);
   });
 
   test("the address is not rewritten on every step, only once the control settles", () => {
@@ -1064,61 +1070,85 @@ describe("club pads", () => {
 
   const posed = (view) => clubScenes[view].update.mock.calls.at(-1)[0];
 
-  test("the two views are live 3D scenes on fixed cameras, not orbiting ones", () => {
-    const { unmount } = renderPanel();
-    expect(createClubScene).toHaveBeenCalledTimes(2);
-    for (const view of ["above", "toe"]) {
-      expect(clubScenes[view].options.orbit).toBe(false);
-      expect(clubScenes[view].options.labels).toBe(false);
-      expect(clubScenes[view].options.camera.position).toHaveLength(3);
-    }
-    // the view from above shows the lines on the turf, the side view the
-    // arrows in the air and the line up the face
-    expect(clubScenes.above.options.airGuides).toBe(false);
-    expect(clubScenes.toe.options.groundGuides).toBe(false);
-    expect(clubScenes.toe.options.loftLever).toBe(true);
+  const focused = () => clubScenes.above.setFocus.mock.calls.at(-1)[0];
 
+  test("the club is one live 3D scene on a fixed camera, not an orbiting one", () => {
+    const { unmount } = renderPanel();
+    expect(createClubScene).toHaveBeenCalledTimes(1);
+    expect(clubScenes.above.options.orbit).toBe(false);
+    expect(clubScenes.above.options.labels).toBe(false);
+    // built with the line up the face, which only the loft view shows
+    expect(clubScenes.above.options.loftLever).toBe(true);
     unmount();
     expect(clubScenes.above.dispose).toHaveBeenCalled();
-    expect(clubScenes.toe.dispose).toHaveBeenCalled();
   });
 
-  test("the view from above is posed with the horizontal angles drawn five times bigger", () => {
+  test("the view is framed on the selected control, with only its guides and a caption that names it", () => {
+    renderPanel();
+    const view = screen.getByRole("group", { name: "Club view" }).parentElement;
+    const expected = {
+      "club face": [
+        "above",
+        ["aim", "face", "faceLine"],
+        "Club face · from above",
+      ],
+      "club path": ["above", ["aim", "path"], "Club path · from above"],
+      strike: ["above", ["faceLine"], "Strike · from above"],
+      aim: ["above", ["centre", "aim"], "Aim · from above"],
+      "attack angle": ["toe", ["attack"], "Attack angle · from the toe"],
+      loft: ["toe", ["lever"], "Loft · from the toe"],
+    };
+    for (const [box, [from, show, caption]] of Object.entries(expected)) {
+      selectBox(box);
+      expect(focused()).toMatchObject({ view: from, show });
+      expect(view).toHaveTextContent(caption);
+      // nothing is drawn bigger than life, so nothing says "×"
+      expect(view).not.toHaveTextContent("×");
+      expect(within(view).getAllByRole("slider")).toHaveLength(1);
+    }
+    // launch and spin are read out beside the views from the toe only
+    expect(view).toHaveTextContent(/launch [\d.]+° · \d+ rpm/);
+    selectBox("aim");
+    expect(view).not.toHaveTextContent("rpm");
+  });
+
+  test("the view from above is posed with the angles at their real size", () => {
     renderPanel("/?face=2&path=-3&aim=4&strike=0.5");
     expect(posed("above")).toMatchObject({
       mirror: 1,
-      aimDegrees: 10,
-      faceDegrees: 20,
-      pathDegrees: -5,
+      aimDegrees: 4,
+      faceDegrees: 6,
+      pathDegrees: 1,
       attackDegrees: 0,
     });
-    // strike is drawn at twice its size: half an inch is 1.27 cm
-    expect(posed("above").strikeCm).toBeCloseTo(2.54);
+    // half an inch is 1.27 cm
+    expect(posed("above").strikeCm).toBeCloseTo(1.27);
 
     typeValue("Club face", "-1");
-    expect(posed("above").faceDegrees).toBe(5);
+    expect(posed("above").faceDegrees).toBe(3);
   });
 
-  test("the side view is square to the camera and shows only attack and loft", () => {
+  test("the view from the toe is square to the camera, at real size", () => {
     renderPanel("/?face=4&path=-3&aim=6&speed=105&attack=2&loft=1");
+    selectBox("attack angle");
     expect(posed("toe")).toMatchObject({
       aimDegrees: 0,
       faceDegrees: 0,
       pathDegrees: 0,
       startDegrees: 0,
-      attackDegrees: 8,
+      attackDegrees: 2,
       strikeCm: 0,
     });
-    // standard loft at 105 mph is 14.1°; +1 is drawn as +4, and the head
-    // already has 10.5° built in
-    expect(posed("toe").loftTiltDegrees).toBeCloseTo(14.12 + 4 - 10.5, 1);
-    // the launch arrow stays at its true angle
+    // standard loft at 105 mph is 14.1°, plus 1, and the head already has
+    // 10.5° built in
+    expect(posed("toe").loftTiltDegrees).toBeCloseTo(14.12 + 1 - 10.5, 1);
     expect(posed("toe").launchDegrees).toBeCloseTo(13.15, 1);
   });
 
-  test("a left-hander's club is mirrored in both views", () => {
+  test("a left-hander's club is mirrored, from above and from the toe", () => {
     renderPanel("/?face=2&side=Left");
-    expect(posed("above")).toMatchObject({ mirror: -1, faceDegrees: -10 });
+    expect(posed("above")).toMatchObject({ mirror: -1, faceDegrees: -2 });
+    selectBox("loft");
     expect(posed("toe").mirror).toBe(-1);
   });
 
@@ -2410,7 +2440,7 @@ describe("what each mode is", () => {
     expect(
       within(panel).getByRole("group", { name: "Mode" }),
     ).toBeInTheDocument();
-    // Reset is on the club view from above
+    // Reset is on the club view
     expect(
       screen.getByRole("button", { name: "Reset" }).closest(".club-pad"),
     ).not.toBeNull();

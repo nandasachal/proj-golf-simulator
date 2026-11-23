@@ -26,7 +26,6 @@ import {
   stateOf,
 } from "../../utils/shortcuts";
 import {
-  GAIN,
   fromGround,
   exact,
   fromSide,
@@ -441,6 +440,7 @@ const ControlCell = ({
         selected ? "bg-white/[0.12]" : "bg-white/[0.06]",
       )}
       data-chip={control}
+      data-value={value}
       data-selected={selected ? "true" : undefined}
       onPointerEnter={() => onActive(control)}
       onPointerLeave={() => onActive(null)}
@@ -727,6 +727,7 @@ const PhoneControls = ({
         id="shot-control-panel"
         aria-label={name}
         data-chip={control}
+        data-value={value}
         data-selected="true"
       >
         <div className="mt-6 flex flex-col items-center">
@@ -915,24 +916,45 @@ const Handle = ({
   );
 };
 
-// Fixed camera angles for the two views. x flips for a left-hander.
-const VIEW_FROM_ABOVE = {
+// The one club view. It is built with every guide, and each control says
+// which of them to show and how to frame the picture (FOCUS).
+const CLUB_VIEW = {
   orbit: false,
   labels: false,
-  airGuides: false,
-  camera: { position: [0, 82, -19], lookAt: [0, 2, -1.4], fov: 30 },
-};
-const VIEW_FROM_TOE = {
-  orbit: false,
-  labels: false,
-  groundGuides: false,
   loftLever: true,
   attackRodLength: 9,
   launchRodLength: 22,
   turfRadius: 420,
-  // Framed tight on what the handles reach: from the attack handle behind
-  // the ball to the end of the launch arrow, turf to the top of the loft line.
-  camera: { position: [-70, 10, -1], lookAt: [0, 10, -1], fov: 25 },
+  camera: { position: [0, 82, -19], lookAt: [0, 2, -1.4], fov: 28 },
+};
+// What the club view concentrates on for each control: seen from above or
+// from the toe, around which point, how many centimetres across, and which
+// guides are drawn. Everything is at true size, so each is framed for its
+// handle to sit most of the picture away from the pivot.
+const FOCUS = {
+  clubFaceAngle: {
+    view: "above",
+    centre: [0, 10],
+    width: 54,
+    show: ["aim", "face", "faceLine"],
+  },
+  clubPathAngle: {
+    view: "above",
+    centre: [0, -10],
+    width: 54,
+    show: ["aim", "path"],
+  },
+  aim: { view: "above", centre: [0, 10], width: 54, show: ["centre", "aim"] },
+  strike: { view: "above", centre: [0, -4], width: 26, show: ["faceLine"] },
+  attackAngle: { view: "toe", centre: [8, -9], width: 46, show: ["attack"] },
+  loftChange: { view: "toe", centre: [12, -6], width: 32, show: ["lever"] },
+  // Speed has no shape to draw: the whole horizontal story, for reference.
+  swingSpeed: {
+    view: "above",
+    centre: [0, 4],
+    width: 60,
+    show: ["aim", "path", "face", "faceLine", "start"],
+  },
 };
 
 // One live 3D view of the club, with the drag handles laid over it. It is
@@ -941,6 +963,7 @@ const Pad3D = ({
   name,
   caption,
   options,
+  focus,
   setup,
   className,
   note,
@@ -967,6 +990,14 @@ const Pad3D = ({
     // The scene is built once; `options` and `onScene` never change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Frame the control being changed, then say so: the handles have moved.
+  const framing = JSON.stringify(focus);
+  useEffect(() => {
+    scene.current.setFocus(focus);
+    onScene(scene.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [framing]);
 
   // Re-pose only when something the scene draws has changed, not on every
   // hover.
@@ -1158,8 +1189,8 @@ const Hint = ({ keys, children }) => (
 );
 
 // The club at impact as the shot controls: a box per control (drag its
-// ruler, step it, or type its number), and on laptops the club shown twice
-// in 3D with a handle per control to drag. On laptops the boxes, the club
+// ruler, step it, or type its number), and on laptops the club in 3D, framed
+// on the selected control at true size with that control's handle to drag. On laptops the boxes, the club
 // and Hit are a strip drawn into `strip`; the panel keeps the shot shape and
 // the 3D views.
 const ClubPads = ({
@@ -1219,22 +1250,18 @@ const ClubPads = ({
     window.addEventListener("keydown", listener);
     return () => window.removeEventListener("keydown", listener);
   }, []);
-  // The two scenes, once built. `layout` only exists to redraw the handles
-  // when a view is created, resized or flipped for the other hand.
+  // The club view's scene, once built, under both names the handle code
+  // asks for it by. `layout` only exists to redraw the handle when the view
+  // is created, resized, reframed or flipped for the other hand.
   const scenes = useRef({ top: null, side: null });
   const [, setLayout] = useState(0);
-  const [onTopScene, onSideScene] = useRef([
-    (scene) => {
-      scenes.current.top = scene;
-      setLayout((count) => count + 1);
-    },
-    (scene) => {
-      scenes.current.side = scene;
-      setLayout((count) => count + 1);
-    },
-  ]).current;
-  // The scenes flip their cameras for the other hand after this render, so
-  // the handles need placing again once they have.
+  const onScene = useRef((scene) => {
+    scenes.current.top = scene;
+    scenes.current.side = scene;
+    setLayout((count) => count + 1);
+  }).current;
+  // The scene flips its camera for the other hand after this render, so
+  // the handle needs placing again once it has.
   useEffect(() => {
     setLayout((count) => count + 1);
   }, [side]);
@@ -1345,33 +1372,12 @@ const ClubPads = ({
     if (next !== values[control]) onChange(control, next);
   };
 
-  // The aim, face and path handles can sit close together, so a press goes
-  // to whichever of them is nearest the pointer, not whichever is on top.
-  const nearestHandle = (control, event) => {
-    const crowded = ["aim", "clubFaceAngle", "clubPathAngle"];
-    if (!crowded.includes(control)) return control;
-    const rect = event.currentTarget.closest("svg").getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    const distance = (name) => {
-      const point = placed(name);
-      return Math.hypot(x - point.x, y - point.y);
-    };
-    return crowded.reduce((best, name) =>
-      distance(name) < distance(best) ? name : best,
-    );
-  };
-
   const drag = (control) => ({
     onPointerDown: (event) => {
       event.preventDefault();
-      const picked = nearestHandle(control, event);
-      const pad = event.currentTarget.closest("svg") || document;
-      (
-        pad.querySelector(`[data-control="${picked}"]`) || event.currentTarget
-      ).focus?.();
-      setDragging(picked);
-      onSelect(picked);
+      event.currentTarget.focus?.();
+      setDragging(control);
+      onSelect(control);
     },
   });
 
@@ -1434,15 +1440,10 @@ const ClubPads = ({
     },
   });
 
-  // Each view is built for one club.
-  const topOptions = useMemo(() => ({ ...VIEW_FROM_ABOVE, club }), [club]);
-  const sideOptions = useMemo(() => ({ ...VIEW_FROM_TOE, club }), [club]);
-  // Draw the held handle last so its tag is never under a neighbour.
-  const inOrder = (controls) =>
-    [...controls].sort(
-      (a, b) =>
-        (a === dragging || a === active) - (b === dragging || b === active),
-    );
+  // The view is built for one club, and shows the control that is selected.
+  const viewOptions = useMemo(() => ({ ...CLUB_VIEW, club }), [club]);
+  const focus = FOCUS[selected];
+  const fromToe = focus.view === "toe";
 
   const resetButton = (
     <button
@@ -1578,43 +1579,36 @@ const ClubPads = ({
         />
       )}
 
-      {/* The club at impact, twice. Left off on phones, where the boxes are
-          the controls and the pictures would push them off the screen. */}
+      {/* The club at impact, at true size, framed on the control that is
+          selected, with that control's handle. Left off on phones, where the
+          boxes are the controls and the picture would push them off the
+          screen. */}
       {views && (
-        <>
-          <Pad3D
-            name="Club from above"
-            key={`top-${club.id}`}
-            caption={`Above ×${GAIN.face}`}
-            options={topOptions}
-            setup={topSetup}
-            corner={resetButton}
-            className="h-[clamp(150px,20dvh,230px)]"
-            onScene={onTopScene}
-          >
-            {inOrder(["strike", "clubPathAngle", "clubFaceAngle", "aim"]).map(
-              (control) => handle(control, boundsOf(scenes.current.top)),
-            )}
-          </Pad3D>
-          <Pad3D
-            name="Club from the side"
-            key={`side-${club.id}`}
-            caption={`Toe ×${GAIN.attack}`}
-            options={sideOptions}
-            setup={sideSetup}
-            className="h-[clamp(96px,12dvh,140px)]"
-            note={`launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
-              launch.backspinRPM,
-            )} rpm`}
-            // keep it clear of the attack handle, which swaps sides with the golfer
-            noteOnLeft={mirror < 0}
-            onScene={onSideScene}
-          >
-            {inOrder(["attackAngle", "loftChange"]).map((control) =>
-              handle(control, boundsOf(scenes.current.side)),
-            )}
-          </Pad3D>
-        </>
+        <Pad3D
+          name="Club view"
+          key={club.id}
+          caption={`${describe[selected].name} · from ${
+            fromToe ? "the toe" : "above"
+          }`}
+          options={viewOptions}
+          focus={focus}
+          setup={fromToe ? sideSetup : topSetup}
+          corner={resetButton}
+          className="h-[clamp(220px,34dvh,340px)]"
+          note={
+            fromToe
+              ? `launch ${launch.launchAngleDegrees.toFixed(1)}° · ${Math.round(
+                  launch.backspinRPM,
+                )} rpm`
+              : null
+          }
+          // keep it clear of the attack handle, which swaps sides with the golfer
+          noteOnLeft={mirror < 0}
+          onScene={onScene}
+        >
+          {selected !== "swingSpeed" &&
+            handle(selected, boundsOf(scenes.current.top))}
+        </Pad3D>
       )}
     </div>
   );

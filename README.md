@@ -256,13 +256,17 @@ React UI (App.js, components/)          src/simulate/ (no React)
     drawn scale, neutral marked, the distance from it filled in); the word.
     All seven show in every mode, so the boxes use the short names and
     narrow steppers to fit one row on a wide screen. The left panel (340px) holds the
-    shot shape, Reset, the club in hand at impact in two live
-    3D views, built from the same scene as the old close-up (`club-scene.js`,
-    below): from above (aim, face, path, strike) and from the toe (attack
-    angle, loft). Phones get no views (they are not built there) and show one control at a
+    shot shape, Reset, and one live 3D view of the club in hand at impact
+    (`club-scene.js`, below), framed on the control that is selected: from
+    above for aim, face, path and strike, from the toe for attack angle and
+    loft (`FOCUS` in `club-pads.jsx`, `setFocus` in the scene). Only that
+    control's guide lines and its one handle are drawn, the caption names the
+    control and the side it is seen from, and swing speed, which has no shape
+    to draw, shows the whole club with no handle. Spec:
+    `planning/product-specs/club-setup-view.md`. Phones get no view (it is not built there) and show one control at a
     time: the bag as a scrolling row of chips, a tab per control with its
     value, then the selected control's big number and word, a tall ruler, and
-    step / neutral / step buttons. Drag handles are laid over each view at the screen
+    step / neutral / step buttons. The handle is laid over the view at the screen
     position of a point in the scene, and a drag is read back by casting a
     ray from the pointer onto the turf (or the upright plane through the ball
     and target). Every control can be set several ways: drag its handle or its
@@ -286,14 +290,17 @@ React UI (App.js, components/)          src/simulate/ (no React)
     hovered or held. The panel names the shot shape for the current setup with
     a thumbnail of its flight, but gives no distance, so game mode still has
     to be judged.
-  - **Angles are drawn bigger than life in the two views** so one degree is a
-    visible, grabbable movement: face and path ×5, aim ×2.5, attack and loft
-    ×4, strike ×2 (the × is shown in each view's corner; the numbers are
-    always true). The handle geometry is pure and tested in
+  - **Everything in the club view is at true size** (until 2026-11-22 two
+    views drew angles 2 to 5 times too big and said so with a "×5"). A degree
+    is small, so each control's view is framed for its handle to sit most of
+    the picture from the pivot (31 cm out for aim, face and path in a 54 cm
+    wide view): about 3 pixels a degree, snapped to the control's step. From
+    above the camera is straight overhead with the target along the picture
+    and the golfer's side at the bottom; from the toe it is level with the
+    ball and the club is posed square to it. The handle geometry is pure and tested in
     `src/utils/club-handles.js`, in the scene's own centimetres.
   - The shot panel carries the club in hand (on laptops in the strip; on phones,
-    the chip row), Reset (on laptops the icon in the top-right corner of the club view
-    from above; on phones top right of the panel) and the mode (a Practice / Game switch with
+    the chip row), Reset (on laptops the icon in the top-right corner of the club view; on phones top right of the panel) and the mode (a Practice / Game switch with
     one (i) for both, in the panel's top row beside the shot shape; the
     game's difficulty is on the game card). On phones Hit is a full-width bar fixed to
     the bottom of the screen (`PhoneBar` in `button-row.jsx`), the difficulty

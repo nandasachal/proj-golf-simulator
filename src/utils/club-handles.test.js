@@ -26,7 +26,7 @@ const values = (overrides = {}) => ({
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 
 describe("shownAngles", () => {
-  test("draws each angle bigger than life, relative to where the golfer is aimed", () => {
+  test("draws each angle at its real size, relative to where the golfer is aimed", () => {
     const shown = shownAngles(
       values({
         clubFaceAngle: 2,
@@ -39,13 +39,13 @@ describe("shownAngles", () => {
       1,
       { standardLoft: 14, start: 1.25 },
     );
-    expect(shown.aimDegrees).toBe(10);
-    expect(shown.faceDegrees).toBe(20);
-    expect(shown.pathDegrees).toBe(-5);
-    expect(shown.startDegrees).toBeCloseTo(16.25);
-    expect(shown.attackDegrees).toBe(4);
-    expect(shown.loftDegrees).toBe(22);
-    expect(shown.strikeCm).toBeCloseTo(2.54);
+    expect(shown.aimDegrees).toBe(4);
+    expect(shown.faceDegrees).toBe(6);
+    expect(shown.pathDegrees).toBe(1);
+    expect(shown.startDegrees).toBeCloseTo(5.25);
+    expect(shown.attackDegrees).toBe(1);
+    expect(shown.loftDegrees).toBe(16);
+    expect(shown.strikeCm).toBeCloseTo(1.27);
   });
 
   test("a left-hander's open face and in-to-out path point left; aim does not flip", () => {
@@ -53,9 +53,9 @@ describe("shownAngles", () => {
       values({ clubFaceAngle: 2, clubPathAngle: 3, aim: 4 }),
       -1,
     );
-    expect(shown.aimDegrees).toBe(10);
-    expect(shown.faceDegrees).toBe(0);
-    expect(shown.pathDegrees).toBe(-5);
+    expect(shown.aimDegrees).toBe(4);
+    expect(shown.faceDegrees).toBe(2);
+    expect(shown.pathDegrees).toBe(1);
   });
 });
 
@@ -96,30 +96,18 @@ describe("handles seen from above", () => {
     expect(left.x).toBeLessThan(-2);
   });
 
-  test("the aim and face handles never get close enough to grab the wrong one", () => {
-    for (const aim of [-10, 0, 10]) {
-      for (const face of [-6, 0, 6]) {
-        const handles = topHandles(
-          shownAngles(values({ aim, clubFaceAngle: face }), 1),
-          1,
-        );
-        expect(distance(handles.aim, handles.clubFaceAngle)).toBeGreaterThan(6);
-      }
-    }
-  });
-
-  test("one degree is a real movement, not a hair", () => {
+  test("at true size one degree still moves a handle half a centimetre", () => {
     const at = (overrides) => topHandles(shownAngles(values(overrides), 1), 1);
     expect(
       distance(at({}).clubFaceAngle, at({ clubFaceAngle: 1 }).clubFaceAngle),
-    ).toBeGreaterThan(1.05);
+    ).toBeGreaterThan(0.5);
     expect(
       distance(at({}).clubPathAngle, at({ clubPathAngle: 1 }).clubPathAngle),
-    ).toBeGreaterThan(1.5);
-    expect(distance(at({}).aim, at({ aim: 1 }).aim)).toBeGreaterThan(0.8);
-    expect(
-      distance(at({}).strike, at({ strike: 0.25 }).strike),
-    ).toBeGreaterThan(1.2);
+    ).toBeGreaterThan(0.5);
+    expect(distance(at({}).aim, at({ aim: 1 }).aim)).toBeGreaterThan(0.5);
+    expect(distance(at({}).strike, at({ strike: 0.25 }).strike)).toBeCloseTo(
+      0.635,
+    );
   });
 
   test("dragging a handle to where it is drawn gives back the same value, for every setup and either hand", () => {
@@ -170,8 +158,9 @@ describe("handles seen from above", () => {
             mirror,
           );
           for (const point of Object.values(handles)) {
+            // the views are 54 cm across, centred 10 cm from the ball
             expect(Math.abs(point.x)).toBeLessThan(21);
-            expect(Math.abs(point.z)).toBeLessThan(21);
+            expect(Math.abs(point.z)).toBeLessThan(33);
           }
         }
       }
@@ -239,8 +228,8 @@ describe("handles seen from the toe", () => {
   test("one degree is a real movement", () => {
     const a = sideHandles(shown({}));
     const b = sideHandles(shown({ attackAngle: 1, loftChange: 1 }));
-    expect(distance(a.attackAngle, b.attackAngle)).toBeGreaterThan(1.7);
-    expect(distance(a.loftChange, b.loftChange)).toBeGreaterThan(1.3);
+    expect(distance(a.attackAngle, b.attackAngle)).toBeGreaterThan(0.45);
+    expect(distance(a.loftChange, b.loftChange)).toBeGreaterThan(0.33);
   });
 });
 
@@ -338,7 +327,7 @@ describe("snap", () => {
     expect(snap(NaN, CLUB_FACE_ANGLE_VALUES)).toBe(0);
   });
 
-  test("gains are all bigger than life", () => {
-    expect(Object.values(GAIN).every((gain) => gain > 1)).toBe(true);
+  test("nothing is drawn bigger than life", () => {
+    expect(Object.values(GAIN).every((gain) => gain === 1)).toBe(true);
   });
 });
