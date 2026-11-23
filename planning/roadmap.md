@@ -16,6 +16,7 @@
   [product-specs/profiles-leaderboard.md](product-specs/profiles-leaderboard.md)
   and [eng-plans/profiles-leaderboard.md](eng-plans/profiles-leaderboard.md).
   - [done] Shorter game: 5 targets, 3 to win, 4 in advanced (2026-11-17).
+  - [done] Shorter again: 3 targets, all 3 to win, in every difficulty (2026-11-22).
   - [done] Easy / Medium / Hard (2026-11-22): Normal is now Easy and Advanced
     is Hard on screen; Medium is new. Medium and Hard targets name the club and
     the shape (draw, fade, straight) they must be hit with, taken from a real

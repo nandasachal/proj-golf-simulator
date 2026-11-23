@@ -27,7 +27,7 @@ const MODES = [
   {
     id: "game",
     name: "Game",
-    info: "5 targets, one shot at each. Easy: the ball has to touch the circle at the foot of a beam, with any club and any shot; hit 3 to win. Medium: the same circle, but each target names the club you must use and the shape you must hit (a draw, a fade or straight), and only that counts; hit 3 to win. Hard: the club and shape are named too, and the ball has to fly through a small sphere in the air; hit 4 to win. A draw curves left and a fade right (the other way round left-handed), wherever the ball starts. Switch between them on the game card.",
+    info: "3 targets, one shot at each, and you win by hitting all 3. Easy: the ball has to touch the circle at the foot of a beam, with any club and any shot. Medium: the same circle, but each target names the club you must use and the shape you must hit (a draw, a fade or straight), and only that counts. Hard: the club and shape are named too, and the ball has to fly through a small sphere in the air. A draw curves left and a fade right (the other way round left-handed), wherever the ball starts. Switch between them on the game card.",
   },
 ];
 

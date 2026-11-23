@@ -145,7 +145,7 @@ WITH games AS (
     HAVING count(DISTINCT (s.created_at AT TIME ZONE 'UTC')::date) >= 2
 )
 SELECT (SELECT count(*) FROM games),
-       (SELECT count(*) FROM games WHERE shots >= 5),
+       (SELECT count(*) FROM games WHERE shots >= 3),
        (SELECT count(*) FROM players),
        (SELECT count(*) FROM came_back)
 """

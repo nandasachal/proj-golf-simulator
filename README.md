@@ -19,8 +19,11 @@ than abstract.
   The tilt is atan(tan(face-to-path) / tan(spin loft)) with a 12.5° driver spin
   loft: about 4.5° of axis tilt per degree, in line with TrackMan's published
   driver examples.
-- **Game mode** (`src/simulate/game.js`) — a game is 5 targets with one shot at
-  each. The shot panel's top row switches Practice or Game; the
+- **Game mode** (`src/simulate/game.js`) — a game is 3 targets with one shot at
+  each, won only by hitting all 3 in every difficulty (`GOALS`; it was 5
+  targets with 3 or 4 to win until 2026-11-22). A game is played out after a
+  miss even though it can no longer be won, and those shots still count on the
+  leaderboard. The shot panel's top row switches Practice or Game; the
   difficulty, Easy, Medium or Hard, is switched on the game card (on phones, a
   menu in the game row) (`?mode=practice`
   turns the game off, `?mode=medium` and `?mode=hard` pick those; easy is the
@@ -34,17 +37,17 @@ than abstract.
     (between a soft and a full swing's carry with any other club) and up to 40 yd
     either side. A shot scores if the
     ball touches the ground inside the circle at any point: landing, bouncing,
-    rolling through or stopping. Hit 3 of 5 to win.
+    rolling through or stopping.
   - **Medium**: the same circle on the ground, but each target names the club
     it must be hit with and the shape (`need: { clubId, shape }`, shape one of
     Draw, Fade, Straight). It only scores if the ball touches the circle with
-    that club in hand and that shape. Hit 3 of 5 to win.
+    that club in hand and that shape.
   - **Hard** (`advanced`): club and shape are named too, and the target is a
     small banded sphere, spinning in the air, that the ball has to fly through
     (2.2 yd radius at 100 yd, 2.9 at 200), 30–85% of the way along a flight,
     so it turns up low and early, at the apex, or late on the way down. A
     miss reports how far high/low and left/right the ball passed it, or how far
-    short it fell. Hit 4 of 5 to win.
+    short it fell.
   - **How a club-and-shape target is made** (`shapedTarget`, `shapedAirTarget`):
     it is taken from a real swing, so the combination is always playable. A
     club is drawn from the whole bag and swung anywhere from a part swing to
@@ -505,7 +508,7 @@ rules a contributor needs:
   login does not justify a second service and database.
 - **Every scored shot counts when it lands**, abandoned games included, so a bad
   start cannot be restarted away. Practice shots are never recorded.
-- **15 attempts to be ranked** (three games), per mode and period; below that a
+- **15 attempts to be ranked** (five games), per mode and period; below that a
   player is "warming up". Easy, Medium and Hard are separate boards (the Hard
   board also holds shots from when it was Advanced and named no club or shape), each with
   This week (from Monday 00:00 UTC) and All time.

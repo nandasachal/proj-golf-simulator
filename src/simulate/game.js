@@ -16,13 +16,11 @@ import { toYards } from "./conversions-lib";
 import { groundRun, turfParameters, TURF_PRESETS } from "./ground";
 import { analyzeShot } from "./shot-analysis";
 
-// A round is this many targets, one shot at each; hit `toWin` of them to win.
-export const ROUND_TARGETS = 5;
-export const GOALS = {
-  normal: { targets: ROUND_TARGETS, toWin: 3 },
-  medium: { targets: ROUND_TARGETS, toWin: 3 },
-  advanced: { targets: ROUND_TARGETS, toWin: 4 },
-};
+// A round is this many targets, one shot at each, and every one has to be
+// hit to win.
+export const ROUND_TARGETS = 3;
+const GOAL = { targets: ROUND_TARGETS, toWin: ROUND_TARGETS };
+export const GOALS = { normal: GOAL, medium: GOAL, advanced: GOAL };
 
 const NEAREST = 140;
 const FARTHEST = 330;

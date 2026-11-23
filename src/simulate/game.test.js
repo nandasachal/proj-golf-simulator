@@ -378,10 +378,9 @@ describe("targets that name a club and a shape", () => {
   });
 });
 
-test("the goal is 3 of 5 in easy and medium and 4 of 5 in hard", () => {
-  expect(GOALS.normal).toEqual({ targets: 5, toWin: 3 });
-  expect(GOALS.medium).toEqual({ targets: 5, toWin: 3 });
-  expect(GOALS.advanced).toEqual({ targets: 5, toWin: 4 });
+test("every game is 3 targets and all 3 have to be hit", () => {
+  for (const mode of ["normal", "medium", "advanced"])
+    expect(GOALS[mode]).toEqual({ targets: 3, toWin: 3 });
 });
 
 describe("easyTarget", () => {

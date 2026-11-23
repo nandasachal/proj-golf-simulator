@@ -1442,8 +1442,8 @@ describe("game mode", () => {
     renderApp();
     expect(lastTarget().z).toBeGreaterThanOrEqual(140);
     expect(lastTarget().air).toBeUndefined();
-    expect(game()).toHaveTextContent("Target 1 of 5");
-    expect(game()).toHaveTextContent("Hit 3 of 5 to win");
+    expect(game()).toHaveTextContent("Target 1 of 3");
+    expect(game()).toHaveTextContent("Hit 3 of 3 to win");
     expect(modeButton("Easy")).toHaveAttribute("aria-pressed", "true");
     expect(modeButton("Game")).toHaveAttribute("aria-pressed", "true");
   });
@@ -1504,15 +1504,15 @@ describe("game mode", () => {
     viewport(false);
     renderApp("/");
     const game = screen.getByRole("status", { name: "Game" });
-    expect(game).toHaveTextContent(`1/5${lastTarget().distanceYards} yd`);
-    expect(within(game).getAllByRole("listitem")).toHaveLength(5);
+    expect(game).toHaveTextContent(`1/3${lastTarget().distanceYards} yd`);
+    expect(within(game).getAllByRole("listitem")).toHaveLength(3);
     // no difficulty switch or result card while playing
     expect(
       within(game).queryByRole("group", { name: "Difficulty" }),
     ).toBeNull();
     play({ hit: false, longYards: 22, rightYards: 1 });
     expect(screen.getByRole("status", { name: "Game" })).toHaveTextContent(
-      "2/5",
+      "2/3",
     );
     expect(screen.getByLabelText("Tip")).toHaveTextContent("22 yd long");
     fireEvent.click(
@@ -1521,7 +1521,7 @@ describe("game mode", () => {
       }),
     );
     expect(screen.getByRole("status", { name: "Game" })).toHaveTextContent(
-      "1/5",
+      "1/3",
     );
   });
 
@@ -1591,7 +1591,7 @@ describe("game mode", () => {
     ).not.toBeInTheDocument();
   });
 
-  test("advanced puts the targets in the air and asks for 4 of 5", () => {
+  test("hard puts the targets in the air", () => {
     renderApp("/?mode=practice");
     fireEvent.click(modeButton("Game"));
     fireEvent.click(modeButton("Hard"));
@@ -1601,7 +1601,7 @@ describe("game mode", () => {
     expect(target.y).toBeGreaterThan(target.radius);
     expect(modeButton("Hard")).toHaveAttribute("aria-pressed", "true");
     expect(game()).toHaveTextContent(`${target.heightYards} yd up`);
-    expect(game()).toHaveTextContent("0 hit / 4 to win");
+    expect(game()).toHaveTextContent("0 hit / 3 to win");
 
     play({ air: true, hit: false, highYards: -5.2, rightYards: 3.1 });
     expect(game()).toHaveTextContent("Missed: 5 yd low, 3 yd right");
@@ -1614,7 +1614,7 @@ describe("game mode", () => {
     const target = lastTarget();
     expect(target.air).toBeUndefined();
     expect(modeButton("Medium")).toHaveAttribute("aria-pressed", "true");
-    expect(game()).toHaveTextContent("Hit 3 of 5 to win");
+    expect(game()).toHaveTextContent("Hit 3 of 3 to win");
     expect(within(game()).getByLabelText("Required shot")).toHaveTextContent(
       `${getClub(target.need.clubId).name} · ${target.need.shape}`,
     );
@@ -1685,12 +1685,13 @@ describe("game mode", () => {
 
     act(() => callbacks.onState("address"));
     expect(lastTarget()).not.toBe(first);
-    expect(game()).toHaveTextContent("Target 2 of 5");
+    expect(game()).toHaveTextContent("Target 2 of 3");
+    // one miss and the game cannot be won; it is still played out
+    expect(game()).toHaveTextContent("Out of reach: needed 3");
 
     play(HIT);
     expect(game()).toHaveTextContent("1 hit / 3 to win");
-    expect(game()).toHaveTextContent("2 more to win · 3 left");
-    expect(game()).toHaveTextContent("Target 3 of 5");
+    expect(game()).toHaveTextContent("Target 3 of 3");
     expect(
       within(game()).getByRole("listitem", { name: "Target 1: missed" }),
     ).toBeInTheDocument();
@@ -1713,48 +1714,52 @@ describe("game mode", () => {
     expect(game()).toHaveTextContent("2 hit / 3 to win");
   });
 
-  test("3 of 5 wins a normal game; Play again starts another and the session keeps count", () => {
+  test("3 of 3 wins a game; Play again starts another and the session keeps count", () => {
     renderApp();
-    for (let i = 0; i < 3; i++) play(HIT);
-    expect(game()).toHaveTextContent("Goal reached");
-    for (let i = 0; i < 2; i++) play(MISS);
+    play(HIT);
+    expect(game()).toHaveTextContent("2 more to win · 2 left");
+    for (let i = 0; i < 2; i++) play(HIT);
 
     expect(game()).toHaveTextContent("You win!");
-    expect(game()).toHaveTextContent("3 of 5 hit · 3 to win");
+    expect(game()).toHaveTextContent("3 of 3 hit · 3 to win");
     expect(game()).toHaveTextContent("Games won 1 of 1");
     // the range is clear until the next game
     expect(lastTarget()).toBeNull();
     hit();
-    expect(game()).toHaveTextContent("3 of 5 hit");
+    expect(game()).toHaveTextContent("3 of 3 hit");
 
     fireEvent.click(screen.getByRole("button", { name: "Play again" }));
     expect(lastTarget()).not.toBeNull();
-    expect(game()).toHaveTextContent("Target 1 of 5");
+    expect(game()).toHaveTextContent("Target 1 of 3");
     expect(game()).toHaveTextContent("0 hit / 3 to win");
     expect(game()).toHaveTextContent("Games won 1 of 1");
   });
 
-  test("2 of 5 loses a normal game, and says so once it is out of reach", () => {
+  test("2 of 3 loses a game, and says so once it is out of reach", () => {
     renderApp();
-    for (let i = 0; i < 3; i++) play(MISS);
+    play(MISS);
     expect(game()).toHaveTextContent("Out of reach: needed 3");
     for (let i = 0; i < 2; i++) play(HIT);
     expect(game()).toHaveTextContent("Not this time");
     expect(game()).toHaveTextContent("Games won 0 of 1");
   });
 
-  test("3 of 5 is not enough in advanced; 4 is", () => {
+  test.each(["medium", "advanced"])("%s is won the same way: all 3", (mode) => {
+    renderApp(`/?mode=${mode}`);
+    expect(game()).toHaveTextContent("Hit 3 of 3 to win");
+  });
+
+  test("2 of 3 is not enough in hard; 3 is", () => {
     renderApp("/?mode=advanced");
     const airHit = { air: true, hit: true };
     const airMiss = { air: true, hit: false, shortYards: 40 };
-    for (let i = 0; i < 3; i++) play(airHit);
-    for (let i = 0; i < 2; i++) play(airMiss);
+    for (let i = 0; i < 2; i++) play(airHit);
+    play(airMiss);
     expect(game()).toHaveTextContent("Not this time");
     expect(game()).toHaveTextContent("Missed: fell 40 yd short");
 
     fireEvent.click(screen.getByRole("button", { name: "Play again" }));
-    for (let i = 0; i < 4; i++) play(airHit);
-    play(airMiss);
+    for (let i = 0; i < 3; i++) play(airHit);
     expect(game()).toHaveTextContent("You win!");
     expect(game()).toHaveTextContent("Games won 1 of 2");
   });
@@ -1765,7 +1770,7 @@ describe("game mode", () => {
     const before = lastTarget();
     fireEvent.click(screen.getByRole("button", { name: "Restart" }));
     expect(lastTarget()).not.toBe(before);
-    expect(game()).toHaveTextContent("Target 1 of 5");
+    expect(game()).toHaveTextContent("Target 1 of 3");
     expect(game()).toHaveTextContent("0 hit / 3 to win");
   });
 
@@ -1776,7 +1781,7 @@ describe("game mode", () => {
     act(() => callbacks.onStrike());
     expect(lastTarget()).not.toBe(before);
     fireEvent.click(screen.getByRole("button", { name: "Exit" }));
-    expect(game()).toHaveTextContent("Target 1 of 5");
+    expect(game()).toHaveTextContent("Target 1 of 3");
     expect(game()).toHaveTextContent("0 hit / 3 to win");
   });
 
@@ -2202,7 +2207,7 @@ describe("auto club", () => {
 
   test("the club is the one the picking rule gives for the target", () => {
     renderApp("/");
-    for (let shot = 0; shot < 4; shot++) {
+    for (let shot = 0; shot < 3; shot++) {
       expect(lastClub().id).toBe(suited(lastTarget()));
       play();
     }
@@ -2254,7 +2259,7 @@ describe("auto club", () => {
     (mode) => {
       window.localStorage.setItem("golf.autoClubOff", "1");
       renderApp(`/?mode=${mode}`);
-      for (let shot = 0; shot < 4; shot++) {
+      for (let shot = 0; shot < 3; shot++) {
         expect(lastClub().id).toBe(lastTarget().need.clubId);
         play();
       }
@@ -2298,7 +2303,7 @@ describe("auto club", () => {
     fireEvent.click(settings.getByRole("button", { name: /^7 iron/ }));
     fireEvent.click(settings.getByRole("button", { name: "Close settings" }));
     expect(lastClub().id).toBe("7i");
-    for (let shot = 0; shot < 3; shot++) {
+    for (let shot = 0; shot < 1; shot++) {
       play();
       expect(lastClub().id).toBe("7i");
       // as before: targets the club in hand can reach
@@ -2337,9 +2342,10 @@ describe("what each mode is", () => {
     const note = screen.getByRole("note");
     expect(note).toHaveTextContent(/^Practice\. No targets/);
     expect(note).toHaveTextContent("nothing is scored");
-    expect(note).toHaveTextContent("Game. 5 targets");
-    expect(note).toHaveTextContent("hit 3 to win");
-    expect(note).toHaveTextContent("hit 4 to win");
+    expect(note).toHaveTextContent("Game. 3 targets");
+    expect(note).toHaveTextContent(
+      "3 targets, one shot at each, and you win by hitting all 3",
+    );
     expect(about("About the modes")).toHaveAttribute("aria-expanded", "true");
 
     fireEvent.click(about("About the modes"));
@@ -2392,7 +2398,7 @@ describe("players and leaderboard", () => {
     act(() => callbacks.onState("address"));
   };
   const playGame = (hits) => {
-    for (let i = 0; i < 5; i++) play(i < hits ? HIT : MISS);
+    for (let i = 0; i < 3; i++) play(i < hits ? HIT : MISS);
   };
 
   const respond = (status, body = {}) =>
@@ -2469,10 +2475,10 @@ describe("players and leaderboard", () => {
     expect(
       screen.queryByRole("form", { name: "Save to the leaderboard" }),
     ).not.toBeInTheDocument();
-    for (let i = 0; i < 2; i++) play(HIT);
-    for (let i = 0; i < 2; i++) play(MISS);
+    play(HIT);
+    play(MISS);
 
-    expect(saveForm()).toHaveTextContent("3 of 5. Save it to the leaderboard?");
+    expect(saveForm()).toHaveTextContent("2 of 3. Save it to the leaderboard?");
     // nothing leaves the browser before there is a name
     expect(global.fetch).not.toHaveBeenCalled();
 
@@ -2491,14 +2497,8 @@ describe("players and leaderboard", () => {
       SACHAL,
     );
 
-    await waitFor(() => expect(shotsSent()).toHaveLength(5));
-    expect(shotsSent().map((shot) => shot.hit)).toEqual([
-      true,
-      true,
-      true,
-      false,
-      false,
-    ]);
+    await waitFor(() => expect(shotsSent()).toHaveLength(3));
+    expect(shotsSent().map((shot) => shot.hit)).toEqual([true, true, false]);
     expect(new Set(shotsSent().map((shot) => shot.gameId)).size).toBe(1);
     expect(shotsSent()[0]).toMatchObject({ mode: "normal", club: "driver" });
     expect(shotsSent()[0].targetYards).toBeGreaterThanOrEqual(140);
@@ -2597,8 +2597,8 @@ describe("players and leaderboard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Play again" }));
     expect(game()).not.toHaveTextContent("Rank 12");
     play(HIT);
-    await waitFor(() => expect(shotsSent()).toHaveLength(6));
-    expect(shotsSent()[5].gameId).not.toBe(shotsSent()[0].gameId);
+    await waitFor(() => expect(shotsSent()).toHaveLength(4));
+    expect(shotsSent()[3].gameId).not.toBe(shotsSent()[0].gameId);
   });
 
   test("practice shots are never sent", async () => {
@@ -2622,7 +2622,7 @@ describe("players and leaderboard", () => {
     await waitFor(() =>
       expect(
         JSON.parse(window.localStorage.getItem("golf.shots")),
-      ).toHaveLength(5),
+      ).toHaveLength(3),
     );
 
     global.fetch.mockClear();
@@ -2633,13 +2633,7 @@ describe("players and leaderboard", () => {
     await waitFor(() =>
       expect(JSON.parse(window.localStorage.getItem("golf.shots"))).toEqual([]),
     );
-    expect(shotsSent().map((shot) => shot.hit)).toEqual([
-      true,
-      true,
-      true,
-      false,
-      false,
-    ]);
+    expect(shotsSent().map((shot) => shot.hit)).toEqual([true, true, true]);
   });
 
   test("shots left over from an earlier visit are sent on load", async () => {
@@ -2662,23 +2656,18 @@ describe("players and leaderboard", () => {
     expect(shotsSent()[0].gameId).toBe("g0");
   });
 
-  test("a won game sets off the celebration, bigger for 5 of 5, and a lost one does not", () => {
+  test("a won game sets off the celebration, and a lost one does not", () => {
     simulator.celebrate = jest.fn();
     renderApp();
     playGame(2);
     expect(simulator.celebrate).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Play again" }));
-    for (let i = 0; i < 2; i++) play(MISS);
     for (let i = 0; i < 2; i++) play(HIT);
     expect(simulator.celebrate).not.toHaveBeenCalled();
     play(HIT);
     expect(simulator.celebrate).toHaveBeenCalledTimes(1);
-    expect(simulator.celebrate).toHaveBeenLastCalledWith("win");
-
-    fireEvent.click(screen.getByRole("button", { name: "Play again" }));
-    playGame(5);
-    expect(simulator.celebrate).toHaveBeenCalledTimes(2);
+    // every win is all three, so it is always the big one
     expect(simulator.celebrate).toHaveBeenLastCalledWith("perfect");
   });
 
@@ -3150,8 +3139,8 @@ describe("analytics events", () => {
 
   test("a whole game shares one game id across its events", () => {
     renderApp();
-    for (let i = 0; i < 4; i += 1)
-      play({ hit: i < 3, longYards: -9, rightYards: 2 });
+    play({ hit: true, longYards: 0, rightYards: 0 });
+    play({ hit: false, longYards: -9, rightYards: 2 });
     play({ hit: true, longYards: 0, rightYards: 0 });
 
     const [started] = sent("game_started");
@@ -3159,16 +3148,16 @@ describe("analytics events", () => {
     expect(started.game_id).toBeTruthy();
     expect(finished).toMatchObject({
       game_id: started.game_id,
-      hits: 4,
-      won: true,
+      hits: 2,
+      won: false,
     });
     for (const props of [...sent("target_attempted"), ...sent("shot_landed")]) {
       expect(props.game_id).toBe(started.game_id);
     }
     expect(sent("target_attempted").map((p) => p.target_number)).toEqual([
-      1, 2, 3, 4, 5,
+      1, 2, 3,
     ]);
-    expect(sent("target_attempted")[3].miss).toBe("short");
+    expect(sent("target_attempted")[1].miss).toBe("short");
     expect(sent("target_attempted")[0].miss).toBeNull();
   });
 
@@ -3289,7 +3278,7 @@ describe("analytics events", () => {
 
   test("a finished game is not abandoned when the next one starts", () => {
     renderApp();
-    for (let i = 0; i < 5; i += 1)
+    for (let i = 0; i < 3; i += 1)
       play({ hit: true, longYards: 0, rightYards: 0 });
     fireEvent.click(
       within(modeGroup()).getByRole("button", { name: "Practice" }),
@@ -3314,8 +3303,8 @@ describe("analytics events", () => {
 
   describe("sign-up", () => {
     const finishGame = () => {
-      for (let i = 0; i < 5; i += 1)
-        play({ hit: i < 3, longYards: -9, rightYards: 2 });
+      for (let i = 0; i < 3; i += 1)
+        play({ hit: true, longYards: -9, rightYards: 2 });
     };
     const form = () =>
       screen.getByRole("form", { name: "Save to the leaderboard" });
