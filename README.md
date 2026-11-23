@@ -72,8 +72,10 @@ than abstract.
     shape): a ball that got there with the wrong club or shape is a miss
     (`reached` true, `hit` false), logged as "wrong club" or "a fade, not a
     draw", and the tip says what the target needs. The named club is put in
-    hand with every new target, with auto club on or off; changing it by hand
-    is allowed and scores as the wrong club.
+    hand with every new target, with auto club on or off, and cannot be
+    changed while that target is up (`clubLock` in `App.js`): the club box is
+    greyed with a lock, on phones the other club chips are greyed, Settings'
+    club rows cannot be picked, and pressing any of them says why.
   - **Auto club** (`src/simulate/auto-club.js`, pure and tested; on by default,
     switched in Settings, remembered in this browser as `golf.autoClubOff`): each
     new easy target puts the club that suits it in hand (`pickClub`). Medium

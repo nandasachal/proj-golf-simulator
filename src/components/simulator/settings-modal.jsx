@@ -96,7 +96,16 @@ const Field = ({ id, label, display, limits, value, onChange }) => (
 );
 
 // One club: pick it by its name, see its loft, and type over its carry.
-const ClubRow = ({ club, selected, carry, custom, onSelect, onCarry }) => {
+// `locked`: the game has set the club, so it cannot be picked here.
+const ClubRow = ({
+  club,
+  selected,
+  carry,
+  custom,
+  locked,
+  onSelect,
+  onCarry,
+}) => {
   const [draft, setDraft] = useState(null);
   const commit = () => {
     const typed = Number.parseFloat(draft);
@@ -117,8 +126,12 @@ const ClubRow = ({ club, selected, carry, custom, onSelect, onCarry }) => {
       <button
         type="button"
         aria-pressed={selected}
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1.5 pl-2 text-left text-sm"
-        onClick={() => onSelect(club.id)}
+        aria-disabled={locked || undefined}
+        className={classNames(
+          "flex min-w-0 flex-1 items-center gap-2 rounded-md py-1.5 pl-2 text-left text-sm",
+          locked && !selected && "cursor-not-allowed opacity-40",
+        )}
+        onClick={() => !locked && onSelect(club.id)}
       >
         <span
           aria-hidden="true"
@@ -170,7 +183,7 @@ const ClubRow = ({ club, selected, carry, custom, onSelect, onCarry }) => {
 
 // The bag, grouped by kind of club. `speeds` are this session's swing speeds
 // for clubs whose distance has been changed.
-const ClubPicker = ({ club, speeds, onClub, onCarry, onReset }) => {
+const ClubPicker = ({ club, speeds, onClub, lock, onCarry, onReset }) => {
   const carries = useMemo(
     () =>
       Object.fromEntries(
@@ -189,6 +202,14 @@ const ClubPicker = ({ club, speeds, onClub, onCarry, onReset }) => {
   const changed = Object.keys(speeds).length > 0;
   return (
     <>
+      {lock && (
+        <p
+          role="note"
+          className="mb-2 rounded-md bg-amber-300/10 px-2 py-1.5 text-xs leading-snug text-amber-200"
+        >
+          {lock} Distances can still be changed.
+        </p>
+      )}
       <div className="flex items-baseline justify-between text-[11px] uppercase tracking-wider text-white/45">
         <span>Club · loft</span>
         <span>Carry</span>
@@ -209,6 +230,7 @@ const ClubPicker = ({ club, speeds, onClub, onCarry, onReset }) => {
                   selected={entry.id === club.id}
                   carry={carries[entry.id]}
                   custom={speeds[entry.id] != null}
+                  locked={Boolean(lock)}
                   onSelect={onClub}
                   onCarry={onCarry}
                 />
@@ -250,6 +272,7 @@ const SettingsModal = ({
   club,
   clubSpeeds,
   onClub,
+  clubLock = null,
   onClubCarry,
   onResetCarries,
   starWars = false,
@@ -330,6 +353,7 @@ const SettingsModal = ({
                   club={club}
                   speeds={clubSpeeds}
                   onClub={onClub}
+                  lock={clubLock}
                   onCarry={onClubCarry}
                   onReset={onResetCarries}
                 />

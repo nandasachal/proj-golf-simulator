@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   InfoCircle,
+  LockFill,
   PlayFill,
 } from "react-bootstrap-icons";
 import { classNames } from "../../utils/functions";
@@ -540,12 +541,16 @@ const ControlCell = ({
 
 // The club, in the same rows as a control box beside it: the menu level
 // with the numbers, the stock speed level with the rulers.
-const ClubCell = ({ club, stock, onClub }) => (
+const ClubCell = ({ club, stock, onClub, lock }) => (
   <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-lg bg-white/[0.06] p-3">
     <div className="flex h-5 items-center text-[11px] font-medium text-white/65">
       Club
     </div>
-    <ClubMenu club={club} onClub={onClub} />
+    {lock ? (
+      <LockedClub club={club} lock={lock} />
+    ) : (
+      <ClubMenu club={club} onClub={onClub} />
+    )}
     <div className="flex h-6 items-center text-[11px] tabular-nums text-white/60">
       stock {stock} mph
     </div>
@@ -595,6 +600,7 @@ const PhoneControls = ({
   club,
   stock,
   onClub,
+  clubLock,
   selected,
   onSelect,
   ranges,
@@ -618,6 +624,9 @@ const PhoneControls = ({
   useEffect(() => {
     chosen.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [club.id]);
+  // Said once a club is pressed while the game has set it.
+  const [told, setTold] = useState(false);
+  useEffect(() => setTold(false), [clubLock]);
   const button =
     "h-12 rounded-xl bg-white/[0.08] text-[15px] font-semibold transition-colors active:bg-white/20 disabled:opacity-30";
 
@@ -644,19 +653,29 @@ const PhoneControls = ({
               role="radio"
               aria-checked={on}
               aria-label={`${entry.name}, ${entry.loftDegrees}°`}
+              aria-disabled={(clubLock && !on) || undefined}
               className={classNames(
                 "h-11 shrink-0 rounded-full px-4 text-sm font-semibold transition-colors",
                 on
                   ? "bg-white text-slate-900"
                   : "bg-white/[0.08] text-white/80",
+                clubLock && !on && "opacity-35",
               )}
-              onClick={() => onClub(entry.id)}
+              onClick={() => (clubLock ? setTold(true) : onClub(entry.id))}
             >
               {on ? entry.name : entry.shortName}
             </button>
           );
         })}
       </div>
+      {clubLock && told && (
+        <p
+          role="note"
+          className="mt-2 rounded-md bg-amber-300/10 px-2 py-1.5 text-xs leading-snug text-amber-200"
+        >
+          {clubLock}
+        </p>
+      )}
 
       <div
         role="tablist"
@@ -1028,6 +1047,42 @@ const FlightIcon = ({ sketch }) => (
 
 // The club in hand, as a button that opens the bag. Distances are set in
 // Settings.
+// The club where the bag would open, when the game has set it: greyed, with
+// a lock, and pressing it says why it cannot be changed.
+const LockedClub = ({ club, lock }) => {
+  const [told, setTold] = useState(false);
+  return (
+    <div className="relative min-w-0">
+      <button
+        type="button"
+        aria-label={`${club.name}: club set by the game`}
+        aria-expanded={told}
+        aria-controls="club-lock"
+        className="flex h-10 w-full items-center gap-1.5 rounded-md bg-white/[0.04] px-2.5 text-left text-white/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
+        onClick={() => setTold(!told)}
+        onBlur={() => setTold(false)}
+      >
+        <span
+          className="min-w-0 flex-1 truncate text-sm font-semibold"
+          data-club
+        >
+          {club.name} · {club.loftDegrees}°
+        </span>
+        <LockFill size={11} className="shrink-0" aria-hidden="true" />
+      </button>
+      {told && (
+        <p
+          id="club-lock"
+          role="note"
+          className="hud-panel hud-panel-solid absolute bottom-full right-0 z-40 mb-2 w-56 px-3 py-2 text-xs leading-snug text-amber-200"
+        >
+          {lock}
+        </p>
+      )}
+    </div>
+  );
+};
+
 const ClubMenu = ({ club, onClub }) => (
   <Listbox value={club.id} onChange={onClub}>
     <div className="relative min-w-0">
@@ -1117,6 +1172,7 @@ const ClubPads = ({
   preview,
   onChange,
   onClub,
+  clubLock = null,
   onReset,
   onHit,
   beckon = false,
@@ -1432,6 +1488,7 @@ const ClubPads = ({
             club={club}
             stock={ranges.swingSpeed.DEFAULT}
             onClub={onClub}
+            lock={clubLock}
           />
         </div>
         <div className="relative flex w-24 shrink-0">
@@ -1509,6 +1566,7 @@ const ClubPads = ({
           club={club}
           stock={ranges.swingSpeed.DEFAULT}
           onClub={onClub}
+          clubLock={clubLock}
           selected={selected}
           onSelect={onSelect}
           ranges={ranges}

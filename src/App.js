@@ -750,9 +750,19 @@ function App() {
       [TURF_PARAMS[field]]: value,
     });
 
+  // Medium and hard targets name their club, so it cannot be changed while
+  // one is up; this is what the club pickers say when they are tried.
+  const clubLock = target?.need
+    ? `${mode === "medium" ? "Medium" : "Hard"} sets the club for every target. This one has to be hit with the ${getClub(
+        target.need.clubId,
+      ).name.toLowerCase()}.`
+    : null;
+
   // Swing speed, attack angle and loft belong to the club, so a new club
   // starts from its own.
   const handleClub = (id, { auto = false } = {}) => {
+    // A target that names its club keeps it in hand.
+    if (!auto && clubLock) return;
     // Only a club picked by hand is a setting the player changed.
     if (id !== club.id && !auto) {
       track("setting_changed", { setting: "club", from: club.id, to: id });
@@ -1052,6 +1062,7 @@ function App() {
             club={club}
             clubSpeeds={clubSpeeds}
             onClub={handleClub}
+            clubLock={clubLock}
             onClubCarry={handleClubCarry}
             onResetCarries={handleResetCarries}
             starWars={starWars}
@@ -1111,6 +1122,7 @@ function App() {
             preview={preview}
             onChange={handleValueChange}
             onClub={handleClub}
+            clubLock={clubLock}
             onReset={handleReset}
             onHit={handleHit}
             beckon={beckon}

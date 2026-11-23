@@ -1638,6 +1638,54 @@ describe("game mode", () => {
     expect(lastTarget().need.clubId).not.toBe(target.need.clubId);
   });
 
+  test("a target that names its club locks the club pickers and says why", () => {
+    renderApp("/?mode=medium");
+    const named = getClub(lastTarget().need.clubId);
+    const reason = `Medium sets the club for every target. This one has to be hit with the ${named.name.toLowerCase()}.`;
+    // the bag does not open; pressing where it would says why
+    expect(screen.queryByRole("button", { name: /·.*°$/ })).toBeNull();
+    const locked = screen.getByRole("button", {
+      name: `${named.name}: club set by the game`,
+    });
+    expect(screen.queryByRole("note")).toBeNull();
+    fireEvent.click(locked);
+    expect(screen.getByRole("note")).toHaveTextContent(reason);
+    expect(screen.queryByRole("listbox")).toBeNull();
+    fireEvent.click(locked);
+
+    // Settings says so too, and its clubs cannot be picked
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const settings = within(screen.getByRole("dialog"));
+    expect(settings.getByRole("note")).toHaveTextContent(reason);
+    const other = named.id === "7i" ? /^8 iron/ : /^7 iron/;
+    fireEvent.click(settings.getByRole("button", { name: other }));
+    expect(simulator.setClub.mock.calls.at(-1)[0].id).toBe(named.id);
+    fireEvent.click(settings.getByRole("button", { name: "Close settings" }));
+
+    // an easy game opens the bag as before
+    fireEvent.click(modeButton("Easy"));
+    expect(
+      screen.queryByRole("button", { name: /club set by the game/ }),
+    ).toBeNull();
+  });
+
+  test("on a phone the other clubs are greyed and a press says why", () => {
+    viewport(false);
+    renderApp("/?mode=medium");
+    const named = getClub(lastTarget().need.clubId);
+    const other = CLUBS.find((entry) => entry.id !== named.id);
+    const chip = screen.getByRole("radio", {
+      name: `${other.name}, ${other.loftDegrees}°`,
+    });
+    expect(chip).toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByRole("note")).toBeNull();
+    fireEvent.click(chip);
+    expect(screen.getByRole("note")).toHaveTextContent(
+      `has to be hit with the ${named.name.toLowerCase()}`,
+    );
+    expect(simulator.setClub.mock.calls.at(-1)[0].id).toBe(named.id);
+  });
+
   test("hard names the club and shape for a target in the air", () => {
     renderApp("/?mode=hard");
     const target = lastTarget();
