@@ -36,8 +36,21 @@ import {
   GOALS,
 } from "./simulate/game";
 import { coachMiss } from "./simulate/coach";
-import { FIRST, STAR_WARS, hasDone, markDone, remember } from "./first-visit";
-import { getClub, swingSpeedRange, DEFAULT_CLUB_ID } from "./simulate/clubs";
+import {
+  AUTO_CLUB_OFF,
+  FIRST,
+  STAR_WARS,
+  hasDone,
+  markDone,
+  remember,
+} from "./first-visit";
+import {
+  CLUBS,
+  getClub,
+  swingSpeedRange,
+  DEFAULT_CLUB_ID,
+} from "./simulate/clubs";
+import { bagReach, pickClub } from "./simulate/auto-club";
 import { standardAttackAngle } from "./simulate/launch-conditions";
 import { carryLimits, speedForCarry } from "./simulate/club-distances";
 import {
@@ -322,6 +335,18 @@ function App() {
   // Star Wars Mode: a fleet in the sky, switched in Settings and remembered
   // in this browser.
   const [starWars, setStarWars] = useState(() => hasDone(STAR_WARS));
+  // Auto club: each new target puts the club that suits it in hand. On
+  // unless it has been switched off in Settings; remembered in this browser.
+  const [autoClub, setAutoClub] = useState(() => !hasDone(AUTO_CLUB_OFF));
+  // A link that names a club or its swing (speed, attack, loft) is a setup
+  // someone chose: until the first shot, targets are for that club and auto
+  // club leaves it in hand.
+  const linkedSetup = useRef(
+    rawClub !== DEFAULT_CLUB_ID ||
+      rawSpeed != null ||
+      rawAttack != null ||
+      Number.parseFloat(rawLoft) !== LOFT_CHANGE_VALUES.DEFAULT,
+  );
   // What to change for the next target, after a miss.
   const [tip, setTip] = useState(null);
   const [board, setBoard] = useState(null);
@@ -518,14 +543,32 @@ function App() {
       isDesktop ? 0 : 96 + (phoneRow ? 60 : 0),
     );
   }, [isDesktop, phoneRow]);
-  // Normal targets are on the ground, advanced ones in the air.
-  const nextTarget = useMemo(
-    () =>
-      mode === "advanced"
-        ? (previous) => randomAirTarget(Math.random, previous, club.id)
-        : (previous) => randomTarget(Math.random, previous, reach),
-    [mode, club, reach],
-  );
+  // Normal targets are on the ground, advanced ones in the air. With auto
+  // club on they come from the whole bag, not just the club in hand: a ground
+  // target anywhere from the shortest club's stock shot to the driver's
+  // farthest, an air target on the flight of a club drawn from the bag.
+  const nextTarget = (previous) => {
+    const whole = autoClub && !linkedSetup.current;
+    let next;
+    if (mode === "advanced") {
+      const from = whole
+        ? CLUBS[Math.floor(Math.random() * CLUBS.length)].id
+        : club.id;
+      next = randomAirTarget(Math.random, previous, from);
+    } else {
+      next = randomTarget(
+        Math.random,
+        previous,
+        whole ? bagReach({ speeds: clubSpeeds, turf }) : reach,
+      );
+    }
+    return linkedSetup.current ? { ...next, keepClub: true } : next;
+  };
+  // The club auto club would put in hand for a target.
+  const clubFor = (aimedAt) =>
+    autoClub && aimedAt && !aimedAt.keepClub
+      ? pickClub(aimedAt, { speeds: clubSpeeds, turf })
+      : club.id;
   // A game left part-played, by starting another or by closing the page.
   // `began` is what the game in hand was, since mode and club are already the
   // new ones when a new game starts.
@@ -585,6 +628,23 @@ function App() {
   useEffect(() => {
     simulator.current.setTarget(target);
   }, [target]);
+
+  // Auto club: a new target, or switching it on, puts the club for the
+  // target in hand. A club picked by hand stays until the next target.
+  useEffect(() => {
+    const picked = clubFor(target);
+    if (picked !== club.id) handleClub(picked, { auto: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, autoClub]);
+  const handleAutoClub = (on) => {
+    setAutoClub(on);
+    remember(AUTO_CLUB_OFF, !on);
+    track("setting_changed", {
+      setting: "auto_club",
+      from: on ? "off" : "on",
+      to: on ? "on" : "off",
+    });
+  };
 
   // Overhead, framed again whenever there is a new target or shot to show,
   // in the band the HUD leaves clear: the result bar along the bottom, and on
@@ -659,8 +719,9 @@ function App() {
 
   // Swing speed, attack angle and loft belong to the club, so a new club
   // starts from its own.
-  const handleClub = (id) => {
-    if (id !== club.id) {
+  const handleClub = (id, { auto = false } = {}) => {
+    // Only a club picked by hand is a setting the player changed.
+    if (id !== club.id && !auto) {
       track("setting_changed", { setting: "club", from: club.id, to: id });
     }
     setDraft(
@@ -733,6 +794,7 @@ function App() {
     setResult(null);
     setLive(null);
     staleShot.current = false;
+    linkedSetup.current = false;
     // Hitting again before the camera is back still moves on to the next
     // target: every target gets one shot.
     if (targetDone.current) {
@@ -742,6 +804,30 @@ function App() {
       game.current.target = upNext;
       simulator.current.setTarget(upNext);
       setTarget(upNext);
+      // Auto club has not had a render to change club for this target, so
+      // this shot is hit with its club here, at that club's stock settings.
+      const picked = getClub(clubFor(upNext));
+      if (picked.id !== club.id) {
+        handleClub(picked.id, { auto: true });
+        game.current.club = picked.id;
+        simulator.current.setClub(picked);
+        simulator.current.hit(
+          launchConditions({
+            faceAngle,
+            pathAngle,
+            swingSpeedMPH:
+              clubSpeeds[picked.id] ?? swingSpeedRange(picked).DEFAULT,
+            side,
+            attackAngle: standardAttackAngle(picked),
+            strikeInches: strike,
+            club: picked.id,
+          }),
+          side,
+          turf,
+          aim,
+        );
+        return;
+      }
     }
     simulator.current.hit(
       launchConditions({
@@ -924,6 +1010,8 @@ function App() {
             onResetCarries={handleResetCarries}
             starWars={starWars}
             onStarWars={handleStarWars}
+            autoClub={autoClub}
+            onAutoClub={handleAutoClub}
           />
           <LeaderboardModal
             player={player}

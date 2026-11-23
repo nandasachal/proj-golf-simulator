@@ -38,6 +38,35 @@ than abstract.
     reachable and turns up low and early, at the apex, or late on the way down. A
     miss reports how far high/low and left/right the ball passed it, or how far
     short it fell. Hit 4 of 5 to win.
+  - **Auto club** (`src/simulate/auto-club.js`, pure and tested; on by default,
+    switched in Settings, remembered in this browser as `golf.autoClubOff`): each
+    new target puts the club that suits it in hand (`pickClub`).
+    - Normal: the club whose stock shot (straight, at its stock swing speed,
+      which is the one a distance typed in Settings sets) comes to rest nearest
+      the target's distance along the ground, on the turf in play. Shorter than
+      any club reaches is the lob wedge; longer is the driver.
+    - Advanced: judged by where the sphere is in the air (distance out and
+      height), not where a ball through it would land. The club whose stock
+      swing flies a straight shot within 1 yd of its middle; failing that, the
+      club that gets through with the least change of swing speed (as a share
+      of its range); failing that, the club that passes nearest.
+    - With it on, targets come from the whole bag rather than the club in
+      hand: ground targets from where the lob wedge's stock shot stops (about
+      78 yd) out to 330 yd, air targets on the flight of a club drawn at
+      random from the bag.
+    - A club picked by hand stays for the target that is up; the next target
+      picks again. Switching it on picks for the target that is up. Practice
+      has no targets, so the club is never changed there.
+    - A link that names a club or its swing (`club`, `speed`, `attack`,
+      `loft`) is left alone until the first shot: targets are for that club, as
+      with auto club off. A first visit's easy target is built for the club in
+      hand, so it keeps it too.
+    - Hitting again before the camera is back hits the new target with its
+      club at that club's stock speed and attack angle.
+    - Auto picks are not sent as `setting_changed` (the player changed
+      nothing); the switch itself is (`auto_club`).
+    - With it off, everything is as before: the club only changes by hand and
+      targets are ones the club in hand can reach.
   - The card top right shows the target that is up, a pip per target, hits against
     the goal, a log of every shot in the game and the games won this session
     (reset by changing mode or club, and by a reload).
@@ -137,6 +166,7 @@ React UI (App.js, components/)          src/simulate/ (no React)
   club chip, settings modal           clubs.js               the bag: loft, lie, tour delivery
   ⋯ settings modal (turf)             ground.js              touchdown → bounces + roll
   mode buttons, score                 game.js                ground and air targets, hit or miss
+  Auto club switch (Settings)         auto-club.js           the club that suits a target
   shot readout  ◄── callbacks ──────  shot-analysis.js       trajectory → carry, total, shape…
   URL query state (hooks/use-query)   main.js                scene, render loop, shot states
                                         ├─ range.js          assembles scenery/ (below)
@@ -454,7 +484,7 @@ property sets are built by pure functions in `src/analytics-events.js` and
 tested. Events as built so far: `shot_landed` (every shot, practice included,
 with carry, offline, apex, shape and the seven controls at impact),
 `game_started`, `target_attempted`, `game_finished` (all four game events share
-a `game_id`), `game_abandoned`, `setting_changed` (mode, club, bird's-eye view),
+a `game_id`), `game_abandoned`, `setting_changed` (mode, club, bird's-eye view, Star Wars Mode, auto club),
 `info_opened`, `save_name_shown`, `name_saved`, `name_save_failed`,
 `save_name_skipped`, `player_logged_in`, `player_logged_out`, `account_created`, `leaderboard_opened`, `leaderboard_filter_changed`, `app_ready` (load time and
 whether the modelled golfer or the fallback figure was used) and `app_error`

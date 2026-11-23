@@ -12,6 +12,7 @@ import { createSimulator } from "./simulate/main";
 import { createClubScene } from "./simulate/club-scene";
 import { TURF_PRESETS } from "./simulate/ground";
 import { CLUBS } from "./simulate/clubs";
+import { pickClub } from "./simulate/auto-club";
 import { reportError, setContext, track } from "./analytics";
 
 // jsdom has no WebGL, so the 3D scene can't start under Jest; the fake stands
@@ -1968,6 +1969,191 @@ describe("Star Wars Mode", () => {
     renderApp("/?empire=1");
     expect(simulator.setFleet).toHaveBeenLastCalledWith(false);
     expect(createSimulator.mock.calls[0][1]).not.toHaveProperty("fleet");
+  });
+});
+
+describe("auto club", () => {
+  const toggle = (settings) =>
+    settings.getByRole("switch", { name: "Auto club" });
+  const lastClub = () => simulator.setClub.mock.calls.at(-1)[0];
+  const lastTarget = () => simulator.setTarget.mock.calls.at(-1)[0];
+  const suited = (target) => pickClub(target, { turf: TURF_PRESETS.normal });
+  const land = () =>
+    act(() =>
+      callbacks.onResult({
+        shape: "Straight",
+        carryYards: 200,
+        runYards: 20,
+        totalYards: 220,
+        offlineYards: 0,
+        apexYards: 25,
+        target: { hit: true, longYards: 1, rightYards: 0 },
+      }),
+    );
+  // One shot at the target that is up, then the camera back at the tee.
+  const play = () => {
+    hit();
+    land();
+    act(() => callbacks.onState("address"));
+  };
+  // A browser that has scored before: no easy first target.
+  const returning = () => window.localStorage.setItem("golf.target", "1");
+  // Every target as near as targets come.
+  const nearTargets = () => jest.spyOn(Math, "random").mockReturnValue(0);
+  afterEach(() => jest.restoreAllMocks());
+
+  test("on by default: each new target puts the club for its distance in hand", () => {
+    returning();
+    nearTargets();
+    renderApp("/");
+    // the whole bag is in play, so targets come nearer than a driver's
+    expect(lastTarget().z).toBeLessThan(100);
+    expect(lastClub().id).toBe("lw");
+    expect(address()).toContain("club=lw");
+    hit();
+    expect(lastLaunch().initSpeedMPH).toBeLessThan(70);
+
+    jest.spyOn(Math, "random").mockReturnValue(0.999);
+    land();
+    act(() => callbacks.onState("address"));
+    expect(lastTarget().z).toBeGreaterThan(300);
+    expect(lastClub().id).toBe("driver");
+    expect(address()).not.toContain("club=");
+    expect(toggle(openSettings())).toHaveAttribute("aria-checked", "true");
+    // the player did not change a setting
+    expect(track).not.toHaveBeenCalledWith(
+      "setting_changed",
+      expect.objectContaining({ setting: "club" }),
+    );
+  });
+
+  test("the club is the one the picking rule gives for the target", () => {
+    returning();
+    renderApp("/");
+    for (let shot = 0; shot < 4; shot++) {
+      expect(lastClub().id).toBe(suited(lastTarget()));
+      play();
+    }
+  });
+
+  test("a first visit's easy target keeps the club in hand", () => {
+    renderApp("/?club=7i");
+    expect(lastTarget().easy).toBe(true);
+    expect(lastClub().id).toBe("7i");
+  });
+
+  test("a link that names a club or its swing keeps it until the first shot", () => {
+    returning();
+    nearTargets();
+    renderApp("/?club=7i&speed=100");
+    // a target for the 7 iron, as with auto club off
+    expect(lastTarget().z).toBeGreaterThan(100);
+    expect(lastClub().id).toBe("7i");
+    expect(address()).toContain("speed=100");
+    fireEvent.click(screen.getByRole("button", { name: "Restart" }));
+    expect(lastClub().id).toBe("7i");
+    play();
+    expect(lastTarget().z).toBeLessThan(100);
+    expect(lastClub().id).toBe("lw");
+  });
+
+  test("a club picked by hand stays for the target that is up, not the next", () => {
+    returning();
+    nearTargets();
+    renderApp("/");
+    const target = lastTarget();
+    fireEvent.click(screen.getByRole("button", { name: /Lob wedge · 60°/ }));
+    fireEvent.click(
+      within(screen.getByRole("listbox")).getByRole("option", {
+        name: /7 iron/,
+      }),
+    );
+    expect(lastClub().id).toBe("7i");
+    expect(lastTarget()).toBe(target);
+    hit();
+    expect(lastClub().id).toBe("7i");
+    land();
+    act(() => callbacks.onState("address"));
+    expect(lastTarget()).not.toBe(target);
+    expect(lastClub().id).toBe("lw");
+  });
+
+  test("advanced picks for the sphere in the air", () => {
+    returning();
+    renderApp("/?mode=advanced");
+    for (let shot = 0; shot < 4; shot++) {
+      expect(lastTarget().air).toBe(true);
+      expect(lastClub().id).toBe(suited(lastTarget()));
+      play();
+    }
+  });
+
+  test("practice has no target, so the club is left alone", () => {
+    returning();
+    renderApp("/?mode=practice&club=7i");
+    expect(lastClub().id).toBe("7i");
+    hit();
+    land();
+    act(() => callbacks.onState("address"));
+    expect(lastClub().id).toBe("7i");
+    expect(address()).toContain("club=7i");
+  });
+
+  test("hitting again before the camera is back hits the new target with its club", () => {
+    returning();
+    jest.spyOn(Math, "random").mockReturnValue(0.999);
+    renderApp("/");
+    expect(lastClub().id).toBe("driver");
+    hit();
+    land();
+    nearTargets();
+    hit();
+    expect(lastTarget().z).toBeLessThan(100);
+    expect(lastClub().id).toBe("lw");
+    expect(lastLaunch().initSpeedMPH).toBeLessThan(70);
+    expect(address()).toContain("club=lw");
+  });
+
+  test("switching it off in Settings leaves the club alone; switching it on picks again", () => {
+    returning();
+    renderApp("/");
+    const settings = openSettings();
+    fireEvent.click(toggle(settings));
+    expect(toggle(settings)).toHaveAttribute("aria-checked", "false");
+    expect(track).toHaveBeenCalledWith("setting_changed", {
+      setting: "auto_club",
+      from: "on",
+      to: "off",
+    });
+    fireEvent.click(settings.getByRole("button", { name: /^7 iron/ }));
+    fireEvent.click(settings.getByRole("button", { name: "Close settings" }));
+    expect(lastClub().id).toBe("7i");
+    for (let shot = 0; shot < 3; shot++) {
+      play();
+      expect(lastClub().id).toBe("7i");
+      // as before: targets the club in hand can reach
+      expect(lastTarget().z).toBeLessThan(215);
+    }
+    expect(address()).toContain("club=7i");
+
+    nearTargets();
+    play();
+    expect(lastClub().id).toBe("7i");
+    fireEvent.click(toggle(openSettings()));
+    expect(lastClub().id).toBe(suited(lastTarget()));
+    expect(lastClub().id).not.toBe("7i");
+  });
+
+  test("off is remembered in this browser", () => {
+    returning();
+    const { unmount } = renderApp("/");
+    fireEvent.click(toggle(openSettings()));
+    unmount();
+    nearTargets();
+    renderApp("/");
+    expect(toggle(openSettings())).toHaveAttribute("aria-checked", "false");
+    expect(lastClub().id).toBe("driver");
+    expect(lastTarget().z).toBeGreaterThanOrEqual(140);
   });
 });
 

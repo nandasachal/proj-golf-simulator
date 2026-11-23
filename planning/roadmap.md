@@ -75,6 +75,9 @@
 - Fix the stale `caniuse-lite` browserslist data (build-time warning).
 - [done] Settings modal, keyboard shortcuts, aim control and club-at-impact views
   (2026-11-15).
+- [done] **Auto club** (2026-11-22) — each new game target puts the club that
+  suits it in hand (by distance on the ground in Normal, by the sphere's
+  distance and height in Advanced); on by default, switched off in Settings.
 - [done] Attack angle and loft-at-impact controls (2026-11-15).
 - [done] Heel/toe strike location control (2026-11-15).
 - [done] Heel/toe strike control; Game mode as the default (2026-11-15).

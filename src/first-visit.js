@@ -23,6 +23,8 @@ export const markDone = (key, storage = window.localStorage) => {
 
 // A switch remembered in this browser the same way: Star Wars Mode.
 export const STAR_WARS = "golf.starWars";
+// Auto club is on until it is switched off, so what is remembered is "off".
+export const AUTO_CLUB_OFF = "golf.autoClubOff";
 
 export const remember = (key, on, storage = window.localStorage) => {
   try {

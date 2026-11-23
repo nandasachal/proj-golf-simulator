@@ -254,6 +254,8 @@ const SettingsModal = ({
   onResetCarries,
   starWars = false,
   onStarWars,
+  autoClub = false,
+  onAutoClub,
 }) => {
   const [open, setOpen] = useState(false);
   return (
@@ -291,6 +293,35 @@ const SettingsModal = ({
             </div>
 
             <div className="mt-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 id="auto-club-label" className="text-sm font-bold">
+                    Auto club
+                  </h3>
+                  <p className="mt-0.5 text-xs text-white/50">
+                    In a game, each new target puts the club for its distance in
+                    hand. A club you pick yourself stays until the next target.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoClub}
+                  aria-labelledby="auto-club-label"
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400 ${
+                    autoClub ? "bg-lime-400" : "bg-white/20"
+                  }`}
+                  onClick={() => onAutoClub(!autoClub)}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      autoClub ? "translate-x-5" : ""
+                    }`}
+                  />
+                </button>
+              </div>
+
               <Section
                 title="Club"
                 hint="Every shot is hit with this club. The driver is teed up; the rest are played off the turf."
