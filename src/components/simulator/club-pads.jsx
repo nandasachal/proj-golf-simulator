@@ -386,7 +386,6 @@ const ControlCell = ({
   value,
   text,
   number,
-  active,
   selected,
   onChange,
   onActive,
@@ -402,7 +401,7 @@ const ControlCell = ({
     <div
       className={classNames(
         "flex min-w-0 flex-col gap-2 rounded-lg p-3 ring-inset transition-colors",
-        active || selected ? "bg-white/[0.12]" : "bg-white/[0.06]",
+        selected ? "bg-white/[0.12]" : "bg-white/[0.06]",
       )}
       data-chip={control}
       data-selected={selected ? "true" : undefined}
@@ -1325,7 +1324,6 @@ const ClubPads = ({
     value: values[control],
     text: text[control],
     number: number[control],
-    active: active === control || dragging === control,
     selected: selected === control,
     onChange,
     onActive: setActive,
