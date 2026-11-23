@@ -1,6 +1,9 @@
 import {
   randomTarget,
-  randomAirTarget,
+  shapedTarget,
+  shapedAirTarget,
+  curveOf,
+  SHAPES,
   evaluateTarget,
   describeMiss,
   GOALS,
@@ -8,6 +11,9 @@ import {
 import { Shot } from "./shot";
 import { launchConditions } from "./launch-conditions";
 import { toYards } from "./conversions-lib";
+import { CLUBS, getClub, swingSpeedRange } from "./clubs";
+import { analyzeShot } from "./shot-analysis";
+import { groundRun, turfParameters, TURF_PRESETS } from "./ground";
 
 // A repeatable stand-in for Math.random.
 const sequence = (...values) => {
@@ -129,12 +135,12 @@ describe("air targets", () => {
     const heights = [];
     const sides = new Set();
     for (let i = 0; i < 80; i++) {
-      const target = randomAirTarget();
+      const target = shapedAirTarget();
       expect(target.air).toBe(true);
       expect(target.y - target.radius).toBeGreaterThanOrEqual(1);
-      expect(target.z).toBeGreaterThan(30);
+      expect(target.z).toBeGreaterThan(15);
       expect(target.z).toBeLessThan(330);
-      expect(target.radius).toBeGreaterThan(1.7);
+      expect(target.radius).toBeGreaterThan(1.6);
       expect(target.radius).toBeLessThan(4);
       expect(target.heightYards).toBe(Math.round(target.y));
       heights.push(target.y);
@@ -142,26 +148,6 @@ describe("air targets", () => {
     }
     expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThan(15);
     expect(sides.has(1) && sides.has(-1)).toBe(true);
-  });
-
-  test("can be reached: the swing a target was taken from flies through it", () => {
-    // speed 0.6 of the way up the usable range, 1.5 deg open face, square path
-    const random = sequence(0.6, 0.75, 0.5, 0.5);
-    const target = randomAirTarget(random);
-    const flight = flightOf({
-      swingSpeedMPH: 80 + (0.25 + 0.75 * 0.6) * 60,
-      faceAngle: 1.5,
-      pathAngle: 0,
-    });
-    const outcome = evaluateTarget(target, [flight.at(-1)], flight);
-    expect(outcome.hit).toBe(true);
-    expect(outcome.closestYards).toBeLessThan(1);
-  });
-
-  test("a short club gets targets it can reach", () => {
-    for (let i = 0; i < 40; i++) {
-      expect(randomAirTarget(Math.random, null, "lw").z).toBeLessThan(120);
-    }
   });
 
   const target = { air: true, x: 0, y: 20, z: 150, radius: 8 };
@@ -196,8 +182,184 @@ describe("air targets", () => {
   });
 });
 
-test("the goal is 3 of 5 in normal and 4 of 5 in advanced", () => {
+// Medium and hard: the target names a club and a shape.
+describe("targets that name a club and a shape", () => {
+  const yards = ({ x, y, z }) => ({
+    x: toYards(x),
+    y: toYards(y),
+    z: toYards(z),
+  });
+  // Plays a swing the way the scene does: named, aimed, flown, run out and
+  // judged against the target.
+  const play = (target, clubId, { speed, face, path, aim }, side) => {
+    const shot = new Shot({
+      dt: 0.01,
+      ...launchConditions({
+        swingSpeedMPH: speed,
+        faceAngle: face,
+        pathAngle: path,
+        side,
+        club: clubId,
+      }),
+    });
+    const { shape } = analyzeShot(shot, side);
+    shot.aim(aim);
+    const run = groundRun(
+      shot.points[shot.points.length - 1],
+      turfParameters(TURF_PRESETS.normal),
+    );
+    return evaluateTarget(
+      target,
+      run.points.map(({ position }) => yards(position)),
+      shot.points.map(({ position }) => yards(position)),
+      { clubId, shape },
+    );
+  };
+  const make = { ground: shapedTarget, air: shapedAirTarget };
+
+  test.each([
+    ["ground", "Right"],
+    ["ground", "Left"],
+    ["air", "Right"],
+    ["air", "Left"],
+  ])(
+    "every %s target can be hit by a %s-hander with its club and shape, on the controls' own steps",
+    (kind, side) => {
+      let previous = null;
+      for (let i = 0; i < 120; i++) {
+        const target = make[kind](Math.random, previous, { side });
+        const { need, solution } = target;
+        const club = getClub(need.clubId);
+        const speeds = swingSpeedRange(club);
+        expect(club.id).toBe(need.clubId);
+        expect(SHAPES).toContain(need.shape);
+        for (const value of Object.values(solution))
+          expect(Number.isInteger(value)).toBe(true);
+        expect(solution.speed).toBeGreaterThanOrEqual(speeds.MIN);
+        expect(solution.speed).toBeLessThanOrEqual(speeds.MAX);
+        expect(Math.abs(solution.face)).toBeLessThanOrEqual(6);
+        expect(Math.abs(solution.path)).toBeLessThanOrEqual(6);
+        expect(Math.abs(solution.aim)).toBeLessThanOrEqual(10);
+        const outcome = play(target, need.clubId, solution, side);
+        expect(outcome).toMatchObject({ hit: true, reached: true });
+        if (previous) expect(need.clubId).not.toBe(previous.need.clubId);
+        previous = target;
+      }
+    },
+  );
+
+  test("ground targets stay on the range, at a distance the club covers", () => {
+    for (let i = 0; i < 300; i++) {
+      const target = shapedTarget();
+      expect(target.z).toBeLessThanOrEqual(330);
+      expect(Math.abs(target.x)).toBeLessThanOrEqual(
+        Math.min(40, (target.z * 40) / 140),
+      );
+      expect(target.radius).toBe(7.2);
+      expect(target.air).toBeUndefined();
+    }
+  });
+
+  test("the whole bag and all three shapes turn up, soft swings and full ones", () => {
+    const clubs = new Set();
+    const shapes = new Set();
+    let soft = 0;
+    let full = 0;
+    for (let i = 0; i < 600; i++) {
+      const { need, solution } = shapedTarget();
+      clubs.add(need.clubId);
+      shapes.add(need.shape);
+      const { MIN, MAX } = swingSpeedRange(getClub(need.clubId));
+      const share = (solution.speed - MIN) / (MAX - MIN);
+      if (share < 0.25) soft++;
+      if (share > 0.75) full++;
+    }
+    expect(clubs.size).toBe(CLUBS.length);
+    expect([...shapes].sort()).toEqual([...SHAPES].sort());
+    expect(soft).toBeGreaterThan(60);
+    expect(full).toBeGreaterThan(30);
+  });
+
+  test("a straight target comes from a square face, a draw from a closed one, a fade from an open one", () => {
+    for (let i = 0; i < 300; i++) {
+      const { need, solution } = shapedTarget();
+      if (need.shape === "Straight") {
+        expect(solution.face).toBe(solution.path);
+        continue;
+      }
+      // Face closed to the path for a draw, open for a fade.
+      const bend = solution.face - solution.path;
+      expect(Math.sign(bend)).toBe(need.shape === "Draw" ? -1 : 1);
+    }
+  });
+
+  test("a shot's shape is the way it curved, whatever line it started on", () => {
+    expect(curveOf("Push Draw")).toBe("Draw");
+    expect(curveOf("Hook")).toBe("Draw");
+    expect(curveOf("Pull Fade")).toBe("Fade");
+    expect(curveOf("Slice")).toBe("Fade");
+    expect(curveOf("Push")).toBe("Straight");
+    expect(curveOf("Straight")).toBe("Straight");
+  });
+
+  const target = {
+    x: 0,
+    z: 200,
+    radius: 7.2,
+    need: { clubId: "7i", shape: "Draw" },
+  };
+  const onIt = [{ x: 1, y: 0.02, z: 201 }];
+
+  test("reaching it with the right club and shape is a hit", () => {
+    const outcome = evaluateTarget(target, onIt, [], {
+      clubId: "7i",
+      shape: "Push Draw",
+    });
+    expect(outcome).toMatchObject({ hit: true, reached: true });
+  });
+
+  test("reaching it with another club is a miss", () => {
+    const outcome = evaluateTarget(target, onIt, [], {
+      clubId: "6i",
+      shape: "Draw",
+    });
+    expect(outcome).toMatchObject({ hit: false, reached: true });
+    expect(describeMiss(outcome)).toBe("wrong club");
+  });
+
+  test("reaching it with another shape is a miss that names both shapes", () => {
+    const outcome = evaluateTarget(target, onIt, [], {
+      clubId: "7i",
+      shape: "Fade",
+    });
+    expect(outcome).toMatchObject({ hit: false, reached: true });
+    expect(describeMiss(outcome)).toBe("a fade, not a draw");
+    expect(
+      describeMiss(
+        evaluateTarget(target, onIt, [], { clubId: "7i", shape: "Pull" }),
+      ),
+    ).toBe("straight, not a draw");
+  });
+
+  test("missing it is described by where the ball went", () => {
+    const outcome = evaluateTarget(target, [{ x: 0, y: 0.02, z: 180 }], [], {
+      clubId: "7i",
+      shape: "Fade",
+    });
+    expect(outcome).toMatchObject({ hit: false, reached: false });
+    expect(describeMiss(outcome)).toBe("20 yd short");
+  });
+
+  test("a target that names nothing takes any club and shape", () => {
+    const outcome = evaluateTarget({ x: 0, z: 200, radius: 7.2 }, onIt);
+    expect(outcome.hit).toBe(true);
+    expect(outcome.reached).toBeUndefined();
+  });
+});
+
+test("the goal is 3 of 5 in easy and medium and 4 of 5 in hard", () => {
   expect(GOALS.normal).toEqual({ targets: 5, toWin: 3 });
+  expect(GOALS.medium).toEqual({ targets: 5, toWin: 3 });
   expect(GOALS.advanced).toEqual({ targets: 5, toWin: 4 });
 });
 

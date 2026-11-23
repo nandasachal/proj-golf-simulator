@@ -333,6 +333,8 @@ export function createSimulator(container, callbacks = {}) {
   targetGroup.add(groundTarget, airTarget, targetLabel);
   scene.add(targetGroup);
   let target = null;
+  // The club in hand, for targets that name the club they must be hit with.
+  let clubId = null;
 
   function paintTarget(hit) {
     const color = hit ? TARGET_HIT_COLOR : TARGET_COLOR;
@@ -422,6 +424,7 @@ export function createSimulator(container, callbacks = {}) {
 
   // The driver is hit off a tee; every other club off the mat.
   function setClub(club) {
+    clubId = club.id;
     golfer.setClub(club);
     tee.visible = club.teed;
     restPosition.y = MAT_TOP + BALL_RADIUS + (club.teed ? TEE_HEIGHT : 0);
@@ -525,6 +528,7 @@ export function createSimulator(container, callbacks = {}) {
           y: p.y * YARDS_PER_METER + restPosition.y,
           z: p.z * YARDS_PER_METER,
         })),
+        { clubId, shape },
       );
     }
     paintTarget(false);

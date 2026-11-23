@@ -2,6 +2,55 @@ import { coachMiss } from "./coach";
 
 const square = { clubFaceAngle: 0, clubPathAngle: 0 };
 
+describe("coachMiss on a target that names a club and shape", () => {
+  const need = { clubId: "7i", shape: "Draw" };
+
+  test("the wrong club comes first", () => {
+    expect(
+      coachMiss(
+        { wrongClub: true, wrongShape: true, shape: "Fade", need },
+        square,
+      ),
+    ).toEqual({
+      tip: "wrong_club",
+      text: "This target has to be hit with the 7 iron.",
+    });
+  });
+
+  test("the wrong shape says how to hit the right one", () => {
+    const outcome = { wrongClub: false, wrongShape: true, shape: "Straight" };
+    expect(coachMiss({ ...outcome, need }, square)).toEqual({
+      tip: "wrong_shape",
+      text: "That was straight; this target needs a draw. Set the club face closed to the club path.",
+    });
+    expect(
+      coachMiss({ ...outcome, shape: "Draw", need: { shape: "Fade" } }, square)
+        .text,
+    ).toContain("needs a fade. Set the club face open to the club path.");
+    expect(
+      coachMiss(
+        { ...outcome, shape: "Draw", need: { shape: "Straight" } },
+        square,
+      ).text,
+    ).toContain("needs straight. Set the club face the same as the club path.");
+  });
+
+  test("the right club and shape, off target, is coached as any miss", () => {
+    expect(
+      coachMiss(
+        {
+          wrongClub: false,
+          wrongShape: false,
+          need,
+          longYards: 20,
+          rightYards: 3,
+        },
+        square,
+      ).tip,
+    ).toBe("slower");
+  });
+});
+
 describe("coachMiss on a ground target", () => {
   test("long and short are about swing speed", () => {
     expect(coachMiss({ longYards: 20, rightYards: 3 }, square)).toEqual({

@@ -109,3 +109,11 @@ def test_a_queued_shot_keeps_when_it_was_played_within_a_week(client, db):
     ).fetchall()
     assert abs(float(ages[0][0]) - 7 * 86400) < 60
     assert abs(float(ages[1][0])) < 60
+
+
+def test_a_medium_shot_is_taken_and_has_its_own_board(client, db):
+    player = signup(client)
+    assert shoot(client, player["key"], mode="medium", club="7i", hit=True).status_code == 201
+    assert db.execute("SELECT mode FROM shots").fetchall() == [("medium",)]
+    assert client.get("/leaderboard", params={"mode": "medium"}).status_code == 200
+    assert shoot(client, player["key"], mode="easy").status_code == 422

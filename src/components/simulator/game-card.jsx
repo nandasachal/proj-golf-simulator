@@ -3,16 +3,28 @@ import { Listbox } from "@headlessui/react";
 import { ArrowRepeat, Check2, ChevronDown } from "react-bootstrap-icons";
 import SaveName from "./save-name";
 import { initialsOf } from "../../players/profile";
+import { getClub } from "../../simulate/clubs";
 
 const describeSide = (offlineYards) => {
   if (offlineYards === 0) return "on the centre line";
   return `${Math.abs(offlineYards)} yd ${offlineYards > 0 ? "right" : "left"}`;
 };
 
+// The ids are the names the modes are stored under (see simulate/game.js).
 const DIFFICULTIES = [
-  { id: "normal", name: "Normal", about: "Target on the ground" },
-  { id: "advanced", name: "Advanced", about: "Target in the air" },
+  { id: "normal", name: "Easy", about: "Target on the ground" },
+  { id: "medium", name: "Medium", about: "Set club and shot shape" },
+  { id: "advanced", name: "Hard", about: "Set club and shape, in the air" },
 ];
+
+// The club and shape a medium or hard target has to be hit with.
+const Need = ({ need }) => (
+  <span aria-label="Required shot" className="font-semibold text-amber-300">
+    {getClub(need.clubId).name}
+    <span className="font-normal text-amber-300/60"> · </span>
+    {need.shape}
+  </span>
+);
 
 // Phones: the game's difficulty as a small menu in the game row, opening
 // upward over the picture. Picking one starts a new game.
@@ -251,6 +263,11 @@ const GameCard = ({
               {describeSide(target.offlineYards)}
               {target.air && ` · ${target.heightYards} yd up`}
             </span>
+            {target.need && (
+              <span className="mt-1 block text-[11px] md:mt-1.5 md:text-sm">
+                <Need need={target.need} />
+              </span>
+            )}
           </p>
         )
       )}
@@ -375,7 +392,8 @@ const GameCard = ({
 
 // On phones, while a game is on: one row along the foot of the picture, so
 // the card does not cover it. The target that is up, the pips and Restart,
-// with the last miss's tip under them when there is one. The finished game
+// with the club and shape the target names, and the last miss's tip, under
+// them when there are any. The finished game
 // still gets the full card (its result, the name form, Play again).
 export const GameRow = ({
   goal,
@@ -424,6 +442,12 @@ export const GameRow = ({
           <ArrowRepeat size={14} aria-hidden="true" />
         </button>
       </div>
+      {target?.need && (
+        <p className="mt-1 text-xs leading-4">
+          <span className="text-white/60">Use </span>
+          <Need need={target.need} />
+        </p>
+      )}
       {tip && (
         <p
           className="mt-1 text-[11px] leading-snug text-amber-200"

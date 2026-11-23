@@ -40,7 +40,7 @@ server holds it).
 | `shot_landed` | extend | existing `mode`, `club`, `total_yards`; add `game_id` (null in practice), `in_game`, `carry_yards`, `offline_yards`, `apex_yards`, `shape`, and the seven shot controls as set at impact (flat: `aim`, `face`, `path`, `attack`, `loft_change`, `swing_speed`, `strike_inches`) | every shot, practice included |
 | `setting_changed` | new | `setting` (`mode`, `club`, `view`), `from`, `to` | the player changes one |
 | `game_started` | extend | add `game_id` | first scored shot |
-| `target_attempted` | extend | add `game_id`, `target_height_yards` (advanced), `miss` (short miss category, null on a hit) | each scored shot |
+| `target_attempted` | extend | add `game_id`, `target_height_yards` (advanced), `miss` (short miss category, null on a hit; `wrong_club` or `wrong_shape` when the ball got there without what the target named), `required_club` and `required_shape` (`draw`, `fade`, `straight`; null in an easy game). `mode` is `normal` (Easy on screen), `medium` or `advanced` (Hard on screen) | each scored shot |
 | `game_finished` | extend | add `game_id` | last target |
 | `game_abandoned` | new | `game_id`, `mode`, `club`, `shots_taken` | a new game starts, or the tab closes, with a partial game |
 | `info_opened` | new | `topic` (the control or mode) | an (i) button is opened |

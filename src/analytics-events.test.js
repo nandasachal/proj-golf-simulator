@@ -69,6 +69,26 @@ test("a ground miss is named by its larger error", () => {
   expect(missKind({ longYards: 1, rightYards: -6 })).toBe("left");
 });
 
+test("a ball that got there with the wrong club or shape says which", () => {
+  const there = { reached: true, longYards: 1, rightYards: 0 };
+  expect(missKind({ ...there, wrongClub: true, wrongShape: true })).toBe(
+    "wrong_club",
+  );
+  expect(missKind({ ...there, wrongClub: false, wrongShape: true })).toBe(
+    "wrong_shape",
+  );
+  expect(
+    targetAttempted({
+      gameId: "g1",
+      club: "7i",
+      shotNumber: 1,
+      mode: "medium",
+      target: { distanceYards: 150, need: { clubId: "7i", shape: "Draw" } },
+      outcome: { hit: true },
+    }),
+  ).toMatchObject({ required_club: "7i", required_shape: "draw" });
+});
+
 test("an air miss is high, low, off to a side, or fell short", () => {
   const air = { air: true, longYards: 0 };
   expect(missKind({ ...air, highYards: 5, rightYards: 3 })).toBe("high");
@@ -97,6 +117,8 @@ test("a target attempt has no miss on a hit, and a height only in advanced", () 
     target_yards: 140,
     target_height_yards: null,
     target_number: 2,
+    required_club: null,
+    required_shape: null,
   });
   const advanced = targetAttempted({
     ...base,

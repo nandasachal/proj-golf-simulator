@@ -11,7 +11,7 @@ import App from "./App";
 import { createSimulator } from "./simulate/main";
 import { createClubScene } from "./simulate/club-scene";
 import { TURF_PRESETS } from "./simulate/ground";
-import { CLUBS } from "./simulate/clubs";
+import { CLUBS, getClub } from "./simulate/clubs";
 import { pickClub } from "./simulate/auto-club";
 import { reportError, setContext, track } from "./analytics";
 
@@ -242,7 +242,7 @@ describe("shot controls", () => {
     expect(simulator.setAim).toHaveBeenLastCalledWith(5);
     expect(lastHit()[3]).toBe(5);
 
-    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hard" }));
     expect(valueOf("Aim")).toBe(5);
     expect(valueOf("Strike")).toBe(0.5);
   });
@@ -361,7 +361,7 @@ describe("shot controls", () => {
 
   test("Reset clears the shot but keeps the session settings", () => {
     renderPanel(
-      "/?face=3&path=-2&speed=120&aim=5&attack=4&loft=-2&strike=0.5&side=Left&turf=firm&mode=advanced",
+      "/?face=3&path=-2&speed=120&aim=5&attack=4&loft=-2&strike=0.5&side=Left&turf=firm&mode=normal",
     );
     fireEvent.click(screen.getByRole("button", { name: /reset/i }));
     expect(valueOf("Club face")).toBe(0);
@@ -1432,7 +1432,7 @@ describe("game mode", () => {
     expect(lastTarget().air).toBeUndefined();
     expect(game()).toHaveTextContent("Target 1 of 5");
     expect(game()).toHaveTextContent("Hit 3 of 5 to win");
-    expect(modeButton("Normal")).toHaveAttribute("aria-pressed", "true");
+    expect(modeButton("Easy")).toHaveAttribute("aria-pressed", "true");
     expect(modeButton("Game")).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -1515,17 +1515,20 @@ describe("game mode", () => {
     expect(screen.queryByRole("group", { name: "Difficulty" })).toBeNull();
 
     const row = () => within(screen.getByRole("status", { name: "Game" }));
-    fireEvent.click(row().getByRole("button", { name: "Difficulty: Normal" }));
-    expect(screen.getByRole("option", { name: /Normal/ })).toHaveTextContent(
+    fireEvent.click(row().getByRole("button", { name: "Difficulty: Easy" }));
+    expect(screen.getByRole("option", { name: /Easy/ })).toHaveTextContent(
       "Target on the ground",
     );
-    expect(screen.getByRole("option", { name: /Advanced/ })).toHaveTextContent(
-      "Target in the air",
+    expect(screen.getByRole("option", { name: /Medium/ })).toHaveTextContent(
+      "Set club and shot shape",
     );
-    fireEvent.click(screen.getByRole("option", { name: /Advanced/ }));
+    expect(screen.getByRole("option", { name: /Hard/ })).toHaveTextContent(
+      "Set club and shape, in the air",
+    );
+    fireEvent.click(screen.getByRole("option", { name: /Hard/ }));
     expect(address()).toContain("mode=advanced");
     expect(
-      row().getByRole("button", { name: "Difficulty: Advanced" }),
+      row().getByRole("button", { name: "Difficulty: Hard" }),
     ).toBeInTheDocument();
 
     fireEvent.click(top.getByRole("button", { name: "Practice" }));
@@ -1538,7 +1541,7 @@ describe("game mode", () => {
     renderApp("/?mode=advanced");
     fireEvent.click(modeButton("Practice"));
     fireEvent.click(modeButton("Game"));
-    expect(modeButton("Advanced")).toHaveAttribute("aria-pressed", "true");
+    expect(modeButton("Hard")).toHaveAttribute("aria-pressed", "true");
   });
 
   test("practice mode has no target", () => {
@@ -1555,7 +1558,7 @@ describe("game mode", () => {
 
     const target = lastTarget();
     expect(target.z).toBeGreaterThanOrEqual(140);
-    expect(modeButton("Normal")).toHaveAttribute("aria-pressed", "true");
+    expect(modeButton("Easy")).toHaveAttribute("aria-pressed", "true");
     expect(game()).toHaveTextContent(`${target.distanceYards}`);
 
     fireEvent.click(modeButton("Practice"));
@@ -1568,12 +1571,12 @@ describe("game mode", () => {
   test("advanced puts the targets in the air and asks for 4 of 5", () => {
     renderApp("/?mode=practice");
     fireEvent.click(modeButton("Game"));
-    fireEvent.click(modeButton("Advanced"));
+    fireEvent.click(modeButton("Hard"));
 
     const target = lastTarget();
     expect(target.air).toBe(true);
     expect(target.y).toBeGreaterThan(target.radius);
-    expect(modeButton("Advanced")).toHaveAttribute("aria-pressed", "true");
+    expect(modeButton("Hard")).toHaveAttribute("aria-pressed", "true");
     expect(game()).toHaveTextContent(`${target.heightYards} yd up`);
     expect(game()).toHaveTextContent("0 hit / 4 to win");
 
@@ -1583,9 +1586,66 @@ describe("game mode", () => {
     expect(lastTarget()).not.toBe(target);
   });
 
+  test("medium names the club and shape for a target on the ground", () => {
+    renderApp("/?mode=medium");
+    const target = lastTarget();
+    expect(target.air).toBeUndefined();
+    expect(modeButton("Medium")).toHaveAttribute("aria-pressed", "true");
+    expect(game()).toHaveTextContent("Hit 3 of 5 to win");
+    expect(within(game()).getByLabelText("Required shot")).toHaveTextContent(
+      `${getClub(target.need.clubId).name} · ${target.need.shape}`,
+    );
+    expect(simulator.setClub.mock.calls.at(-1)[0].id).toBe(target.need.clubId);
+
+    // In the circle, but with the wrong shape: a miss, and the tip says why.
+    play({
+      hit: false,
+      reached: true,
+      wrongClub: false,
+      wrongShape: true,
+      shape: "Fade",
+      need: { clubId: target.need.clubId, shape: "Draw" },
+      longYards: 1,
+      rightYards: 0,
+    });
+    expect(game()).toHaveTextContent("Missed: a fade, not a draw");
+    expect(within(game()).getByLabelText("Tip")).toHaveTextContent(
+      "That was a fade; this target needs a draw. Set the club face closed to the club path.",
+    );
+    expect(lastTarget().need.clubId).not.toBe(target.need.clubId);
+  });
+
+  test("hard names the club and shape for a target in the air", () => {
+    renderApp("/?mode=hard");
+    const target = lastTarget();
+    expect(target.air).toBe(true);
+    expect(modeButton("Hard")).toHaveAttribute("aria-pressed", "true");
+    expect(within(game()).getByLabelText("Required shot")).toHaveTextContent(
+      `${getClub(target.need.clubId).name} · ${target.need.shape}`,
+    );
+  });
+
+  test("an easy target names no club or shape", () => {
+    renderApp();
+    expect(lastTarget().need).toBeUndefined();
+    expect(within(game()).queryByLabelText("Required shot")).toBeNull();
+  });
+
+  test("the (i) by the mode switch explains easy, medium and hard", () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "About the modes" }));
+    const note = screen.getByRole("note");
+    expect(note).toHaveTextContent(/Easy: .*any club and any shot/);
+    expect(note).toHaveTextContent(
+      /Medium: .*names the club you must use and the shape you must hit/,
+    );
+    expect(note).toHaveTextContent(/Hard: .*small sphere in the air/);
+    expect(note).toHaveTextContent("A draw curves left and a fade right");
+  });
+
   test("mode=game in an old link is a normal game", () => {
     renderApp("/?mode=game");
-    expect(modeButton("Normal")).toHaveAttribute("aria-pressed", "true");
+    expect(modeButton("Easy")).toHaveAttribute("aria-pressed", "true");
   });
 
   test("every shot is logged and the next target comes up once the camera is back", () => {
@@ -2146,15 +2206,18 @@ describe("auto club", () => {
     expect(lastClub().id).toBe("lw");
   });
 
-  test("advanced picks for the sphere in the air", () => {
-    returning();
-    renderApp("/?mode=advanced");
-    for (let shot = 0; shot < 4; shot++) {
-      expect(lastTarget().air).toBe(true);
-      expect(lastClub().id).toBe(suited(lastTarget()));
-      play();
-    }
-  });
+  test.each(["medium", "advanced"])(
+    "a %s target puts the club it names in hand, auto club on or off",
+    (mode) => {
+      returning();
+      window.localStorage.setItem("golf.autoClubOff", "1");
+      renderApp(`/?mode=${mode}`);
+      for (let shot = 0; shot < 4; shot++) {
+        expect(lastClub().id).toBe(lastTarget().need.clubId);
+        play();
+      }
+    },
+  );
 
   test("practice has no target, so the club is left alone", () => {
     returning();
@@ -2922,12 +2985,12 @@ describe("players and leaderboard", () => {
     const dialog = await openLeaderboard();
     // opens on the mode being played
     expect(await dialog.findByText("advanced all")).toBeInTheDocument();
-    expect(dialog.getByRole("button", { name: "Advanced" })).toHaveAttribute(
+    expect(dialog.getByRole("button", { name: "Hard" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
 
-    fireEvent.click(dialog.getByRole("button", { name: "Normal" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Easy" }));
     expect(await dialog.findByText("normal all")).toBeInTheDocument();
     fireEvent.click(dialog.getByRole("button", { name: "This week" }));
     expect(dialog.getByText("Loading…")).toBeInTheDocument();
@@ -2952,7 +3015,7 @@ describe("players and leaderboard", () => {
     ).toBeInTheDocument();
 
     api({ "GET /leaderboard": () => respond(503) });
-    fireEvent.click(dialog.getByRole("button", { name: "Advanced" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Hard" }));
     expect(
       await dialog.findByText("Leaderboard is unavailable right now"),
     ).toBeInTheDocument();
@@ -3037,7 +3100,7 @@ describe("analytics events", () => {
     fireEvent.click(
       within(screen.getByRole("group", { name: "Difficulty" })).getByRole(
         "button",
-        { name: "Advanced" },
+        { name: "Hard" },
       ),
     );
     expect(sent("setting_changed")).toContainEqual({
@@ -3204,7 +3267,7 @@ describe("analytics events", () => {
     expect(sent("leaderboard_filter_changed")).toEqual([
       { mode: "normal", period: "week" },
     ]);
-    fireEvent.click(dialog.getByRole("button", { name: "Advanced" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Hard" }));
     expect(sent("leaderboard_filter_changed").at(-1)).toEqual({
       mode: "advanced",
       period: "week",

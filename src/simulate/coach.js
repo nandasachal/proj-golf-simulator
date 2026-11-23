@@ -4,6 +4,9 @@
 // open side (right for a right-hander, left for a left-hander), so the advice
 // holds for both.
 
+import { getClub } from "./clubs";
+import { SHAPE_NOUN } from "./game";
+
 // Face-to-path, in degrees, below which the curve is too small to blame.
 const CURVE_DEGREES = 1;
 
@@ -36,6 +39,21 @@ const sideTip = (outcome, { clubFaceAngle, clubPathAngle }, side) => {
 // `outcome` is what evaluateTarget returned for a miss; `controls` the shot
 // as hit. Returns { tip, text }, `tip` naming the kind of advice.
 export function coachMiss(outcome, controls, side = "Right") {
+  // The club and shape a target names come before where the ball went.
+  if (outcome.wrongClub)
+    return {
+      tip: "wrong_club",
+      text: `This target has to be hit with the ${getClub(outcome.need.clubId).name.toLowerCase()}.`,
+    };
+  if (outcome.wrongShape) {
+    const needed = outcome.need.shape;
+    return {
+      tip: "wrong_shape",
+      text: `That was ${SHAPE_NOUN[outcome.shape]}; this target needs ${SHAPE_NOUN[needed]}. Set the club face ${
+        { Draw: "closed to", Fade: "open to", Straight: "the same as" }[needed]
+      } the club path.`,
+    };
+  }
   if (outcome.air) {
     if (outcome.shortYards != null)
       return {

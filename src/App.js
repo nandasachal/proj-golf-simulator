@@ -30,7 +30,8 @@ import { previewShot } from "./simulate/shot-preview";
 import { GRASSES, TURF_LIMITS, TURF_PRESETS } from "./simulate/ground";
 import {
   randomTarget,
-  randomAirTarget,
+  shapedTarget,
+  shapedAirTarget,
   easyTarget,
   describeMiss,
   GOALS,
@@ -44,12 +45,7 @@ import {
   markDone,
   remember,
 } from "./first-visit";
-import {
-  CLUBS,
-  getClub,
-  swingSpeedRange,
-  DEFAULT_CLUB_ID,
-} from "./simulate/clubs";
+import { getClub, swingSpeedRange, DEFAULT_CLUB_ID } from "./simulate/clubs";
 import { bagReach, pickClub } from "./simulate/auto-club";
 import { standardAttackAngle } from "./simulate/launch-conditions";
 import { carryLimits, speedForCarry } from "./simulate/club-distances";
@@ -211,8 +207,15 @@ function App() {
     grass,
   });
   const turfPreset = matchingPreset(turf);
-  // A normal game unless the URL says practice or advanced.
-  const mode = ["practice", "advanced"].includes(rawMode) ? rawMode : "normal";
+  // An easy game ("normal") unless the URL says practice, medium or hard
+  // ("advanced", the name it is stored under).
+  const mode =
+    {
+      practice: "practice",
+      medium: "medium",
+      advanced: "advanced",
+      hard: "advanced",
+    }[rawMode] || "normal";
   // Game, from practice, goes back to the difficulty last played.
   const lastGame = useRef("normal");
   if (mode !== "practice") lastGame.current = mode;
@@ -527,41 +530,43 @@ function App() {
   const gameOver = Boolean(goal) && round.length >= goal.targets;
   // Phones show a game in progress as a row, not the card.
   const phoneRow = !isDesktop && Boolean(goal) && !gameOver;
+  // The row's extra line for the club and shape a target names, in pixels.
+  const needLine = phoneRow && target?.need ? 20 : 0;
   // On laptops the shot panel lies over the left of the picture; on phones
   // the result card and the game row lie along the bottom. Tell the scene,
   // so it can keep the golfer and ball clear of them.
   useEffect(() => {
     simulator.current.setViewInset(
       isDesktop ? PANEL_RIGHT_PIXELS : 0,
-      isDesktop ? 0 : 96 + (phoneRow ? 60 : 0),
+      isDesktop ? 0 : 96 + (phoneRow ? 60 : 0) + needLine,
     );
-  }, [isDesktop, phoneRow]);
-  // Normal targets are on the ground, advanced ones in the air. With auto
-  // club on they come from the whole bag, not just the club in hand: a ground
-  // target anywhere from the shortest club's stock shot to the driver's
-  // farthest, an air target on the flight of a club drawn from the bag.
+  }, [isDesktop, phoneRow, needLine]);
+  // Easy targets are on the ground, for any club. With auto club on they
+  // come from the whole bag, not just the club in hand: anywhere from the
+  // shortest club's stock shot to the driver's farthest. Medium and hard
+  // targets name their own club and shape: on the ground in medium, in the
+  // air in hard.
   const nextTarget = (previous) => {
+    if (mode === "medium")
+      return shapedTarget(Math.random, previous, { side, turf });
+    if (mode === "advanced")
+      return shapedAirTarget(Math.random, previous, { side });
     const whole = autoClub && !linkedSetup.current;
-    let next;
-    if (mode === "advanced") {
-      const from = whole
-        ? CLUBS[Math.floor(Math.random() * CLUBS.length)].id
-        : club.id;
-      next = randomAirTarget(Math.random, previous, from);
-    } else {
-      next = randomTarget(
-        Math.random,
-        previous,
-        whole ? bagReach({ speeds: clubSpeeds, turf }) : reach,
-      );
-    }
+    const next = randomTarget(
+      Math.random,
+      previous,
+      whole ? bagReach({ speeds: clubSpeeds, turf }) : reach,
+    );
     return linkedSetup.current ? { ...next, keepClub: true } : next;
   };
-  // The club auto club would put in hand for a target.
-  const clubFor = (aimedAt) =>
-    autoClub && aimedAt && !aimedAt.keepClub
+  // The club a target puts in hand: the one it names, or the one auto club
+  // picks for it.
+  const clubFor = (aimedAt) => {
+    if (aimedAt?.need) return aimedAt.need.clubId;
+    return autoClub && aimedAt && !aimedAt.keepClub
       ? pickClub(aimedAt, { speeds: clubSpeeds, turf })
       : club.id;
+  };
   // A game left part-played, by starting another or by closing the page.
   // `began` is what the game in hand was, since mode and club are already the
   // new ones when a new game starts.
@@ -660,12 +665,13 @@ function App() {
   // in the band the HUD leaves clear: the result bar along the bottom, and on
   // phones the corner buttons at the top and the game row under the result.
   useEffect(() => {
-    const bottom = (result ? 96 : 16) + (phoneRow ? (tip ? 96 : 60) : 0);
+    const bottom =
+      (result ? 96 : 16) + (phoneRow ? (tip ? 96 : 60) : 0) + needLine;
     simulator.current.setOverhead?.(overhead, {
       top: isDesktop ? 16 : 64,
       bottom,
     });
-  }, [overhead, target, result, isDesktop, phoneRow, tip]);
+  }, [overhead, target, result, isDesktop, phoneRow, tip, needLine]);
 
   useEffect(() => {
     window.addEventListener("pagehide", reportAbandoned);
@@ -960,7 +966,13 @@ function App() {
             screen. */}
         <div
           className={`pointer-events-none absolute left-3 right-3 z-20 flex justify-center md:bottom-4 md:left-20 md:right-20 ${
-            phoneRow && tip ? "bottom-[100px]" : "bottom-[60px]"
+            phoneRow && tip
+              ? needLine
+                ? "bottom-[120px]"
+                : "bottom-[100px]"
+              : needLine
+                ? "bottom-[80px]"
+                : "bottom-[60px]"
           }`}
         >
           <div className="pointer-events-auto relative flex max-w-full items-stretch gap-2">
@@ -1024,7 +1036,7 @@ function App() {
           />
           <LeaderboardModal
             player={player}
-            startMode={mode === "advanced" ? "advanced" : "normal"}
+            startMode={mode === "practice" ? "normal" : mode}
             onPlayer={savePlayer}
             onLogOut={logOut}
           />

@@ -190,7 +190,7 @@ class NewPassword(BaseModel):
 
 class NewShot(BaseModel):
     gameId: str = Field(min_length=1, max_length=64)
-    mode: Literal["normal", "advanced"]
+    mode: Literal["normal", "medium", "advanced"]
     club: str = Field(min_length=1, max_length=32)
     targetYards: float = Field(gt=0, le=MAX_TARGET_YARDS)
     hit: StrictBool
@@ -385,7 +385,7 @@ def record_shot(
 @app.get("/leaderboard")
 def get_leaderboard(
     request: Request,
-    mode: Literal["normal", "advanced"] = "normal",
+    mode: Literal["normal", "medium", "advanced"] = "normal",
     period: Literal["week", "all"] = "all",
     player: uuid.UUID | None = None,
 ):

@@ -218,8 +218,9 @@ const LeaderboardModal = ({ player, startMode, onPlayer, onLogOut }) => {
                 label="Game mode"
                 accent
                 options={[
-                  ["normal", "Normal"],
-                  ["advanced", "Advanced"],
+                  ["normal", "Easy"],
+                  ["medium", "Medium"],
+                  ["advanced", "Hard"],
                 ]}
                 value={mode}
                 onChange={(value) => {

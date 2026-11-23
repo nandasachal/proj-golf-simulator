@@ -21,30 +21,64 @@ than abstract.
   driver examples.
 - **Game mode** (`src/simulate/game.js`) — a game is 5 targets with one shot at
   each. The shot panel's top row switches Practice or Game; the
-  difficulty, Normal or Advanced, is switched on the game card (on phones, a
+  difficulty, Easy, Medium or Hard, is switched on the game card (on phones, a
   menu in the game row) (`?mode=practice`
-  turns the game off, `?mode=advanced` picks advanced; normal is the default).
+  turns the game off, `?mode=medium` and `?mode=hard` pick those; easy is the
+  default). In code, the URL, the API and analytics, Easy is still `normal` and
+  Hard is still `advanced`, the names they were first given (`?mode=advanced`
+  works too); only what is on screen was renamed (2026-11-22).
   Every mode shows the same seven controls (`ALL_CONTROLS` in
-  `src/utils/shortcuts.js`); normal and advanced differ only in the target.
-  - **Normal**: a random target on the ground, the 7.2 yd radius circle at the foot of a beam, 140–330 yd out with the driver
+  `src/utils/shortcuts.js`); the modes differ in the target and in whether it
+  names a club and a shape.
+  - **Easy** (`normal`): any club, any shot. A random target on the ground, the 7.2 yd radius circle at the foot of a beam, 140–330 yd out with the driver
     (between a soft and a full swing's carry with any other club) and up to 40 yd
     either side. A shot scores if the
     ball touches the ground inside the circle at any point: landing, bouncing,
     rolling through or stopping. Hit 3 of 5 to win.
-  - **Advanced**: a small banded sphere, spinning in the air, that the ball has to fly through
-    (2.2 yd radius at 100 yd, 2.9 at 200). Each one is placed on the flight of a random
-    swing with the club in hand, 30–85% of the way along it, so it is always
-    reachable and turns up low and early, at the apex, or late on the way down. A
+  - **Medium**: the same circle on the ground, but each target names the club
+    it must be hit with and the shape (`need: { clubId, shape }`, shape one of
+    Draw, Fade, Straight). It only scores if the ball touches the circle with
+    that club in hand and that shape. Hit 3 of 5 to win.
+  - **Hard** (`advanced`): club and shape are named too, and the target is a
+    small banded sphere, spinning in the air, that the ball has to fly through
+    (2.2 yd radius at 100 yd, 2.9 at 200), 30–85% of the way along a flight,
+    so it turns up low and early, at the apex, or late on the way down. A
     miss reports how far high/low and left/right the ball passed it, or how far
     short it fell. Hit 4 of 5 to win.
+  - **How a club-and-shape target is made** (`shapedTarget`, `shapedAirTarget`):
+    it is taken from a real swing, so the combination is always playable. A
+    club is drawn from the whole bag and swung anywhere from its softest to
+    its fullest swing speed (a soft driver to about 195 yd and a flat-out 7
+    iron to about 205 yd both turn up), with a path of up to 3°, a face up to
+    5° open or closed to it, and an aim of up to 4°: whole degrees and whole
+    mph, with attack, loft and strike left alone, so the controls can be set to
+    it exactly. The swing is kept only if it is a clean example of its shape:
+    a draw or fade curves 2–9% of its carry (clear of straight, which ends at
+    1.2%, and short of a hook or slice at 10%), so a lob wedge is only asked
+    to bend the ball where it can; straight curves under 0.6%. A ground target
+    goes where that ball comes to rest on the turf in play, inside the same
+    330 yd and 40 yd offline limits as an easy one; the next target is always
+    a different club. The swing is generated for the golfer's hand, since a
+    draw bends the other way left-handed. Shape is the way the ball curved
+    (`curveOf`): a push draw is a draw and a hook is a big one. The target
+    carries its swing as `solution`; nothing on screen shows it, and the tests
+    play it back to prove every target can be hit.
+  - The scene scores it (`evaluateTarget` gets the club in hand and the shot's
+    shape): a ball that got there with the wrong club or shape is a miss
+    (`reached` true, `hit` false), logged as "wrong club" or "a fade, not a
+    draw", and the tip says what the target needs. The named club is put in
+    hand with every new target, with auto club on or off; changing it by hand
+    is allowed and scores as the wrong club.
   - **Auto club** (`src/simulate/auto-club.js`, pure and tested; on by default,
     switched in Settings, remembered in this browser as `golf.autoClubOff`): each
-    new target puts the club that suits it in hand (`pickClub`).
-    - Normal: the club whose stock shot (straight, at its stock swing speed,
+    new easy target puts the club that suits it in hand (`pickClub`). Medium
+    and hard targets name their own club, so auto club does nothing there (the
+    air-target picker below is no longer reached by the app).
+    - Easy: the club whose stock shot (straight, at its stock swing speed,
       which is the one a distance typed in Settings sets) comes to rest nearest
       the target's distance along the ground, on the turf in play. Shorter than
       any club reaches is the lob wedge; longer is the driver.
-    - Advanced: judged by where the sphere is in the air (distance out and
+    - An air target without a named club: judged by where the sphere is in the air (distance out and
       height), not where a ball through it would land. The club whose stock
       swing flies a straight shot within 1 yd of its middle; failing that, the
       club that gets through with the least change of swing speed (as a share
@@ -248,11 +282,13 @@ React UI (App.js, components/)          src/simulate/ (no React)
     one (i) for both, in the panel's top row beside the shot shape; the
     game's difficulty is on the game card). On phones Hit is a full-width bar fixed to
     the bottom of the screen (`PhoneBar` in `button-row.jsx`), the difficulty
-    is a "Normal ▾" menu in the game row (Normal: target on the ground;
-    Advanced: target in the air), a game in progress is one row along the foot of
-    the picture (target, pips, Restart, the last tip; `GameRow` in
+    is an "Easy ▾" menu in the game row (Easy: target on the ground; Medium:
+    set club and shot shape; Hard: set club and shape, in the air), a game in
+    progress is one row along the foot of
+    the picture (target, pips, Restart, then a line for the club and shape a
+    target names and the last tip; `GameRow` in
     `game-card.jsx`) and the full card only appears when the game ends, the
-    bar's switch is Practice | Normal | Advanced, the bird's-eye card shows
+    bar's switch is Practice | Game, the bird's-eye card shows
     only when its button (top left, beside Settings) is pressed, and Settings and Reset view sit in the top corners of the
     picture. Club distances, dominant side, turf and the feedback
     link are in a modal behind the gear button, bottom left. On laptops Hit is the right end of the
@@ -454,7 +490,8 @@ rules a contributor needs:
 - **Every scored shot counts when it lands**, abandoned games included, so a bad
   start cannot be restarted away. Practice shots are never recorded.
 - **15 attempts to be ranked** (three games), per mode and period; below that a
-  player is "warming up". Normal and Advanced are separate boards, each with
+  player is "warming up". Easy, Medium and Hard are separate boards (the Hard
+  board also holds shots from when it was Advanced and named no club or shape), each with
   This week (from Monday 00:00 UTC) and All time.
 - **The game never depends on the API.** Shots go through a localStorage queue
   (`golf.shots`, `src/players/queue.js`) that holds them while there is no saved

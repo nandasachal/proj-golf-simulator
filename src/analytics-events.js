@@ -30,6 +30,8 @@ export function shotLanded({ mode, club, gameId, result, controls }) {
 // The side a scored shot missed on, or how: the larger of the two misses.
 export function missKind(outcome) {
   const { longYards, rightYards } = outcome;
+  // The ball got there, with the wrong club or the wrong shape.
+  if (outcome.reached) return outcome.wrongClub ? "wrong_club" : "wrong_shape";
   const side = rightYards > 0 ? "right" : "left";
   if (outcome.air) {
     if (outcome.shortYards != null) return "fell_short";
@@ -62,6 +64,8 @@ export function targetAttempted({
     miss: outcome.hit ? null : missKind(outcome),
     target_yards: target.distanceYards,
     target_height_yards: mode === "advanced" ? target.heightYards : null,
+    required_club: target.need?.clubId ?? null,
+    required_shape: target.need?.shape.toLowerCase() ?? null,
     target_number: shotNumber,
   };
 }
