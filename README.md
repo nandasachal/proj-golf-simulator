@@ -182,6 +182,12 @@ React UI (App.js, components/)          src/simulate/ (no React)
 
 - **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
   viewport with a HUD over it (stacked under the scene on phones).
+  - **The last shot is put away** (`components/simulator/shot-readout.jsx`,
+    `clearShot` in `App.js`). The result bar, the shot line and the landing
+    marker stay until the next hit, or, in a game, until 5 seconds after the
+    next target is up (`SHOT_LINGER_MS`); a bar along the bottom of the result
+    runs down over those seconds. The x on the bar's corner puts them away at
+    once. The scene hides the line and marker through `showShot(false)`.
   - **Shot controls are the club itself** (`components/simulator/club-pads.jsx`).
     On laptops the controls are a strip along the bottom of the screen: a box
     per control in one row (face, path, strike, aim, attack angle, loft,

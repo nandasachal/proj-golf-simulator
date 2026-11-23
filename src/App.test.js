@@ -1327,6 +1327,70 @@ describe("shot result bar", () => {
     expect(result()).toHaveTextContent("26 yd right");
     expect(result()).toHaveTextContent("93 ft");
   });
+
+  const landed = {
+    shape: "Straight",
+    carryYards: 200,
+    runYards: 20,
+    totalYards: 220,
+    offlineYards: 0,
+    apexYards: 25,
+    target: { hit: false, longYards: 30, rightYards: 0 },
+  };
+  const gone = () =>
+    expect(screen.queryByRole("status", { name: "Shot result" })).toBeNull();
+
+  test("the x on a result puts the stats and the shot line away", () => {
+    renderApp("/?mode=practice");
+    hit();
+    act(() => callbacks.onResult(landed));
+    expect(document.querySelector("[data-shot-countdown]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Close shot result" }));
+    gone();
+    expect(simulator.showShot).toHaveBeenLastCalledWith(false);
+  });
+
+  test("the stats and the line go 5 seconds after the next target is up, a bar running down meanwhile", () => {
+    jest.useFakeTimers();
+    try {
+      renderApp();
+      hit();
+      act(() => callbacks.onResult(landed));
+      act(() => jest.advanceTimersByTime(20000));
+      // nothing runs down until the next target is set
+      expect(result()).toHaveTextContent("220yd total");
+      expect(document.querySelector("[data-shot-countdown]")).toBeNull();
+
+      act(() => callbacks.onState("address"));
+      expect(document.querySelector("[data-shot-countdown]")).toHaveStyle({
+        animationDuration: "5000ms",
+      });
+      act(() => jest.advanceTimersByTime(4900));
+      expect(result()).toBeInTheDocument();
+      expect(simulator.showShot).not.toHaveBeenCalled();
+      act(() => jest.advanceTimersByTime(200));
+      gone();
+      expect(simulator.showShot).toHaveBeenLastCalledWith(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("hitting again before the 5 seconds are up stops the countdown", () => {
+    jest.useFakeTimers();
+    try {
+      renderApp();
+      hit();
+      act(() => callbacks.onResult(landed));
+      act(() => callbacks.onState("address"));
+      hit();
+      act(() => callbacks.onResult({ ...landed, totalYards: 180 }));
+      act(() => jest.advanceTimersByTime(6000));
+      expect(result()).toHaveTextContent("180yd total");
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
 
 describe("game mode", () => {

@@ -80,6 +80,9 @@ const guardScene = (create) => {
     throw error;
   }
 };
+// How long the last shot's stats and line stay once the next target is up.
+const SHOT_LINGER_MS = 5000;
+
 // The box the keyboard is on when the page opens and for each new shot.
 const START_CONTROL = "aim";
 
@@ -615,6 +618,23 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
+  // The last shot's stats and line are put away a few seconds after the
+  // next target goes up, or at once from the bar's own close button.
+  const [leaving, setLeaving] = useState(false);
+  const clearShot = () => {
+    setLeaving(false);
+    setResult(null);
+    simulator.current?.showShot(false);
+  };
+  useEffect(() => {
+    if (target && result) setLeaving(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target]);
+  useEffect(() => {
+    if (!leaving) return undefined;
+    const timer = setTimeout(clearShot, SHOT_LINGER_MS);
+    return () => clearTimeout(timer);
+  }, [leaving]);
   useEffect(() => {
     simulator.current.setTarget(target);
   }, [target]);
@@ -782,6 +802,7 @@ function App() {
       setBeckon(false);
     }
     setResult(null);
+    setLeaving(false);
     setLive(null);
     staleShot.current = false;
     linkedSetup.current = false;
@@ -943,7 +964,12 @@ function App() {
           }`}
         >
           <div className="pointer-events-auto relative flex max-w-full items-stretch gap-2">
-            <ShotReadout live={live} result={result} />
+            <ShotReadout
+              live={live}
+              result={result}
+              leaving={leaving ? SHOT_LINGER_MS : null}
+              onClose={clearShot}
+            />
           </div>
         </div>
         {/* Back to the usual view once it has been dragged: bottom right on

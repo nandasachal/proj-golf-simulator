@@ -142,3 +142,4 @@
 - Shot history, saved presets — deferred from Phase 3.
 - Delete dead pre-redesign code: `src/components/old/`, the unused root-level
   `src/*Component.js` files, and the old build artifacts committed at the repo root.
+- [done] Last shot clears itself (2026-11-22) — stats and line go 5 s after the next target, with a countdown bar and an x to close.
