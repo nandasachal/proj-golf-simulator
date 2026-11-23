@@ -361,6 +361,42 @@ const Ruler = ({ control, range, value, text, onChange, onSelect, tall }) => {
   );
 };
 
+// What a control does, in a bubble over its (i) with a point down to it.
+// The bubble is centred on the (i) unless that would run it off the screen;
+// the point stays on the (i) either way.
+const BUBBLE_MARGIN = 8;
+const InfoBubble = ({ control }) => {
+  const { name, colour, info } = describe[control];
+  const bubble = useRef(null);
+  const [shift, setShift] = useState(0);
+  useLayoutEffect(() => {
+    const { left, right } = bubble.current.getBoundingClientRect();
+    const room = document.documentElement.clientWidth - BUBBLE_MARGIN;
+    if (left < BUBBLE_MARGIN) setShift(BUBBLE_MARGIN - left);
+    else if (right > room) setShift(room - right);
+  }, []);
+  return (
+    <>
+      <p
+        ref={bubble}
+        id="control-info"
+        role="note"
+        className="absolute bottom-full left-1/2 z-40 mb-2.5 w-[230px] rounded-lg border border-white/25 bg-slate-950 px-3 py-2 text-xs font-normal leading-snug text-white/90 shadow-lg"
+        style={{ marginLeft: shift - 115 }}
+      >
+        <span className="font-bold" style={{ color: colour }}>
+          {name}.{" "}
+        </span>
+        {info}
+      </p>
+      <span
+        aria-hidden="true"
+        className="absolute bottom-full left-1/2 z-40 mb-[5px] h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-b border-r border-white/25 bg-slate-950"
+      />
+    </>
+  );
+};
+
 const StepButton = ({ label, disabled, onClick, narrow, children }) => (
   <button
     type="button"
@@ -423,16 +459,22 @@ const ControlCell = ({
         >
           {PHONE[control][0]}
         </span>
-        <button
-          type="button"
-          aria-label={`About ${name.toLowerCase()}`}
-          aria-expanded={about}
-          aria-controls="control-info"
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white/45 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400"
-          onClick={() => onAbout(about ? null : control)}
-        >
-          <InfoCircle size={11} aria-hidden="true" />
-        </button>
+        <span className="relative flex shrink-0">
+          <button
+            type="button"
+            aria-label={`About ${name.toLowerCase()}`}
+            aria-expanded={about}
+            aria-controls="control-info"
+            className={classNames(
+              "flex h-5 w-5 items-center justify-center rounded-full hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-lime-400",
+              about ? "text-white" : "text-white/45",
+            )}
+            onClick={() => onAbout(about ? null : control)}
+          >
+            <InfoCircle size={11} aria-hidden="true" />
+          </button>
+          {about && <InfoBubble control={control} />}
+        </span>
         <button
           type="button"
           aria-label={`${name} back to ${words[1]}`}
@@ -1384,21 +1426,6 @@ const ClubPads = ({
           {ALL_CONTROLS.map((control) => (
             <ControlCell key={control} {...chipProps(control)} />
           ))}
-          {about && (
-            <p
-              id="control-info"
-              role="note"
-              className="absolute inset-x-0 bottom-full z-40 mb-3 rounded-lg border border-white/15 bg-slate-950/95 px-3 py-2 text-xs leading-snug text-white/90 shadow-lg"
-            >
-              <span
-                className="font-bold"
-                style={{ color: describe[about].colour }}
-              >
-                {describe[about].name}.{" "}
-              </span>
-              {describe[about].info}
-            </p>
-          )}
         </div>
         <div className="flex w-40 shrink-0">
           <ClubCell

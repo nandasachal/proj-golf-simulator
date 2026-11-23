@@ -7,6 +7,7 @@ import {
   TRIBUTARIES,
   tributaryReach,
   newStrike,
+  DWELL,
   stationInSight,
   stepStrike,
   strikeAt,
@@ -101,6 +102,20 @@ describe("the station's strike", () => {
     expect(
       stationInSight(cameraLookingAt(STATION.x, STATION.y, STATION.z)),
     ).toBe(true);
+    // part of it over the edge of the frame does not count
+    const angle = Math.atan2(
+      STATION.radius,
+      Math.hypot(STATION.x, STATION.y, STATION.z),
+    );
+    const offCentre = (degrees) => {
+      const camera = cameraLookingAt(STATION.x, STATION.y, STATION.z);
+      camera.rotateX((degrees * Math.PI) / 180);
+      camera.updateMatrixWorld();
+      return camera;
+    };
+    expect((angle * 180) / Math.PI).toBeLessThan(6);
+    expect(stationInSight(offCentre(15))).toBe(true);
+    expect(stationInSight(offCentre(22))).toBe(false);
     // straight away from it: behind the camera, not in the picture
     expect(
       stationInSight(cameraLookingAt(-STATION.x, -STATION.y, -STATION.z)),
@@ -151,10 +166,15 @@ describe("the station's strike", () => {
       }
     };
     // a glance is not enough
-    run(0.2, true);
+    run(DWELL - 0.5, true);
     run(0.2, false);
     expect(strike.seconds).toBeNull();
-    run(0.5, true);
+    // nor is a view that keeps moving, however long it is on it
+    for (let t = 0; t < DWELL * 3; t += 1 / 60) {
+      stepStrike(strike, 1 / 60, true, Math.round(t * 60) % 60 !== 0);
+    }
+    expect(strike.seconds).toBeNull();
+    run(DWELL + 0.1, true);
     expect(strike.seconds).not.toBeNull();
     // it runs to the end even if the view moves off it
     run(STRIKE_RESTART, false);
@@ -170,7 +190,7 @@ describe("the station's strike", () => {
     }
     expect(fired).toBe(1);
     stepStrike(again, 1 / 60, false);
-    for (let t = 0; t < 5; t += 1 / 60) {
+    for (let t = 0; t < 10; t += 1 / 60) {
       if (stepStrike(again, 1 / 60, true)) fired += 1;
     }
     expect(fired).toBe(2);

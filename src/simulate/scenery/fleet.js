@@ -46,7 +46,9 @@ export function shipPlace(start, seconds) {
 // starts again behind the fire, which then clears.
 
 export const STRIKE_TARGET = { x: 0, y: 0, z: 300 };
-const DWELL = 0.4; // seconds in view before it starts charging
+// Seconds the whole station has to be in a view that is not moving before
+// it starts charging.
+export const DWELL = 3;
 const CHARGE = 2.4;
 const BEAM = 0.4;
 const BLAST = 0.5;
@@ -88,15 +90,21 @@ export function tributaryReach(charge, index) {
 }
 
 const sight = new THREE.Vector3();
-// Whether the station is in the picture: in front of the camera and inside
-// the frame, clear of its edges.
+const frame = new THREE.Frustum();
+const projection = new THREE.Matrix4();
+// Whether the whole station is in the picture: no part of it past an edge
+// of the frame.
 export function stationInSight(camera) {
-  sight
-    .set(STATION.x, STATION.y, STATION.z)
-    .applyMatrix4(camera.matrixWorldInverse);
-  if (sight.z >= 0) return false;
-  sight.applyMatrix4(camera.projectionMatrix);
-  return Math.abs(sight.x) < 0.8 && Math.abs(sight.y) < 0.8;
+  frame.setFromProjectionMatrix(
+    projection.multiplyMatrices(
+      camera.projectionMatrix,
+      camera.matrixWorldInverse,
+    ),
+  );
+  sight.set(STATION.x, STATION.y, STATION.z);
+  return frame.planes.every(
+    (plane) => plane.distanceToPoint(sight) >= STATION.radius,
+  );
 }
 
 // `seconds` is how far into a strike it is, or null when there is none. One
@@ -109,8 +117,9 @@ export const newStrike = () => ({
 });
 
 // Move a strike on by `dt`. True on the one step the game is to restart,
-// with the view full of fire.
-export function stepStrike(strike, dt, inSight) {
+// with the view full of fire. `still` is whether the view held where it was
+// over this step: moving it starts the wait again.
+export function stepStrike(strike, dt, inSight, still = true) {
   if (strike.seconds === null) {
     if (!inSight) {
       strike.seen = 0;
@@ -118,7 +127,7 @@ export function stepStrike(strike, dt, inSight) {
       return false;
     }
     if (!strike.armed) return false;
-    strike.seen += dt;
+    strike.seen = still ? strike.seen + dt : 0;
     if (strike.seen >= DWELL) {
       strike.seconds = 0;
       strike.seen = 0;

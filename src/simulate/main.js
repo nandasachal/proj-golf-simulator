@@ -137,16 +137,16 @@ export function createSimulator(container, callbacks = {}) {
   });
   scene.add(range);
 
-  const camera = new THREE.PerspectiveCamera(
-    48,
-    1,
-    0.5,
-    SCENE_FAR,
-  );
+  const camera = new THREE.PerspectiveCamera(48, 1, 0.5, SCENE_FAR);
   // Star Wars Mode: the fleet in the sky, switched live. Its ships fly far
   // beyond the mountains, so the camera has to see further while it is on.
   let fleetOn = false;
   let strike = newStrike();
+  // Where the camera was a frame ago: the station waits for a still view.
+  const lastView = {
+    position: new THREE.Vector3(),
+    quaternion: new THREE.Quaternion(),
+  };
   function setFleet(on) {
     fleetOn = Boolean(on);
     range.userData.setFleet(fleetOn);
@@ -162,7 +162,12 @@ export function createSimulator(container, callbacks = {}) {
     if (!fleetOn) return;
     camera.updateMatrixWorld();
     const sighted = !overheadOn && stationInSight(camera);
-    if (stepStrike(strike, dt, sighted)) {
+    const still =
+      camera.position.distanceToSquared(lastView.position) < 1e-6 &&
+      camera.quaternion.angleTo(lastView.quaternion) < 1e-4;
+    lastView.position.copy(camera.position);
+    lastView.quaternion.copy(camera.quaternion);
+    if (stepStrike(strike, dt, sighted, still)) {
       resetView();
       if (onStrike) onStrike();
     }

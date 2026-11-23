@@ -195,7 +195,8 @@ React UI (App.js, components/)          src/simulate/ (no React)
     strip lives in a band of its own (`strip` in `App.js`, drawn into through
     a portal); the picture ends above it, so it never covers the golfer or
     the ball. Each box has a dot of its own colour and the same rows, so they
-    line up along the strip: the name with its (i) and a reset
+    line up along the strip: the name with its (i) (it opens a small bubble
+    over the box with a point down to the (i), `InfoBubble`) and a reset
     to neutral; ‹ number ›; a ruler (a real range input laid invisibly over a
     drawn scale, neutral marked, the distance from it filled in); the word.
     All seven show in every mode, so the boxes use the short names and
@@ -294,8 +295,9 @@ React UI (App.js, components/)          src/simulate/ (no React)
     out while they are on. The fleet is built the first time the switch is
     turned on and then only shown or hidden, so it changes live with no reload
     (`range.userData.setFleet`, `simulator.setFleet`).
-    Looking at the station sets it off: once it has been in the picture for
-    0.4 s (`stationInSight`, checked every frame in `main.js`) eight beams
+    Looking at the station sets it off: once the whole of it has been in a
+    view that is not moving for 3 s (`stationInSight` and `DWELL`, checked
+    every frame in `main.js`; moving the view starts the wait again) eight beams
     leave the rim of its dish one after another and meet in front of it
     (`tributaryReach`), where a glow swells for the rest of the 2.4 s charge.
     The joined beam then comes down on the 300 yard marker and a fireball (a
