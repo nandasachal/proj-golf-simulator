@@ -1,4 +1,10 @@
-import { clearProfile, loadProfile, saveProfile } from "./profile";
+import {
+  clearProfile,
+  googleInitials,
+  initialsOf,
+  loadProfile,
+  saveProfile,
+} from "./profile";
 
 beforeEach(() => window.localStorage.clear());
 afterEach(() => jest.restoreAllMocks());
@@ -39,4 +45,35 @@ test("storage that throws is treated as no player, without an error", () => {
   });
   expect(() => saveProfile({ id: "p1", name: "S", key: "k" })).not.toThrow();
   expect(loadProfile()).toBeNull();
+});
+
+describe("the initials in the player's circle", () => {
+  const credential = (claims) =>
+    `header.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.signature`;
+
+  test("a Google sign-in gives the first and last name's initials", () => {
+    expect(
+      googleInitials(
+        credential({ given_name: "sachal", family_name: "Nanda" }),
+      ),
+    ).toBe("SN");
+    expect(
+      googleInitials(credential({ given_name: "Émile", family_name: "Zola" })),
+    ).toBe("ÉZ");
+    expect(googleInitials(credential({ given_name: "Cher" }))).toBe("C");
+    expect(googleInitials(credential({}))).toBeUndefined();
+    expect(googleInitials("not a credential")).toBeUndefined();
+  });
+
+  test("they are kept with the saved player and used for the circle", () => {
+    saveProfile({ id: "p1", name: "snas9492", key: "secret", initials: "SN" });
+    expect(initialsOf(loadProfile())).toBe("SN");
+  });
+
+  test("with no real name they come from the leaderboard name", () => {
+    expect(initialsOf({ name: "snas9492" })).toBe("SN");
+    expect(initialsOf({ name: "Sachal Nanda" })).toBe("SN");
+    expect(initialsOf({ name: "big_hitter.99" })).toBe("B9");
+    expect(initialsOf({ name: "x" })).toBe("X");
+  });
 });

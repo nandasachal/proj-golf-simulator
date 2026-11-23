@@ -8,7 +8,7 @@ import {
   loginPlayer,
 } from "../../players/api";
 import { googleClientId, loadGoogle } from "../../players/google";
-import { saveProfile } from "../../players/profile";
+import { googleInitials, saveProfile } from "../../players/profile";
 
 const ERRORS = {
   name_taken: "That name is taken. Try another, or log in if it's yours.",
@@ -142,11 +142,12 @@ const SaveName = ({ hits, targets, prompt, source, onSaved }) => {
       failed(answer.error);
       return;
     }
-    saveProfile(answer.player);
+    const saved = { ...answer.player, initials: googleInitials(credential) };
+    saveProfile(saved);
     if (answer.created)
       track("name_saved", { source, account: true, method: "google" });
     else track("player_logged_in", { source, method: "google" });
-    onSaved(answer.player);
+    onSaved(saved);
   };
 
   const submit = async (event) => {
@@ -336,9 +337,10 @@ export const AddPassword = ({ player, onSaved }) => {
       );
       return;
     }
-    saveProfile(answer.player);
+    const saved = { ...answer.player, initials: player.initials };
+    saveProfile(saved);
     track("account_created", { source: "leaderboard" });
-    onSaved(answer.player);
+    onSaved(saved);
   };
 
   // Ties the saved name to a Google account instead of a password.
@@ -353,9 +355,10 @@ export const AddPassword = ({ player, onSaved }) => {
       setError(ERRORS.google_failed);
       return;
     }
-    saveProfile(answer.player);
+    const saved = { ...answer.player, initials: googleInitials(credential) };
+    saveProfile(saved);
     track("account_created", { source: "leaderboard", method: "google" });
-    onSaved(answer.player);
+    onSaved(saved);
   };
 
   return (

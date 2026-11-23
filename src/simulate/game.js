@@ -22,7 +22,7 @@ const MAX_OFFLINE = 40;
 const GROUND_CONTACT_YARDS = 0.06;
 
 // A ground target is the foot of its beam, the same size at any distance.
-const GROUND_RADIUS = 3.6;
+const GROUND_RADIUS = 7.2;
 
 // `random` returns [0, 1). Pass the previous target to avoid a near repeat,
 // and `reach` ({ nearest, farthest } in yards) for a club other than the

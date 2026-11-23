@@ -22,7 +22,7 @@ describe("randomTarget", () => {
       expect(target.z).toBeGreaterThanOrEqual(140);
       expect(target.z).toBeLessThanOrEqual(330);
       expect(Math.abs(target.x)).toBeLessThanOrEqual(40);
-      expect(target.radius).toBe(3.6);
+      expect(target.radius).toBe(7.2);
     }
   });
 

@@ -2411,6 +2411,9 @@ describe("players and leaderboard", () => {
       ),
     ).toBeInTheDocument();
     expect(within(game()).getByLabelText("Playing as Sachal")).toBeVisible();
+    expect(
+      within(game()).getByLabelText("Signed in as Sachal"),
+    ).toHaveTextContent(/^SA$/);
   });
 
   test("a taken or unusable name is said next to the field, and the game is still there", async () => {

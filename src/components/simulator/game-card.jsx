@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import { Listbox } from "@headlessui/react";
 import { ArrowRepeat, Check2, ChevronDown } from "react-bootstrap-icons";
 import SaveName from "./save-name";
+import { initialsOf } from "../../players/profile";
 
 const describeSide = (offlineYards) => {
   if (offlineYards === 0) return "on the centre line";
@@ -183,10 +184,19 @@ const GameCard = ({
 
   return (
     <div
-      className="hud-panel w-[150px] whitespace-nowrap px-2.5 py-2 md:w-[268px] md:px-4 md:py-3"
+      className="hud-panel relative w-[150px] whitespace-nowrap px-2.5 py-2 md:w-[268px] md:px-4 md:py-3"
       role="status"
       aria-label="Game"
     >
+      {player && (
+        <span
+          aria-label={`Signed in as ${player.name}`}
+          title={`Signed in as ${player.name}`}
+          className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-slate-900/40 bg-lime-400 text-[10px] font-bold leading-none text-slate-900 shadow md:-right-2.5 md:-top-2.5 md:h-7 md:w-7 md:text-[11px]"
+        >
+          {initialsOf(player)}
+        </span>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div
           className="hidden rounded-md bg-white/10 p-0.5 text-[10px] font-semibold uppercase tracking-wider md:flex md:text-[11px]"

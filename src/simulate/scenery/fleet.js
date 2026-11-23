@@ -48,7 +48,7 @@ export function shipPlace(start, seconds) {
 export const STRIKE_TARGET = { x: 0, y: 0, z: 300 };
 // Seconds the whole station has to be in a view that is not moving before
 // it starts charging.
-export const DWELL = 3;
+export const DWELL = 2;
 const CHARGE = 2.4;
 const BEAM = 0.4;
 const BLAST = 0.5;

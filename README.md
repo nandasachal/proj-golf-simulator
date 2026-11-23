@@ -26,7 +26,7 @@ than abstract.
   turns the game off, `?mode=advanced` picks advanced; normal is the default).
   Every mode shows the same seven controls (`ALL_CONTROLS` in
   `src/utils/shortcuts.js`); normal and advanced differ only in the target.
-  - **Normal**: a random target on the ground, the 3.6 yd radius circle at the foot of a beam, 140–330 yd out with the driver
+  - **Normal**: a random target on the ground, the 7.2 yd radius circle at the foot of a beam, 140–330 yd out with the driver
     (between a soft and a full swing's carry with any other club) and up to 40 yd
     either side. A shot scores if the
     ball touches the ground inside the circle at any point: landing, bouncing,
@@ -188,6 +188,12 @@ React UI (App.js, components/)          src/simulate/ (no React)
     next target is up (`SHOT_LINGER_MS`); a bar along the bottom of the result
     runs down over those seconds. The x on the bar's corner puts them away at
     once. The scene hides the line and marker through `showShot(false)`.
+  - **Who is signed in** shows as a circle of two initials on the top right
+    corner of the game card (`initialsOf` in `players/profile.js`). A Google
+    sign-in gives the first and last name's initials (`googleInitials` reads
+    them from the credential; only the two letters are kept, in the saved
+    profile). Any other saved player gets two letters from the leaderboard
+    name.
   - **Shot controls are the club itself** (`components/simulator/club-pads.jsx`).
     On laptops the controls are a strip along the bottom of the screen: a box
     per control in one row (face, path, strike, aim, attack angle, loft,
@@ -296,7 +302,7 @@ React UI (App.js, components/)          src/simulate/ (no React)
     turned on and then only shown or hidden, so it changes live with no reload
     (`range.userData.setFleet`, `simulator.setFleet`).
     Looking at the station sets it off: once the whole of it has been in a
-    view that is not moving for 3 s (`stationInSight` and `DWELL`, checked
+    view that is not moving for 2 s (`stationInSight` and `DWELL`, checked
     every frame in `main.js`; moving the view starts the wait again) eight beams
     leave the rim of its dish one after another and meet in front of it
     (`tributaryReach`), where a glow swells for the rest of the 2.4 s charge.
