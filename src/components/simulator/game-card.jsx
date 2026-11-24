@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Listbox } from "@headlessui/react";
 import { ArrowRepeat, Check2, ChevronDown } from "react-bootstrap-icons";
 import SaveName from "./save-name";
@@ -181,9 +181,25 @@ const GameCard = ({
   onPlayer,
   onDifficulty,
   tip,
+  restartIn,
 }) => {
   const hits = round.filter((shot) => shot.hit).length;
   const over = round.length >= goal.targets;
+  // A finished game starts the next one by itself after `restartIn` ms, a
+  // line along the foot of the card running down meanwhile. It waits while
+  // the card is still asking for a name.
+  const [skipped, setSkipped] = useState(false);
+  useEffect(() => {
+    if (!over) setSkipped(false);
+  }, [over]);
+  const counting = over && restartIn != null && Boolean(player || skipped);
+  const restart = useRef(onRestart);
+  restart.current = onRestart;
+  useEffect(() => {
+    if (!counting) return undefined;
+    const timer = setTimeout(() => restart.current(), restartIn);
+    return () => clearTimeout(timer);
+  }, [counting, restartIn]);
   const won = hits >= goal.toWin;
   const state = standing(
     hits,
@@ -196,7 +212,7 @@ const GameCard = ({
 
   return (
     <div
-      className="hud-panel w-[150px] whitespace-nowrap px-2.5 py-2 md:w-[268px] md:px-4 md:py-3"
+      className="hud-panel relative w-[150px] overflow-hidden whitespace-nowrap px-2.5 py-2 md:w-[268px] md:px-4 md:py-3"
       role="status"
       aria-label="Game"
     >
@@ -364,6 +380,7 @@ const GameCard = ({
             hits={hits}
             targets={goal.targets}
             onSaved={onPlayer}
+            onSkip={() => setSkipped(true)}
           />
         ))}
 
@@ -386,6 +403,14 @@ const GameCard = ({
           {over ? "Play again" : "Restart"}
         </button>
       </div>
+      {counting && (
+        <span
+          aria-hidden="true"
+          data-game-countdown
+          className="shot-countdown pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-lime-300/60 md:h-1"
+          style={{ animationDuration: `${restartIn}ms` }}
+        />
+      )}
     </div>
   );
 };

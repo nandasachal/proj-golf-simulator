@@ -1817,6 +1817,60 @@ describe("game mode", () => {
     expect(game()).toHaveTextContent("Games won 1 of 1");
   });
 
+  test("a finished game starts the next one by itself after 10 seconds, a line running down the card", () => {
+    jest.useFakeTimers();
+    try {
+      renderApp();
+      for (let i = 0; i < 2; i++) play(HIT);
+      hit();
+      land(MISS);
+      const line = () => document.querySelector("[data-game-countdown]");
+      expect(game()).toHaveTextContent("Not this time");
+      // not while the card is still asking for a name
+      act(() => callbacks.onState("address"));
+      act(() => jest.advanceTimersByTime(20000));
+      expect(line()).toBeNull();
+      expect(game()).toHaveTextContent("Not this time");
+
+      fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+      expect(line()).toHaveStyle({ animationDuration: "10000ms" });
+      expect(game()).toContainElement(line());
+      act(() => jest.advanceTimersByTime(9900));
+      expect(game()).toHaveTextContent("Not this time");
+      act(() => jest.advanceTimersByTime(200));
+      expect(game()).toHaveTextContent("Target 1 of 3");
+      expect(game()).toHaveTextContent("Games won 0 of 1");
+      expect(lastTarget()).not.toBeNull();
+      expect(line()).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("the countdown to the next game waits for the view to be back behind the golfer, and Play again ends it", () => {
+    jest.useFakeTimers();
+    try {
+      renderApp();
+      for (let i = 0; i < 2; i++) play(HIT);
+      hit();
+      land(HIT);
+      fireEvent.click(screen.getByRole("button", { name: "Not now" }));
+      act(() => jest.advanceTimersByTime(20000));
+      expect(document.querySelector("[data-game-countdown]")).toBeNull();
+      expect(game()).toHaveTextContent("You win!");
+
+      act(() => callbacks.onState("address"));
+      expect(document.querySelector("[data-game-countdown]")).not.toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Play again" }));
+      expect(document.querySelector("[data-game-countdown]")).toBeNull();
+      act(() => jest.advanceTimersByTime(20000));
+      expect(game()).toHaveTextContent("Target 1 of 3");
+      expect(game()).toHaveTextContent("Games won 1 of 1");
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test("2 of 3 loses a game, and says so once it is out of reach", () => {
     renderApp();
     play(MISS);

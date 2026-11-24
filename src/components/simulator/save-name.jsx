@@ -95,7 +95,7 @@ const GoogleButton = ({ onCredential }) => {
 // With no name saved. It is on the game card after a game, which gives its
 // score, and in the leaderboard, which gives its own `prompt`. onSaved gets
 // the player.
-const SaveName = ({ hits, targets, prompt, source, onSaved }) => {
+const SaveName = ({ hits, targets, prompt, source, onSaved, onSkip }) => {
   const [way, setWay] = useState("name");
   const [skipped, setSkipped] = useState(false);
   const [name, setName] = useState("");
@@ -299,6 +299,7 @@ const SaveName = ({ hits, targets, prompt, source, onSaved }) => {
           onClick={() => {
             track("save_name_skipped", { source });
             setSkipped(true);
+            onSkip?.();
           }}
         >
           Not now

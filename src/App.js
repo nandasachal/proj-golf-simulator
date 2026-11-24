@@ -78,6 +78,8 @@ const guardScene = (create) => {
 };
 // How long the last shot's stats and line stay once the next target is up.
 const SHOT_LINGER_MS = 10000;
+// How long a finished game stays up before the next one starts by itself.
+const NEXT_GAME_MS = 10000;
 
 // The box the keyboard is on when the page opens and for each new shot.
 const START_CONTROL = "aim";
@@ -991,6 +993,7 @@ function App() {
                 onPlayer={savePlayer}
                 onDifficulty={(value) => handleValueChange("mode", value)}
                 tip={tip}
+                restartIn={gameOver && behind ? NEXT_GAME_MS : null}
               />
             )}
           </div>

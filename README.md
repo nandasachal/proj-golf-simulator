@@ -231,6 +231,11 @@ React UI (App.js, components/)          src/simulate/ (no React)
   the height they need and the scene gets the rest. Under 620 px of height (the
   `short:` screen in `tailwind.config.js`) the panel drops its hint line and
   ruler labels to leave the scene more.
+  - **A finished game starts the next one** (`restartIn` on `GameCard`,
+    `NEXT_GAME_MS` in `App.js`). Ten seconds after the view is back behind the
+    golfer the card calls `startGame` itself, the same thin line running down
+    its foot meanwhile. It does not count while the card is asking for a name
+    (no saved player, and "Not now" not pressed); Play again ends it early.
   - **The last shot is put away** (`components/simulator/shot-readout.jsx`,
     `clearShot` in `App.js`). The result bar, the shot line and the landing
     marker stay until the next hit, or, in a game, until 10 seconds after the

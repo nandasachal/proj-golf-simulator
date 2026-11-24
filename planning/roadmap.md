@@ -159,3 +159,4 @@
 - Delete dead pre-redesign code: `src/components/old/`, the unused root-level
   `src/*Component.js` files, and the old build artifacts committed at the repo root.
 - [done] Last shot clears itself (2026-11-22) — stats and line go 5 s after the next target, with a countdown bar and an x to close.
+- [done] Finished game restarts itself (2026-11-23) — 10 s after the game ends, with a countdown bar on the card; waits while the name form is up.
