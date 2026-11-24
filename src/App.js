@@ -959,12 +959,12 @@ function App() {
 
   return (
     <div
-      className="flex min-h-[100dvh] flex-col bg-slate-950 pb-[72px] text-white md:block md:pb-0"
+      className="flex h-[100dvh] flex-col overflow-hidden bg-slate-950 text-white md:block md:h-auto md:min-h-[100dvh] md:overflow-visible"
       style={{ "--strip": `${stripHeight}px` }}
     >
       {/* On laptops the picture ends above the shot strip, so the strip never
           covers the golfer or the ball. */}
-      <div className="relative h-[50dvh] md:h-[calc(100dvh-var(--strip,0px))]">
+      <div className="relative min-h-0 flex-1 md:h-[calc(100dvh-var(--strip,0px))] md:flex-none">
         <div id="display-container" ref={stage} className="absolute inset-0" />
         <OverheadTags
           marks={overheadMarks}
@@ -1101,8 +1101,8 @@ function App() {
       </div>
 
       {/* Left column: the shot controls, then the club-at-impact views. */}
-      <div className="z-10 m-3 flex flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-var(--strip,0px)-5.5rem)] md:w-[340px] md:overflow-y-auto">
-        <div className="hud-panel p-4">
+      <div className="z-10 mx-2 my-2 flex shrink-0 flex-col gap-2 md:absolute md:left-4 md:top-4 md:m-0 md:max-h-[calc(100dvh-var(--strip,0px)-5.5rem)] md:w-[340px] md:overflow-y-auto">
+        <div className="hud-panel p-3 md:p-4">
           <ClubPads
             values={{
               clubFaceAngle: faceAngle,

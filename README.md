@@ -226,7 +226,11 @@ React UI (App.js, components/)          src/simulate/ (no React)
 ```
 
 - **UI** (`src/App.js`, `src/components/`) — React shell. The scene fills the
-  viewport with a HUD over it (stacked under the scene on phones).
+  viewport with a HUD over it (stacked under the scene on phones). On phones the
+  page is exactly one screen tall and never scrolls: the shot panel and Hit take
+  the height they need and the scene gets the rest. Under 620 px of height (the
+  `short:` screen in `tailwind.config.js`) the panel drops its hint line and
+  ruler labels to leave the scene more.
   - **The last shot is put away** (`components/simulator/shot-readout.jsx`,
     `clearShot` in `App.js`). The result bar, the shot line and the landing
     marker stay until the next hit, or, in a game, until 10 seconds after the
@@ -308,8 +312,8 @@ React UI (App.js, components/)          src/simulate/ (no React)
   - The shot panel carries the club in hand (on laptops in the strip; on phones,
     the chip row), Reset (on laptops the icon in the top-right corner of the club view; on phones top right of the panel) and the mode (a Practice / Game switch with
     one (i) for both, in the panel's top row beside the shot shape; the
-    game's difficulty is on the game card). On phones Hit is a full-width bar fixed to
-    the bottom of the screen (`PhoneBar` in `button-row.jsx`), the difficulty
+    game's difficulty is on the game card). On phones Hit is a full-width bar, the last row
+    of the screen (`PhoneBar` in `button-row.jsx`), the difficulty
     is an "Easy ▾" menu in the game row (Easy: target on the ground; Medium:
     set club and shot shape; Hard: set club and shape, in the air), a game in
     progress is one row along the foot of

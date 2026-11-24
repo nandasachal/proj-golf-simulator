@@ -3,6 +3,8 @@ module.exports = {
   content: ["./src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
+      // Phones too short for the whole shot panel and a usable picture.
+      screens: { short: { raw: "(max-height: 620px)" } },
       colors: {
         primary: {
           50: "#f6faf3",

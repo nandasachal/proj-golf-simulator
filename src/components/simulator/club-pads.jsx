@@ -302,7 +302,7 @@ const Ruler = ({ control, range, value, text, onChange, onSelect, tall }) => {
   const at = pct(value);
   const mid = pct(neutralOf(control, range));
   return (
-    <div className={classNames("relative", tall ? "h-16" : "h-6")}>
+    <div className={classNames("relative", tall ? "h-12 short:h-9" : "h-6")}>
       <input
         type="range"
         className="ruler-input"
@@ -325,7 +325,13 @@ const Ruler = ({ control, range, value, text, onChange, onSelect, tall }) => {
               className={classNames(
                 "rounded-full bg-white/25",
                 tall ? "w-0.5" : "w-px",
-                i % 5 === 0 ? (tall ? "h-6" : "h-3") : tall ? "h-3" : "h-1.5",
+                i % 5 === 0
+                  ? tall
+                    ? "h-6 short:h-4"
+                    : "h-3"
+                  : tall
+                    ? "h-3 short:h-2"
+                    : "h-1.5",
               )}
             />
           ))}
@@ -598,7 +604,6 @@ const FitLine = ({ size, className, children }) => {
 const PhoneControls = ({
   shown,
   club,
-  stock,
   onClub,
   clubLock,
   selected,
@@ -628,20 +633,14 @@ const PhoneControls = ({
   const [told, setTold] = useState(false);
   useEffect(() => setTold(false), [clubLock]);
   const button =
-    "h-12 rounded-xl bg-white/[0.08] text-[15px] font-semibold transition-colors active:bg-white/20 disabled:opacity-30";
+    "h-10 rounded-xl bg-white/[0.08] text-[15px] font-semibold transition-colors active:bg-white/20 disabled:opacity-30";
 
   return (
-    <div className="flex flex-col pt-1">
-      <div className="flex h-4 items-center justify-between text-xs">
-        <span className="font-medium text-white/65">Club</span>
-        <span className="tabular-nums text-white/60" data-club>
-          {club.loftDegrees}° loft · stock {stock} mph
-        </span>
-      </div>
+    <div className="flex flex-col">
       <div
         role="radiogroup"
         aria-label="Club"
-        className="no-scrollbar -mx-4 mt-2 flex gap-2 overflow-x-auto px-4"
+        className="no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3"
       >
         {CLUBS.map((entry) => {
           const on = entry.id === club.id;
@@ -655,7 +654,7 @@ const PhoneControls = ({
               aria-label={`${entry.name}, ${entry.loftDegrees}°`}
               aria-disabled={(clubLock && !on) || undefined}
               className={classNames(
-                "h-11 shrink-0 rounded-full px-4 text-sm font-semibold transition-colors",
+                "h-9 shrink-0 rounded-full px-3.5 text-sm font-semibold tabular-nums transition-colors",
                 on
                   ? "bg-white text-slate-900"
                   : "bg-white/[0.08] text-white/80",
@@ -663,7 +662,17 @@ const PhoneControls = ({
               )}
               onClick={() => (clubLock ? setTold(true) : onClub(entry.id))}
             >
-              {on ? entry.name : entry.shortName}
+              {on ? (
+                <span data-club>
+                  {entry.name}
+                  <span className="font-medium text-slate-500">
+                    {" "}
+                    {entry.loftDegrees}°
+                  </span>
+                </span>
+              ) : (
+                entry.shortName
+              )}
             </button>
           );
         })}
@@ -681,10 +690,10 @@ const PhoneControls = ({
         role="tablist"
         aria-label="Shot controls to change"
         className={classNames(
-          "mt-4 gap-2",
+          "mt-2 gap-2",
           shown.length <= 3
             ? "grid grid-cols-3"
-            : "no-scrollbar -mx-4 flex overflow-x-auto px-4",
+            : "no-scrollbar -mx-3 flex overflow-x-auto px-3",
         )}
       >
         {shown.map((each) => {
@@ -697,7 +706,7 @@ const PhoneControls = ({
               aria-selected={on}
               aria-controls="shot-control-panel"
               className={classNames(
-                "flex h-[60px] min-w-0 shrink-0 flex-col items-start justify-center gap-1 rounded-xl px-3 text-left ring-inset transition-colors",
+                "flex h-12 min-w-0 shrink-0 flex-col items-start justify-center rounded-xl px-3 text-left ring-inset transition-colors",
                 shown.length > 3 && "w-28",
                 on ? "bg-white/[0.12] ring-2" : "bg-white/[0.05]",
               )}
@@ -730,7 +739,7 @@ const PhoneControls = ({
         data-value={value}
         data-selected="true"
       >
-        <div className="mt-6 flex flex-col items-center">
+        <div className="mt-2 flex flex-col items-center">
           <div className="flex items-center gap-1">
             <NumberField
               control={control}
@@ -740,8 +749,8 @@ const PhoneControls = ({
               number={number[control]}
               onChange={onChange}
               start={start}
-              className="h-14 whitespace-nowrap rounded-lg px-2 text-5xl font-semibold tabular-nums tracking-tight active:bg-white/10"
-              inputClassName="block h-14 w-32 rounded-lg bg-white text-center text-4xl font-semibold tabular-nums text-slate-900 outline-none"
+              className="h-10 whitespace-nowrap rounded-lg px-2 text-4xl font-semibold tabular-nums tracking-tight active:bg-white/10"
+              inputClassName="block h-10 w-32 rounded-lg bg-white text-center text-3xl font-semibold tabular-nums text-slate-900 outline-none"
               unitClassName="text-lg font-semibold text-white/60"
             />
             <WordSelect
@@ -752,9 +761,11 @@ const PhoneControls = ({
               className="text-lg"
             />
           </div>
-          <p className="mt-1 text-[13px] text-white/60">{PHONE[control][1]}</p>
+          <p className="text-[13px] leading-tight text-white/60 short:hidden">
+            {PHONE[control][1]}
+          </p>
         </div>
-        <div className="mt-4">
+        <div className="mt-2">
           <Ruler
             tall
             control={control}
@@ -764,7 +775,7 @@ const PhoneControls = ({
             onChange={onChange}
             onSelect={onSelect}
           />
-          <div className="mt-2 flex h-4 items-center justify-between text-xs text-white/60">
+          <div className="mt-1 flex h-4 items-center justify-between text-xs text-white/60 short:hidden">
             <span>{control === "swingSpeed" ? range.MIN : words[0]}</span>
             <span>
               {control === "swingSpeed" ? `stock ${neutral}` : words[1]}
@@ -772,7 +783,7 @@ const PhoneControls = ({
             <span>{control === "swingSpeed" ? range.MAX : words[2]}</span>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-2 grid grid-cols-3 gap-2">
           <button
             type="button"
             className={button}
@@ -1570,7 +1581,6 @@ const ClubPads = ({
         <PhoneControls
           shown={ALL_CONTROLS}
           club={club}
-          stock={ranges.swingSpeed.DEFAULT}
           onClub={onClub}
           clubLock={clubLock}
           selected={selected}

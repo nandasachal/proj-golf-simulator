@@ -31,10 +31,10 @@ const MODES = [
   },
 ];
 
-// Phones: Hit, full width in a bar fixed to the bottom of the screen. A
+// Phones: Hit, full width in a bar that is the last row of the screen. A
 // game's difficulty is in the game row.
 export const PhoneBar = ({ simulate, beckon = false }) => (
-  <div className="fixed inset-x-0 bottom-0 z-30 flex border-t border-white/10 bg-slate-950/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
+  <div className="relative z-30 flex shrink-0 border-t border-white/10 bg-slate-950/95 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
     <HitButton onClick={simulate} beckon={beckon} className="h-11 flex-1" />
   </div>
 );
